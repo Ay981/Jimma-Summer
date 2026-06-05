@@ -17,11 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\MustChangePassword::class,
         ]);
 
-        $middleware->alias([
-            'role'                 => \App\Http\Middleware\RoleMiddleware::class,
-            'must.change.password' => \App\Http\Middleware\MustChangePassword::class,
-        ]);
+      $middleware->alias([
+    'guest'                => \App\Http\Middleware\RedirectIfAuthenticated::class,
+    'role'                 => \App\Http\Middleware\RoleMiddleware::class,
+    'must.change.password' => \App\Http\Middleware\MustChangePassword::class,
+]);
     })
+    
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
