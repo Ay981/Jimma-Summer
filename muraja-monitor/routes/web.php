@@ -16,6 +16,17 @@ use App\Http\Controllers\Leader\PairDetailController as LeaderPairDetail;
 use App\Http\Controllers\Leader\PasswordResetController as LeaderPasswordReset;
 use App\Http\Controllers\Leader\PdfExportController as LeaderPdfExport;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
+use App\Http\Controllers\Admin\StudentController as AdminStudent;
+use App\Http\Controllers\Admin\HalqaController as AdminHalqa;
+use App\Http\Controllers\Admin\PairController as AdminPair;
+use App\Http\Controllers\Admin\LeaderboardController as AdminLeaderboard;
+use App\Http\Controllers\Admin\OutreachController as AdminOutreach;
+use App\Http\Controllers\Admin\LeadersController as AdminLeaders;
+use App\Http\Controllers\Admin\IntegrityController as AdminIntegrity;
+use App\Http\Controllers\Admin\AnnouncementsController as AdminAnnouncements;
+use App\Http\Controllers\Admin\ReportsController as AdminReports;
+use App\Http\Controllers\Admin\SettingsController as AdminSettings;
+use App\Http\Controllers\Admin\AuditController as AdminAudit;
 use Illuminate\Support\Facades\Route;
 
 // ── Public: Auth ─────────────────────────────────────────────────────────────
@@ -91,6 +102,80 @@ Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->g
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
+
+    // Students
+    Route::get('/students',                                  [AdminStudent::class, 'index'])->name('students');
+    Route::get('/students/compare',                          [AdminStudent::class, 'compare'])->name('students.compare');
+    Route::get('/students/{student}',                        [AdminStudent::class, 'show'])->name('students.show');
+    Route::post('/students',                                 [AdminStudent::class, 'store'])->name('students.store');
+    Route::post('/students/import',                          [AdminStudent::class, 'import'])->name('students.import');
+    Route::put('/students/{student}',                        [AdminStudent::class, 'update'])->name('students.update');
+    Route::post('/students/{student}/toggle-active',         [AdminStudent::class, 'toggleActive'])->name('students.toggleActive');
+    Route::post('/students/{student}/reset-password',        [AdminStudent::class, 'resetPassword'])->name('students.resetPassword');
+    Route::post('/students/{student}/note',                  [AdminStudent::class, 'saveNote'])->name('students.note');
+    Route::post('/students/{student}/toggle-monitor',        [AdminStudent::class, 'toggleMonitor'])->name('students.toggleMonitor');
+    Route::post('/students/{student}/toggle-watchlist',      [AdminStudent::class, 'toggleWatchlist'])->name('students.toggleWatchlist');
+
+    // Halqas
+    Route::get('/halqas',                                    [AdminHalqa::class, 'index'])->name('halqas');
+    Route::post('/halqas',                                   [AdminHalqa::class, 'store'])->name('halqas.store');
+    Route::put('/halqas/{halqa}',                            [AdminHalqa::class, 'update'])->name('halqas.update');
+    Route::delete('/halqas/{halqa}',                         [AdminHalqa::class, 'destroy'])->name('halqas.destroy');
+    Route::post('/halqas/{halqa}/generate-code',             [AdminHalqa::class, 'generateCode'])->name('halqas.generateCode');
+    Route::post('/halqas/codes/{code}/deactivate',           [AdminHalqa::class, 'deactivateCode'])->name('halqas.codes.deactivate');
+    Route::post('/halqas/{halqa}/assign-pair',               [AdminHalqa::class, 'assignPair'])->name('halqas.assignPair');
+
+    // Pairs
+    Route::get('/pairs',                                     [AdminPair::class, 'index'])->name('pairs');
+    Route::post('/pairs/requests/{pairingRequest}/approve',  [AdminPair::class, 'approveRequest'])->name('pairs.requests.approve');
+    Route::post('/pairs/requests/{pairingRequest}/reject',   [AdminPair::class, 'rejectRequest'])->name('pairs.requests.reject');
+    Route::post('/pairs/confirm-assignment',                 [AdminPair::class, 'confirmAssignment'])->name('pairs.confirmAssignment');
+    Route::delete('/pairs/{pair}',                           [AdminPair::class, 'destroy'])->name('pairs.destroy');
+    Route::put('/pairs/{pair}/halqa',                        [AdminPair::class, 'assignHalqa'])->name('pairs.assignHalqa');
+
+    // Leaderboard
+    Route::get('/leaderboard',                               [AdminLeaderboard::class, 'index'])->name('leaderboard');
+    Route::post('/leaderboard/lock',                         [AdminLeaderboard::class, 'lock'])->name('leaderboard.lock');
+    Route::get('/leaderboard/certificate/{student}',         [AdminLeaderboard::class, 'certificate'])->name('leaderboard.certificate');
+    Route::get('/leaderboard/pdf',                           [AdminReports::class, 'exportProgramReport'])->name('leaderboard.pdf');
+
+    // Outreach
+    Route::get('/outreach',                                  [AdminOutreach::class, 'index'])->name('outreach');
+    Route::post('/outreach/note',                            [AdminOutreach::class, 'storeNote'])->name('outreach.note');
+    Route::post('/outreach/bulk-notify',                     [AdminOutreach::class, 'bulkNotify'])->name('outreach.bulkNotify');
+    Route::post('/outreach/bulk-watchlist',                  [AdminOutreach::class, 'bulkWatchlist'])->name('outreach.bulkWatchlist');
+
+    // Leaders
+    Route::get('/leaders',                                   [AdminLeaders::class, 'index'])->name('leaders');
+
+    // Integrity
+    Route::get('/integrity',                                 [AdminIntegrity::class, 'index'])->name('integrity');
+    Route::post('/integrity/{submission}/review',            [AdminIntegrity::class, 'reviewFlag'])->name('integrity.review');
+    Route::post('/integrity/{submission}/unflag',            [AdminIntegrity::class, 'unflag'])->name('integrity.unflag');
+
+    // Announcements
+    Route::get('/announcements',                             [AdminAnnouncements::class, 'index'])->name('announcements');
+    Route::post('/announcements',                            [AdminAnnouncements::class, 'store'])->name('announcements.store');
+    Route::put('/announcements/{announcement}',              [AdminAnnouncements::class, 'update'])->name('announcements.update');
+    Route::delete('/announcements/{announcement}',           [AdminAnnouncements::class, 'destroy'])->name('announcements.destroy');
+
+    // Reports
+    Route::get('/reports',                                   [AdminReports::class, 'index'])->name('reports');
+    Route::get('/reports/submissions',                       [AdminReports::class, 'exportSubmissions'])->name('reports.submissions');
+    Route::get('/reports/student-summary',                   [AdminReports::class, 'exportStudentSummary'])->name('reports.studentSummary');
+    Route::get('/reports/contact-log',                       [AdminReports::class, 'exportContactLog'])->name('reports.contactLog');
+    Route::get('/reports/certificates',                      [AdminReports::class, 'exportCertificatesZip'])->name('reports.certificates');
+    Route::get('/reports/program-report',                    [AdminReports::class, 'exportProgramReport'])->name('reports.programReport');
+
+    // Settings
+    Route::get('/settings',                                  [AdminSettings::class, 'index'])->name('settings');
+    Route::put('/settings',                                  [AdminSettings::class, 'update'])->name('settings.update');
+    Route::post('/settings/prayer-times',                    [AdminSettings::class, 'fetchPrayerTimes'])->name('settings.prayerTimes');
+    Route::post('/settings/ayat',                            [AdminSettings::class, 'storeAyat'])->name('settings.ayat.store');
+    Route::delete('/settings/ayat/{ayat}',                   [AdminSettings::class, 'destroyAyat'])->name('settings.ayat.destroy');
+
+    // Audit
+    Route::get('/audit',                                     [AdminAudit::class, 'index'])->name('audit');
 });
 
 // ── Root Redirect ──────────────────────────────────────────────────────────────

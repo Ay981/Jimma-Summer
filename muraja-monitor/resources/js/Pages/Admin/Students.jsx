@@ -1,0 +1,381 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { useState, useMemo, useRef } from 'react';
+import AdminLayout from '@/Layouts/AdminLayout';
+import SegmentedBar from '@/Components/UI/SegmentedBar';
+import Sparkline from '@/Components/UI/Sparkline';
+import StatusTag from '@/Components/UI/StatusTag';
+
+const SLOTS = {
+    after_subhi: 'Fajr', after_zuhr: 'Dhuhr',
+    after_asr: 'Asr', after_maghrib: 'Maghrib', after_isha: 'Isha',
+};
+const SLOT_KEYS = Object.keys(SLOTS);
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+function Avatar({ name, size = 32 }) {
+    const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+    const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+    return (
+        <div style={{
+            width: size, height: size, borderRadius: '50%', flexShrink: 0,
+            background: `oklch(70% 0.12 ${hue})`, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: size * 0.34 + 'px', fontWeight: 700,
+        }}>
+            {initials}
+        </div>
+    );
+}
+
+// ── Add Student modal ─────────────────────────────────────────────────────────
+
+function AddStudentModal({ halqas, onClose }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        name: '', student_id: '', phone: '', current_juz: '1',
+        available_times: [], halqa_id: '',
+    });
+
+    function toggleSlot(slot) {
+        setData('available_times', data.available_times.includes(slot)
+            ? data.available_times.filter((s) => s !== slot)
+            : [...data.available_times, slot]);
+    }
+
+    function submit(e) {
+        e.preventDefault();
+        post('/admin/students', { onSuccess: () => { reset(); onClose(); } });
+    }
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
+        }} onClick={onClose}>
+            <div style={{
+                background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px',
+                width: '440px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto',
+            }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 16px', fontSize: '1rem', fontWeight: 700 }}>Add Student</h3>
+                <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                        { label: 'Full Name', key: 'name', type: 'text', placeholder: 'e.g. Ahmed Ali' },
+                        { label: 'Student ID', key: 'student_id', type: 'text', placeholder: 'JUMU-1446-001' },
+                        { label: 'Phone', key: 'phone', type: 'text', placeholder: '09...' },
+                        { label: 'Current Juz', key: 'current_juz', type: 'number', placeholder: '1–30', min: 1, max: 30 },
+                    ].map(({ label, key, ...rest }) => (
+                        <div key={key}>
+                            <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>{label}</label>
+                            <input
+                                {...rest}
+                                value={data[key]}
+                                onChange={(e) => setData(key, e.target.value)}
+                                style={{ width: '100%', boxSizing: 'border-box', padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem' }}
+                            />
+                            {errors[key] && <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors[key]}</p>}
+                        </div>
+                    ))}
+
+                    <div>
+                        <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Available Times</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {SLOT_KEYS.map((slot) => (
+                                <button key={slot} type="button" onClick={() => toggleSlot(slot)} style={{
+                                    padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer',
+                                    border: '1px solid var(--border)',
+                                    background: data.available_times.includes(slot) ? 'var(--primary)' : 'var(--card)',
+                                    color: data.available_times.includes(slot) ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                    fontWeight: data.available_times.includes(slot) ? 600 : 400,
+                                }}>
+                                    {SLOTS[slot]}
+                                </button>
+                            ))}
+                        </div>
+                        {errors.available_times && <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.available_times}</p>}
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Halqa (optional)</label>
+                        <select value={data.halqa_id} onChange={(e) => setData('halqa_id', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem' }}>
+                            <option value="">— Unassigned —</option>
+                            {halqas.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" disabled={processing} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer' }}>
+                            {processing ? 'Creating…' : 'Create Student'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── CSV Import modal ──────────────────────────────────────────────────────────
+
+function ImportModal({ onClose }) {
+    const { data, setData, post, processing, errors } = useForm({ csv: null });
+    const [result, setResult] = useState(null);
+    const fileRef = useRef();
+
+    function submit(e) {
+        e.preventDefault();
+        const form = new FormData();
+        form.append('csv', data.csv);
+        router.post('/admin/students/import', form, {
+            forceFormData: true,
+            onSuccess: (page) => {
+                const r = page.props?.flash?.import_result;
+                if (r) setResult(r);
+            },
+        });
+    }
+
+    function downloadFailed() {
+        if (!result?.failed?.length) return;
+        const header = 'line,student_id,reason\n';
+        const rows = result.failed.map((f) => `${f.line},"${f.data}","${f.reason}"`).join('\n');
+        const blob = new Blob([header + rows], { type: 'text/csv' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = 'failed-import.csv';
+        a.click();
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px', width: '460px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: 700 }}>Bulk CSV Import</h3>
+                {!result ? (
+                    <>
+                        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            Expected columns: <code>name, student_id, phone, current_juz, available_times, has_pair_request, requested_partner_name, requested_partner_phone</code>
+                        </p>
+                        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            available_times: comma-separated (subhi, zuhr, asr, maghrib, isha). Student IDs: JUMU-1446-001 format.
+                        </p>
+                        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <input ref={fileRef} type="file" accept=".csv,.txt" onChange={(e) => setData('csv', e.target.files[0])} style={{ fontSize: '0.875rem' }} />
+                            {errors.csv && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.csv}</p>}
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button type="button" onClick={onClose} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                                <button type="submit" disabled={processing || !data.csv} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer' }}>
+                                    {processing ? 'Importing…' : 'Import'}
+                                </button>
+                            </div>
+                        </form>
+                    </>
+                ) : (
+                    <div>
+                        <p style={{ margin: '0 0 8px', fontSize: '0.9rem' }}>✓ <strong>{result.created}</strong> students created.</p>
+                        {result.failed.length > 0 && (
+                            <>
+                                <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: 'var(--destructive)' }}>✗ <strong>{result.failed.length}</strong> rows failed:</p>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', marginBottom: '10px' }}>
+                                    {result.failed.map((f, i) => (
+                                        <div key={i} style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', fontSize: '0.8125rem' }}>
+                                            <span style={{ color: 'var(--muted-foreground)' }}>Line {f.line} · {f.data}</span> — {f.reason}
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={downloadFailed} style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--secondary)', fontSize: '0.8125rem', cursor: 'pointer', marginBottom: '10px' }}>
+                                    Download failed rows CSV
+                                </button>
+                            </>
+                        )}
+                        <div style={{ textAlign: 'right' }}>
+                            <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Done</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Student row ───────────────────────────────────────────────────────────────
+
+function StudentRow({ student }) {
+    const sparkColor = { on_track: 'var(--success)', slipping: 'oklch(70% 0.15 84)', at_risk: 'var(--destructive)', inactive: 'var(--muted-foreground)' }[student.status] ?? 'var(--success)';
+
+    const lastSeenStr = student.last_sub
+        ? new Date(student.last_sub).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : 'Never';
+
+    return (
+        <Link
+            href={`/admin/students/${student.id}`}
+            style={{
+                display: 'grid', gridTemplateColumns: '36px 1fr 100px 90px 80px 50px 70px auto',
+                alignItems: 'center', gap: '12px',
+                padding: '10px 14px', textDecoration: 'none', color: 'var(--foreground)',
+                borderBottom: '1px solid var(--border)',
+                background: student.is_monitored ? 'oklch(97% 0.03 50)' : 'transparent',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--muted)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = student.is_monitored ? 'oklch(97% 0.03 50)' : 'transparent')}
+        >
+            <Avatar name={student.name} size={32} />
+
+            <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {student.name}
+                    {!student.is_active && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 400 }}>inactive</span>}
+                    {student.is_monitored && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'oklch(60% 0.12 50)', fontWeight: 600 }}>⚑</span>}
+                </p>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {student.halqa} {student.partner ? `· ↔ ${student.partner}` : '· no pair'}
+                </p>
+            </div>
+
+            <div>
+                <SegmentedBar value={student.consistency} max={100} segments={10} />
+            </div>
+
+            <Sparkline data={student.sparkline} width={80} height={22} color={sparkColor} />
+
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                {student.consistency}%
+            </span>
+
+            <span style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
+                {student.streak}d
+            </span>
+
+            <span style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
+                {lastSeenStr}
+            </span>
+
+            <StatusTag status={student.status} />
+        </Link>
+    );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function Students({ students, halqas }) {
+    const [tab, setTab]               = useState('All');
+    const [search, setSearch]         = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterHalqa, setFilterHalqa]   = useState('');
+    const [sortBy, setSortBy]         = useState('name');
+    const [showAdd, setShowAdd]       = useState(false);
+    const [showImport, setShowImport] = useState(false);
+
+    const filtered = useMemo(() => {
+        let list = [...(students ?? [])];
+
+        if (tab === 'At Risk')   list = list.filter((s) => s.status === 'at_risk' || s.status === 'inactive');
+        if (tab === 'Watchlist') list = list.filter((s) => s.on_watchlist);
+
+        if (filterStatus) list = list.filter((s) => s.status === filterStatus);
+        if (filterHalqa)  list = list.filter((s) => s.halqa === filterHalqa || String(s.halqa_id) === filterHalqa);
+
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter((s) => s.name.toLowerCase().includes(q) || s.student_id.toLowerCase().includes(q));
+        }
+
+        if (sortBy === 'consistency') list.sort((a, b) => b.consistency - a.consistency);
+        else if (sortBy === 'streak')  list.sort((a, b) => b.streak - a.streak);
+        else if (sortBy === 'name')    list.sort((a, b) => a.name.localeCompare(b.name));
+        else if (sortBy === 'last_seen') list.sort((a, b) => {
+            const da = a.last_sub ? new Date(a.last_sub) : new Date(0);
+            const db = b.last_sub ? new Date(b.last_sub) : new Date(0);
+            return db - da;
+        });
+
+        return list;
+    }, [students, tab, search, filterStatus, filterHalqa, sortBy]);
+
+    const summary = useMemo(() => ({
+        total:    (students ?? []).length,
+        active:   (students ?? []).filter((s) => s.is_active).length,
+        at_risk:  (students ?? []).filter((s) => s.status === 'at_risk' || s.status === 'inactive').length,
+        watchlist:(students ?? []).filter((s) => s.on_watchlist).length,
+    }), [students]);
+
+    return (
+        <AdminLayout title="Students">
+            <Head title="Students" />
+
+            {/* Summary bar */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
+                {[
+                    { label: 'Total', value: summary.total },
+                    { label: 'Active', value: summary.active },
+                    { label: 'At Risk / Inactive', value: summary.at_risk, warn: summary.at_risk > 0 },
+                    { label: 'Watchlist', value: summary.watchlist },
+                ].map(({ label, value, warn }) => (
+                    <div key={label} style={{ padding: '10px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 700, color: warn ? 'var(--destructive)' : 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{label}</span>
+                    </div>
+                ))}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                    <button onClick={() => setShowImport(true)} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', fontSize: '0.8125rem', cursor: 'pointer' }}>Import CSV</button>
+                    <button onClick={() => setShowAdd(true)} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>+ Add Student</button>
+                </div>
+            </div>
+
+            {/* Tabs + Filters */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    {['All', 'At Risk', 'Watchlist'].map((t) => (
+                        <button key={t} onClick={() => setTab(t)} style={{
+                            padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
+                            background: tab === t ? 'var(--primary)' : 'var(--card)',
+                            color: tab === t ? 'var(--primary-foreground)' : 'var(--foreground)',
+                            fontWeight: tab === t ? 600 : 400, fontSize: '0.8125rem',
+                        }}>{t}</button>
+                    ))}
+                </div>
+                <div style={{ flex: 1 }} />
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
+                    <option value="">All statuses</option>
+                    <option value="on_track">On Track</option>
+                    <option value="slipping">Slipping</option>
+                    <option value="at_risk">At Risk</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <select value={filterHalqa} onChange={(e) => setFilterHalqa(e.target.value)} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
+                    <option value="">All halqas</option>
+                    {(halqas ?? []).map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
+                </select>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
+                    <option value="name">Sort: Name</option>
+                    <option value="consistency">Sort: Consistency</option>
+                    <option value="streak">Sort: Streak</option>
+                    <option value="last_seen">Sort: Last Seen</option>
+                </select>
+                <input
+                    type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search name or ID…"
+                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', width: '180px' }}
+                />
+            </div>
+
+            {/* Column headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 90px 80px 50px 70px auto', gap: '12px', padding: '5px 14px' }}>
+                {['', 'Student', 'Consistency', '14 days', '%', 'Streak', 'Last Sub', 'Status'].map((h) => (
+                    <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
+                ))}
+            </div>
+
+            {/* List */}
+            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                {filtered.length === 0 ? (
+                    <p style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0 }}>No students match current filters.</p>
+                ) : (
+                    filtered.map((s) => <StudentRow key={s.id} student={s} />)
+                )}
+            </div>
+
+            {showAdd    && <AddStudentModal halqas={halqas} onClose={() => setShowAdd(false)} />}
+            {showImport && <ImportModal onClose={() => setShowImport(false)} />}
+        </AdminLayout>
+    );
+}
