@@ -181,6 +181,30 @@ function MobileNavItem({ href, icon: Icon, label, active }) {
     );
 }
 
+function HeaderLogoutButton() {
+    return (
+        <Link
+            href="/logout"
+            method="post"
+            as="button"
+            aria-label="Log out"
+            className="mobile-header-action"
+            style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--muted-foreground)',
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+            }}
+        >
+            <SignOut size={20} />
+        </Link>
+    );
+}
+
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function StudentLayout({ children, title }) {
@@ -268,6 +292,7 @@ export default function StudentLayout({ children, title }) {
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <NotificationBell />
+                        <HeaderLogoutButton />
                     </div>
                 </header>
 
@@ -298,11 +323,13 @@ export default function StudentLayout({ children, title }) {
             <style>{`
                 .sidebar-desktop { display: flex !important; }
                 .mobile-only { display: none !important; }
+                .mobile-header-action { display: none !important; }
                 .desktop-only { display: block !important; }
                 .mobile-bottom-nav { display: none !important; }
                 @media (max-width: 768px) {
                     .sidebar-desktop { display: none !important; }
                     .mobile-only { display: block !important; }
+                    .mobile-header-action { display: flex !important; }
                     .desktop-only { display: none !important; }
                     .mobile-bottom-nav { display: flex !important; }
                 }
