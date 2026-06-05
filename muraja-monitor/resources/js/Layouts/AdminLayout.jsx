@@ -71,6 +71,30 @@ function MobileNavItem({ href, icon: Icon, label, active }) {
     );
 }
 
+function HeaderLogoutButton() {
+    return (
+        <Link
+            href="/logout"
+            method="post"
+            as="button"
+            aria-label="Log out"
+            className="mobile-header-action"
+            style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--muted-foreground)',
+                padding: '6px',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+            }}
+        >
+            <SignOut size={20} />
+        </Link>
+    );
+}
+
 export default function AdminLayout({ children, title }) {
     const { url } = usePage();
     const { auth } = usePage().props;
@@ -134,7 +158,7 @@ export default function AdminLayout({ children, title }) {
                 }}>
                     <img src="/images/logo.png" alt="Logo" style={{ height: '28px', objectFit: 'contain' }} className="mobile-only" />
                     <span style={{ fontSize: '0.9375rem', fontWeight: 600 }} className="desktop-only">{title}</span>
-                    <div />
+                    <HeaderLogoutButton />
                 </header>
 
                 <main style={{ flex: 1, padding: '20px 20px 80px' }}>{children}</main>
@@ -156,11 +180,13 @@ export default function AdminLayout({ children, title }) {
             <style>{`
                 .sidebar-desktop { display: flex !important; }
                 .mobile-only { display: none !important; }
+                .mobile-header-action { display: none !important; }
                 .desktop-only { display: block !important; }
                 .mobile-bottom-nav { display: none !important; }
                 @media (max-width: 768px) {
                     .sidebar-desktop { display: none !important; }
                     .mobile-only { display: block !important; }
+                    .mobile-header-action { display: flex !important; }
                     .desktop-only { display: none !important; }
                     .mobile-bottom-nav { display: flex !important; }
                 }
