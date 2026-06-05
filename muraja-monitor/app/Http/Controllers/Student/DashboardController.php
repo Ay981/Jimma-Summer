@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\AyatRotation;
+use App\Models\Announcement;
 use App\Models\Badge;
 use App\Models\Halqa;
 use App\Models\Pair;
@@ -57,18 +58,30 @@ class DashboardController extends Controller
             ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as total')
             ->value('total') ?? 0;
 
-        // ── 30-day heatmap ───────────────────────────────────────────────────
+        // ── 30-day heatmap (bounded by program start + user created_at) ─────────
+        $programStart   = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
+        $userJoined     = Carbon::parse($user->created_at)->startOfDay();
+        $heatmapLower   = $programStart->gt($userJoined) ? $programStart->copy() : $userJoined->copy();
+        $heatmapStart   = now()->subDays(29)->startOfDay();
+        // The actual start of visible cells: whichever is later
+        $visibleStart   = $heatmapLower->gt($heatmapStart) ? $heatmapLower->copy() : $heatmapStart->copy();
+
         $submittedDates = PairSubmission::where('subject_student_id', $user->id)
-            ->where('submission_date', '>=', now()->subDays(29)->toDateString())
+            ->where('submission_date', '>=', $visibleStart->toDateString())
             ->pluck('submission_date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->flip()
             ->toArray();
 
-        $checkins30Days = collect(range(29, 0))->map(fn ($daysAgo) => [
-            'date'      => now()->subDays($daysAgo)->toDateString(),
-            'submitted' => isset($submittedDates[now()->subDays($daysAgo)->toDateString()]),
-        ])->values()->toArray();
+        $checkins30Days = collect(range(29, 0))->map(function ($daysAgo) use ($visibleStart, $submittedDates) {
+            $date = now()->subDays($daysAgo)->toDateString();
+            $inProgram = Carbon::parse($date)->gte($visibleStart);
+            return [
+                'date'       => $date,
+                'submitted'  => isset($submittedDates[$date]),
+                'scheduled'  => $inProgram, // false = pre-program, render as out-of-program
+            ];
+        })->values()->toArray();
 
         // ── Ayat (rotates daily) ─────────────────────────────────────────────
         $ayatCount = AyatRotation::count();
@@ -76,15 +89,30 @@ class DashboardController extends Controller
             ? AyatRotation::skip((now()->dayOfYear - 1) % $ayatCount)->first()
             : null;
 
-        // ── Weekly summary (Fridays) ─────────────────────────────────────────
+        // ── Announcements ─────────────────────────────────────────────────────
+        $halqaId = $user->halqa_id;
+        $announcements = Announcement::active()
+            ->where(function ($q) use ($halqaId) {
+                $q->whereNull('halqa_id')->orWhere('halqa_id', $halqaId);
+            })
+            ->latest('created_at')
+            ->get()
+            ->map(fn ($a) => [
+                'id'    => $a->id,
+                'title' => $a->title,
+                'body'  => $a->body,
+            ])->toArray();
+
+        // ── Weekly summary (Fridays) — only when program has started ───────────
         $weeklySummary = null;
-        if (now()->dayOfWeek === Carbon::FRIDAY) {
+        if (now()->dayOfWeek === Carbon::FRIDAY && !Carbon::today()->lt($programStart)) {
             $weekSubs = PairSubmission::where('subject_student_id', $user->id)
                 ->whereBetween('submission_date', [$weekStart, $weekEnd])
                 ->count();
+            $weekDaysSinceStart = max(1, min(7, Carbon::parse($weekStart)->diffInDays(Carbon::today()) + 1));
             $weeklySummary = [
                 'submitted'   => $weekSubs,
-                'consistency' => round(($weekSubs / 7) * 100),
+                'consistency' => round(($weekSubs / $weekDaysSinceStart) * 100),
             ];
         }
 
@@ -135,6 +163,7 @@ class DashboardController extends Controller
                 'total_halqas'      => $totalHalqas,
             ] : null,
             'ayat'              => $ayat ? ['text' => $ayat->text, 'reference' => $ayat->reference] : null,
+            'announcements'     => $announcements,
             'checkins_30_days'  => $checkins30Days,
             'earned_badges'     => $earnedBadges,
             'locked_badges'     => $lockedBadges,

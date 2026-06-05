@@ -12,7 +12,22 @@ class NotificationController extends Controller
     public function markRead(string $id, Request $request): JsonResponse
     {
         $notification = $request->user()->notifications()->find($id);
-        $notification?->markAsRead();
+        if ($notification) {
+            $notification->markAsRead();
+            // Also stamp seen_at if not already set
+            if (!$notification->seen_at) {
+                $notification->update(['seen_at' => now()]);
+            }
+        }
+        return response()->json(['ok' => true]);
+    }
+
+    public function markSeen(string $id, Request $request): JsonResponse
+    {
+        $notification = $request->user()->notifications()->find($id);
+        if ($notification && !$notification->seen_at) {
+            $notification->update(['seen_at' => now()]);
+        }
         return response()->json(['ok' => true]);
     }
 

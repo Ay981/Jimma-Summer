@@ -10,6 +10,7 @@ use App\Http\Controllers\Student\JournalController;
 use App\Http\Controllers\Student\NotificationController as StudentNotification;
 use App\Http\Controllers\Student\PairController as StudentPair;
 use App\Http\Controllers\Leader\HalqaDashboardController as LeaderDashboard;
+use App\Http\Controllers\Leader\BroadcastController as LeaderBroadcast;
 use App\Http\Controllers\Leader\MeetingController as LeaderMeeting;
 use App\Http\Controllers\Leader\OutreachController as LeaderOutreach;
 use App\Http\Controllers\Leader\PairDetailController as LeaderPairDetail;
@@ -66,6 +67,7 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::post('/journal', [JournalController::class, 'store'])->name('journal.store');
 
     Route::post('/notifications/{id}/read', [StudentNotification::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/{id}/seen', [StudentNotification::class, 'markSeen'])->name('notifications.seen');
     Route::post('/notifications/read-all', [StudentNotification::class, 'markAllRead'])->name('notifications.readAll');
 });
 
@@ -87,12 +89,20 @@ Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->g
     Route::post('/outreach/notify-all',      [LeaderOutreach::class, 'notifyAbsent'])->name('outreach.notifyAll');
 
     // Meetings
-    Route::get('/meetings',              [LeaderMeeting::class, 'index'])->name('meetings');
-    Route::post('/meetings',             [LeaderMeeting::class, 'store'])->name('meetings.store');
-    Route::delete('/meetings/{meeting}', [LeaderMeeting::class, 'destroy'])->name('meetings.destroy');
+    Route::get('/meetings',                          [LeaderMeeting::class, 'index'])->name('meetings');
+    Route::post('/meetings',                         [LeaderMeeting::class, 'store'])->name('meetings.store');
+    Route::put('/meetings/{meeting}',                [LeaderMeeting::class, 'update'])->name('meetings.update');
+    Route::delete('/meetings/{meeting}',             [LeaderMeeting::class, 'destroy'])->name('meetings.destroy');
+    Route::post('/meetings/actions/{actionItem}/resolve', [LeaderMeeting::class, 'resolveAction'])->name('meetings.actions.resolve');
 
-    // Password reset
+    // Password reset (returns temp password in flash)
     Route::post('/students/{student}/reset-password', [LeaderPasswordReset::class, 'reset'])->name('students.resetPassword');
+
+    // Broadcast / nudge / escalate
+    Route::post('/broadcast',                        [LeaderBroadcast::class, 'broadcast'])->name('broadcast');
+    Route::post('/nudge/{studentId}',                [LeaderBroadcast::class, 'nudge'])->name('nudge');
+    Route::post('/escalate/{studentId}',             [LeaderBroadcast::class, 'escalate'])->name('escalate');
+    Route::post('/students/{student}/pw-reset',      [LeaderBroadcast::class, 'resetPassword'])->name('students.pwReset');
 
     // PDF export
     Route::get('/export/pdf', [LeaderPdfExport::class, 'export'])->name('export.pdf');

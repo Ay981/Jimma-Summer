@@ -4,6 +4,7 @@ import LeaderLayout from '@/Layouts/LeaderLayout';
 import Sparkline from '@/Components/UI/Sparkline';
 import StatusTag from '@/Components/UI/StatusTag';
 import SummaryPill from '@/Components/UI/SummaryPill';
+import AnnouncementBanner from '@/Components/UI/AnnouncementBanner';
 
 // ── Absence Follow-up Queue ───────────────────────────────────────────────────
 
@@ -117,9 +118,124 @@ function TodayDot({ status }) {
     );
 }
 
+// ── Broadcast modal ───────────────────────────────────────────────────────────
+
+function BroadcastModal({ onClose }) {
+    const [msg, setMsg] = useState('');
+    function send() {
+        if (!msg.trim()) return;
+        router.post('/leader/broadcast', { message: msg }, { onSuccess: onClose });
+    }
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '380px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '1rem', fontWeight: 700 }}>Broadcast to Halqa</h3>
+                <p style={{ margin: '0 0 10px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>All students in your halqa will receive this notification.</p>
+                <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Your message…" rows={3} style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem', resize: 'none', fontFamily: 'inherit', marginBottom: '10px' }} />
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button onClick={onClose} style={{ padding: '6px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={send} style={{ padding: '6px 14px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Send</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Nudge modal ───────────────────────────────────────────────────────────────
+
+const NUDGE_PRESETS = [
+    "We missed you today — keep going!",
+    "Great consistency this week!",
+    "Remember to log your muraja'a today.",
+];
+
+function NudgeModal({ student, onClose }) {
+    const [msg, setMsg] = useState(NUDGE_PRESETS[0]);
+    const [custom, setCustom] = useState(false);
+    function send() {
+        if (!msg.trim()) return;
+        router.post(`/leader/nudge/${student.id}`, { message: msg }, { onSuccess: onClose });
+    }
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '360px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '1rem', fontWeight: 700 }}>Nudge {student.name}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                    {NUDGE_PRESETS.map((p) => (
+                        <label key={p} style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', cursor: 'pointer', fontSize: '0.875rem' }}>
+                            <input type="radio" name="nudge_msg" checked={!custom && msg === p} onChange={() => { setMsg(p); setCustom(false); }} style={{ marginTop: '2px' }} />
+                            {p}
+                        </label>
+                    ))}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '0.875rem' }}>
+                        <input type="radio" name="nudge_msg" checked={custom} onChange={() => setCustom(true)} />
+                        Custom message
+                    </label>
+                    {custom && <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} style={{ padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8125rem', resize: 'none', fontFamily: 'inherit' }} />}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button onClick={onClose} style={{ padding: '6px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={send} style={{ padding: '6px 14px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Send</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Password reset modal ──────────────────────────────────────────────────────
+
+function PwResetModal({ student, onClose }) {
+    const [done, setDone] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const tempPw = 'Muraja@1446';
+
+    function doReset() {
+        router.post(`/leader/students/${student.id}/pw-reset`, {}, {
+            preserveScroll: true,
+            onSuccess: () => setDone(true),
+        });
+    }
+    function copy() {
+        navigator.clipboard.writeText(tempPw);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '340px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+                {!done ? (
+                    <>
+                        <h3 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 700 }}>Reset {student.name}'s Password?</h3>
+                        <p style={{ margin: '0 0 14px', fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>Password will be reset to the default. The student must change it on next login.</p>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button onClick={onClose} style={{ padding: '6px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                            <button onClick={doReset} style={{ padding: '6px 14px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Reset</button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <h3 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 700 }}>Password Reset ✓</h3>
+                        <p style={{ margin: '0 0 4px', fontSize: '0.875rem' }}>Temporary password for {student.name}:</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--muted)', borderRadius: 'var(--radius-sm)', marginBottom: '12px' }}>
+                            <code style={{ flex: 1, fontSize: '1rem', fontWeight: 700, letterSpacing: '0.05em' }}>{tempPw}</code>
+                            <button onClick={copy} style={{ padding: '4px 8px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer', color: copied ? 'var(--success)' : 'var(--foreground)' }}>{copied ? 'Copied!' : 'Copy'}</button>
+                        </div>
+                        <p style={{ margin: '0 0 12px', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Notify the student manually. This is shown only once.</p>
+                        <button onClick={onClose} style={{ padding: '6px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Done</button>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ── Pair row ─────────────────────────────────────────────────────────────────
 
 function PairRow({ pair }) {
+    const [nudgeStudent, setNudgeStudent] = useState(null);
+    const [resetStudent, setResetStudent] = useState(null);
+
     const sparklineColor = {
         on_track: 'var(--success)',
         slipping: 'oklch(70% 0.15 84)',
@@ -132,15 +248,14 @@ function PairRow({ pair }) {
         : 'Never';
 
     return (
-        <Link
-            href={`/leader/members/${pair.id}`}
-            style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto auto auto auto auto',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md)',
+        <>
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr auto auto auto auto auto auto',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-md)',
                 background: 'var(--card)',
                 border: '1px solid var(--border)',
                 textDecoration: 'none',
@@ -178,14 +293,25 @@ function PairRow({ pair }) {
             </div>
 
             {/* Status tag */}
-            <StatusTag status={pair.status} />
+            {pair.status ? <StatusTag status={pair.status} /> : <span />}
 
             {/* Sparkline */}
-            <Sparkline data={pair.sparkline} width={80} height={22} color={sparklineColor} />
+            <Sparkline data={pair.sparkline} width={72} height={20} color={sparklineColor} />
 
             {/* Today dot */}
             <TodayDot status={pair.today_submitted} />
-        </Link>
+
+            {/* Quick actions */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+                <button onClick={(e) => { e.preventDefault(); setNudgeStudent(pair.student_a); }} title="Nudge student A" style={{ padding: '3px 7px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}>💬</button>
+                <button onClick={(e) => { e.preventDefault(); setResetStudent(pair.student_a); }} title="Reset password" style={{ padding: '3px 7px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}>🔑</button>
+                <Link href={`/leader/members/${pair.id}`} style={{ padding: '3px 7px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', textDecoration: 'none', color: 'var(--foreground)' }}>→</Link>
+            </div>
+        </div>
+
+        {nudgeStudent && <NudgeModal student={nudgeStudent} onClose={() => setNudgeStudent(null)} />}
+        {resetStudent && <PwResetModal student={resetStudent} onClose={() => setResetStudent(null)} />}
+        </>
     );
 }
 
@@ -198,12 +324,13 @@ const STATUS_FILTER_MAP = {
     'Watchlist':null,  // handled by watchlist data when available
 };
 
-export default function LeaderDashboard({ halqa, pairs, summary, absence_queue }) {
-    const [tab, setTab]       = useState('All');
-    const [search, setSearch] = useState('');
-    const [sortBy, setSortBy] = useState('consistency');
+export default function LeaderDashboard({ halqa, pairs, summary, absence_queue, announcements, follow_up_queue, group_identity }) {
+    const [tab, setTab]           = useState('All');
+    const [search, setSearch]     = useState('');
+    const [sortBy, setSortBy]     = useState('consistency');
     const [statusFilter, setStatusFilter] = useState('');
-    const [showQueue, setShowQueue] = useState(true);
+    const [showQueue, setShowQueue]       = useState(true);
+    const [showBroadcast, setShowBroadcast] = useState(false);
 
     const filtered = useMemo(() => {
         let list = [...(pairs ?? [])];
@@ -248,6 +375,9 @@ export default function LeaderDashboard({ halqa, pairs, summary, absence_queue }
         <LeaderLayout title={halqa ? `${halqa.name} — Dashboard` : 'Leader Dashboard'}>
             <Head title="Leader Dashboard" />
 
+            {/* ── Announcements ─────────────────────────────────────────── */}
+            <AnnouncementBanner announcements={announcements} />
+
             {/* ── Summary pills ─────────────────────────────────────────── */}
             <div style={{
                 display: 'flex', flexWrap: 'wrap', gap: '8px',
@@ -280,6 +410,50 @@ export default function LeaderDashboard({ halqa, pairs, summary, absence_queue }
                     </a>
                 </div>
             </div>
+
+            {/* ── Group identity panel ──────────────────────────────────── */}
+            {group_identity && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--success)', fontVariantNumeric: 'tabular-nums' }}>{group_identity.consistency}%</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>halqa consistency</span>
+                    </div>
+                    <span style={{ color: 'var(--border)' }}>·</span>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 700 }}>Rank {group_identity.rank}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>of {group_identity.total_halqas} halqas</span>
+                    </div>
+                    {group_identity.top_student && (
+                        <>
+                            <span style={{ color: 'var(--border)' }}>·</span>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline' }}>
+                                <span style={{ fontSize: '0.875rem' }}>⭐ This week: <strong>{group_identity.top_student.name}</strong></span>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{group_identity.top_student.count} days</span>
+                            </div>
+                        </>
+                    )}
+                    <div style={{ marginLeft: 'auto' }}>
+                        <button onClick={() => setShowBroadcast(true)} style={{ padding: '5px 12px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
+                            📢 Broadcast
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Follow-up queue ───────────────────────────────────────── */}
+            {follow_up_queue?.length > 0 && (
+                <div style={{ marginBottom: '16px', background: 'var(--card)', border: '1px solid oklch(82% 0.08 50)', borderLeft: '4px solid oklch(55% 0.12 50)', borderRadius: 'var(--radius-md)' }}>
+                    <p style={{ margin: '0', padding: '8px 14px', fontSize: '0.875rem', fontWeight: 700, color: 'oklch(45% 0.1 50)', borderBottom: '1px solid var(--border)' }}>
+                        Follow-up Queue ({follow_up_queue.length})
+                    </p>
+                    {follow_up_queue.map((item, i) => (
+                        <div key={i} style={{ padding: '7px 14px', borderBottom: '1px solid var(--border)', fontSize: '0.8125rem', display: 'flex', justifyContent: 'space-between' }}>
+                            <span><strong>{item.student}</strong>: {item.description ?? item.note}</span>
+                            <span style={{ color: 'var(--destructive)', fontSize: '0.75rem' }}>Due {item.due_date ?? item.snooze_until}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* ── Absence follow-up queue ───────────────────────────────── */}
             {absence_queue?.length > 0 && (
@@ -425,6 +599,8 @@ export default function LeaderDashboard({ halqa, pairs, summary, absence_queue }
                     filtered.map((pair) => <PairRow key={pair.id} pair={pair} />)
                 )}
             </div>
+
+            {showBroadcast && <BroadcastModal onClose={() => setShowBroadcast(false)} />}
         </LeaderLayout>
     );
 }

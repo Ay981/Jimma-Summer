@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AyatBox from '@/Components/UI/AyatBox';
+import AnnouncementBanner from '@/Components/UI/AnnouncementBanner';
 import Heatmap from '@/Components/UI/Heatmap';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
 import StudentLayout from '@/Layouts/StudentLayout';
@@ -117,6 +118,7 @@ export default function Dashboard({
     weekly_target, week_pages, today_submitted, today_submission,
     pair_id, partner, halqa, ayat, checkins_30_days,
     earned_badges, locked_badges, weekly_summary, personal_best,
+    announcements,
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
@@ -149,6 +151,9 @@ export default function Dashboard({
 
                 {/* ── Ayat ──────────────────────────────────────────────── */}
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
+
+                {/* ── Announcements ─────────────────────────────────────── */}
+                <AnnouncementBanner announcements={announcements} />
 
                 {/* ── Stat Cards ────────────────────────────────────────── */}
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'12px'}}>

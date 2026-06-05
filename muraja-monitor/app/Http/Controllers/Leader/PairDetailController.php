@@ -81,15 +81,37 @@ class PairDetailController extends Controller
                 ->whereNull('resolved_at')
                 ->exists();
 
+            // Last login
+            $lastLogin = \App\Models\AuditLog::where('user_id', $student->id)
+                ->where('action', 'login')
+                ->orderByDesc('created_at')
+                ->value('created_at');
+
+            // Recent notifications sent to this student
+            $notifLog = $student->notifications()
+                ->orderByDesc('created_at')
+                ->take(10)
+                ->get()
+                ->map(fn ($n) => [
+                    'id'         => $n->id,
+                    'type'       => class_basename($n->type),
+                    'message'    => json_decode($n->data, true)['message'] ?? '',
+                    'sent_at'    => Carbon::parse($n->created_at)->format('Y-m-d H:i'),
+                    'seen_at'    => $n->seen_at ? Carbon::parse($n->seen_at)->format('Y-m-d H:i') : null,
+                    'read_at'    => $n->read_at ? Carbon::parse($n->read_at)->format('Y-m-d H:i') : null,
+                ])->toArray();
+
             return [
-                'id'          => $student->id,
-                'name'        => $student->name,
-                'student_id'  => $student->student_id,
-                'heatmap'     => $heatmap,
-                'history'     => $history,
-                'contact_logs'=> $contactLogs,
-                'private_note'=> $privateNote ?? '',
-                'on_watchlist'=> $onWatchlist,
+                'id'           => $student->id,
+                'name'         => $student->name,
+                'student_id'   => $student->student_id,
+                'heatmap'      => $heatmap,
+                'history'      => $history,
+                'contact_logs' => $contactLogs,
+                'private_note' => $privateNote ?? '',
+                'on_watchlist' => $onWatchlist,
+                'last_login'   => $lastLogin ? Carbon::parse($lastLogin)->diffForHumans() : 'Never',
+                'notif_log'    => $notifLog,
             ];
         })->values()->toArray();
 
@@ -111,6 +133,8 @@ class PairDetailController extends Controller
             'note'               => ['required', 'string', 'max:1000'],
             'follow_up_required' => ['boolean'],
             'contacted_at'       => ['required', 'date'],
+            'snooze_days'        => ['nullable', 'integer', 'min:1', 'max:90'],
+            'outcome'            => ['nullable', 'in:pending,responded,no_response,resolved,escalated'],
         ]);
 
         $studentId = (int) $request->student_id;
@@ -123,6 +147,8 @@ class PairDetailController extends Controller
             'note'               => $request->note,
             'contacted_at'       => $request->contacted_at,
             'follow_up_required' => $request->boolean('follow_up_required'),
+            'snooze_until'       => $request->snooze_days ? now()->addDays($request->snooze_days)->toDateString() : null,
+            'outcome'            => $request->input('outcome', 'pending'),
         ]);
 
         return back()->with('success', 'Contact note added.');
