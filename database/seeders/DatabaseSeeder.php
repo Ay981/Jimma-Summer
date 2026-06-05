@@ -17,11 +17,10 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create a default admin account for first-run setup
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['student_id' => 'ADMIN001'],
             [
                 'name'                 => 'System Admin',
-                'student_id'           => 'ADMIN001',
                 'phone'                => null,
                 'password'             => Hash::make('Muraja@1446'),
                 'role'                 => 'admin',

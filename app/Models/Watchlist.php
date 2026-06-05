@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Watchlist extends Model
 {
+    protected $table = 'watchlist';
+
     public $timestamps = false;
 
     protected $fillable = ['student_id', 'added_by', 'added_at', 'resolved_at'];

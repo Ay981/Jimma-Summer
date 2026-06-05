@@ -21,6 +21,7 @@ class User extends Authenticatable
         'current_juz',
         'available_times',
         'is_active',
+        'is_monitored',
         'must_change_password',
     ];
 
@@ -35,6 +36,7 @@ class User extends Authenticatable
             'password'             => 'hashed',
             'available_times'      => 'array',
             'is_active'            => 'boolean',
+            'is_monitored'         => 'boolean',
             'must_change_password' => 'boolean',
         ];
     }
