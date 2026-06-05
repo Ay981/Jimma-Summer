@@ -9,16 +9,40 @@ use Carbon\Carbon;
 
 class ConsistencyService
 {
+    private function programStart(): Carbon
+    {
+        return Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
+    }
+
+    private function programNotStarted(): bool
+    {
+        return Carbon::today()->lt($this->programStart());
+    }
+
+    /**
+     * Effective start for a user: MAX(program_start_date, user.created_at).
+     */
+    private function effectiveStart(User $user): Carbon
+    {
+        $progStart  = $this->programStart();
+        $userJoined = Carbon::parse($user->created_at)->startOfDay();
+        return $progStart->gt($userJoined) ? $progStart->copy() : $userJoined->copy();
+    }
+
     /**
      * Current streak counting only the student's scheduled days.
-     * If available_times is empty, falls back to counting every day.
+     * Returns 0 if the program hasn't started.
      */
     public function getStreak(int $userId): int
     {
+        if ($this->programNotStarted()) return 0;
+
         $user          = User::find($userId);
-        $availableDays = $user?->available_times ?? []; // e.g. ['saturday', 'sunday', 'monday']
+        $availableDays = $user?->available_times ?? [];
+        $effStart      = $this->effectiveStart($user);
 
         $submittedSet = PairSubmission::where('subject_student_id', $userId)
+            ->where('submission_date', '>=', $effStart->toDateString())
             ->pluck('submission_date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->flip()
@@ -31,8 +55,10 @@ class ConsistencyService
         $streak  = 0;
 
         for ($i = 0; $i < 365; $i++) {
+            if ($current->lt($effStart)) break;
+
             $dateStr = $current->toDateString();
-            $dayName = strtolower($current->format('l')); // 'monday', 'saturday', …
+            $dayName = strtolower($current->format('l'));
 
             $isScheduled = empty($availableDays) || in_array($dayName, $availableDays, true);
 
@@ -42,7 +68,7 @@ class ConsistencyService
                 } elseif ($dateStr === $today->toDateString()) {
                     // Today hasn't ended yet — skip without breaking
                 } else {
-                    break; // missed a past scheduled day
+                    break;
                 }
             }
 
@@ -53,14 +79,18 @@ class ConsistencyService
     }
 
     /**
-     * Longest streak the student ever achieved on their scheduled days.
+     * Longest streak bounded by effective start date.
      */
     public function getLongestStreak(int $userId): int
     {
+        if ($this->programNotStarted()) return 0;
+
         $user          = User::find($userId);
         $availableDays = $user?->available_times ?? [];
+        $effStart      = $this->effectiveStart($user);
 
         $dates = PairSubmission::where('subject_student_id', $userId)
+            ->where('submission_date', '>=', $effStart->toDateString())
             ->orderBy('submission_date')
             ->pluck('submission_date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
@@ -69,62 +99,63 @@ class ConsistencyService
         if (empty($dates)) return 0;
 
         if (empty($availableDays)) {
-            // Original all-days logic
             $max = $current = 1;
             for ($i = 1; $i < count($dates); $i++) {
                 $diff = Carbon::parse($dates[$i])->diffInDays(Carbon::parse($dates[$i - 1]));
-                if ($diff === 1) {
-                    $current++;
-                    $max = max($max, $current);
-                } else {
-                    $current = 1;
-                }
+                if ($diff === 1) { $current++; $max = max($max, $current); }
+                else { $current = 1; }
             }
             return $max;
         }
 
         $submittedSet = array_flip($dates);
-        $start        = Carbon::parse($dates[0]);
+        $start        = $effStart->copy();
         $end          = Carbon::parse($dates[count($dates) - 1]);
-        $current      = $start->copy();
+        $cursor       = $start->copy();
         $max = $streak = 0;
 
-        while ($current->lte($end)) {
-            $dayName = strtolower($current->format('l'));
+        while ($cursor->lte($end)) {
+            $dayName = strtolower($cursor->format('l'));
             if (in_array($dayName, $availableDays, true)) {
-                if (isset($submittedSet[$current->toDateString()])) {
+                if (isset($submittedSet[$cursor->toDateString()])) {
                     $streak++;
                     $max = max($max, $streak);
                 } else {
                     $streak = 0;
                 }
             }
-            $current->addDay();
+            $cursor->addDay();
         }
 
         return $max;
     }
 
     /**
-     * Consistency % = submitted days / expected days since program start.
-     * Expected days = days whose weekday is in available_times (or all days if unset).
+     * Consistency % — returns null if program hasn't started.
+     * Denominator = eligible days from MAX(program_start, user.created_at) to today.
      */
-    public function getConsistency(int $userId): float
+    public function getConsistency(int $userId): ?float
     {
+        if ($this->programNotStarted()) return null;
+
         $user          = User::find($userId);
         $availableDays = $user?->available_times ?? [];
-        $start         = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
+        $effStart      = $this->effectiveStart($user);
         $today         = Carbon::today();
-        $total         = PairSubmission::where('subject_student_id', $userId)->count();
+
+        if ($effStart->gt($today)) return null;
+
+        $total = PairSubmission::where('subject_student_id', $userId)
+            ->where('submission_date', '>=', $effStart->toDateString())
+            ->count();
 
         if (empty($availableDays)) {
-            $programDays = max(1, $start->diffInDays($today) + 1);
+            $programDays = max(1, $effStart->diffInDays($today) + 1);
             return min(100, round(($total / $programDays) * 100, 1));
         }
 
-        // Count scheduled days since program start up to today
         $expectedDays = 0;
-        $cursor       = $start->copy();
+        $cursor = $effStart->copy();
         while ($cursor->lte($today)) {
             if (in_array(strtolower($cursor->format('l')), $availableDays, true)) {
                 $expectedDays++;
@@ -132,7 +163,7 @@ class ConsistencyService
             $cursor->addDay();
         }
 
-        $expectedDays = max(1, $expectedDays);
+        if ($expectedDays === 0) return null;
         return min(100, round(($total / $expectedDays) * 100, 1));
     }
 
@@ -149,15 +180,29 @@ class ConsistencyService
 
     public function getGroupConsistency(int $halqaId): float
     {
-        $members     = \App\Models\User::where('halqa_id', $halqaId)->get();
-        $start       = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
-        $today       = Carbon::today();
-        $programDays = max(1, $start->diffInDays($today) + 1);
+        if ($this->programNotStarted()) return 0;
+
+        $members  = \App\Models\User::where('halqa_id', $halqaId)->where('role', 'student')->get();
+        $today    = Carbon::today();
+        $progStart = $this->programStart();
 
         if ($members->isEmpty()) return 0;
 
-        $total = PairSubmission::whereIn('subject_student_id', $members->pluck('id'))->count();
+        $total = 0;
+        $denom = 0;
+        foreach ($members as $member) {
+            $effStart = Carbon::parse($member->created_at)->startOfDay();
+            $lower    = $progStart->gt($effStart) ? $progStart->copy() : $effStart->copy();
+            if ($lower->gt($today)) continue;
+            $days  = max(1, $lower->diffInDays($today) + 1);
+            $subs  = PairSubmission::where('subject_student_id', $member->id)
+                ->where('submission_date', '>=', $lower->toDateString())
+                ->count();
+            $total += $subs;
+            $denom += $days;
+        }
 
-        return min(100, round(($total / ($programDays * $members->count())) * 100, 1));
+        if ($denom === 0) return 0;
+        return min(100, round(($total / $denom) * 100, 1));
     }
 }

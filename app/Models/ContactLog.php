@@ -9,18 +9,15 @@ class ContactLog extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'student_id',
-        'contacted_by',
-        'method',
-        'note',
-        'contacted_at',
-        'follow_up_required',
+        'student_id', 'contacted_by', 'method', 'note',
+        'contacted_at', 'follow_up_required', 'snooze_until', 'outcome',
     ];
 
     protected function casts(): array
     {
         return [
             'contacted_at'       => 'datetime',
+            'snooze_until'       => 'date',
             'follow_up_required' => 'boolean',
         ];
     }

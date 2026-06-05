@@ -8,13 +8,19 @@ class MeetingLog extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['halqa_id', 'leader_id', 'meeting_date', 'attendance_count', 'notes'];
+    protected $fillable = [
+        'halqa_id', 'leader_id', 'meeting_date', 'meeting_time',
+        'attendance_count', 'notes', 'agenda_items', 'attendance',
+        'highlights', 'concerns', 'state',
+    ];
 
     protected function casts(): array
     {
         return [
-            'meeting_date' => 'date',
-            'created_at'   => 'datetime',
+            'meeting_date'  => 'date',
+            'agenda_items'  => 'array',
+            'attendance'    => 'array',
+            'created_at'    => 'datetime',
         ];
     }
 

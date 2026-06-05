@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Leader;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
+use App\Models\ContactLog;
+use App\Models\Halqa;
+use App\Models\MeetingActionItem;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
+use App\Services\ConsistencyService;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,16 +24,42 @@ class HalqaDashboardController extends Controller
 
         if (!$halqa) {
             return Inertia::render('Leader/Dashboard', [
-                'halqa'         => null,
-                'pairs'         => [],
-                'summary'       => ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0],
-                'absence_queue' => [],
+                'halqa'          => null,
+                'pairs'          => [],
+                'summary'        => ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0],
+                'absence_queue'  => [],
+                'announcements'  => [],
+                'follow_up_queue'=> [],
+                'group_identity' => null,
             ]);
         }
 
         $today        = Carbon::today();
         $yesterday    = Carbon::yesterday();
         $programStart = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+
+        // Programme hasn't started — return neutral state
+        if ($today->lt($programStart)) {
+            return Inertia::render('Leader/Dashboard', [
+                'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
+                'pairs'          => $halqa->pairs->map(fn ($p) => [
+                    'id'              => $p->id,
+                    'student_a'       => ['id' => $p->student_a_id, 'name' => $p->studentA->name],
+                    'student_b'       => ['id' => $p->student_b_id, 'name' => $p->studentB->name],
+                    'consistency'     => null,
+                    'last_submission' => null,
+                    'status'          => null,
+                    'sparkline'       => array_fill(0, 14, 0),
+                    'today_submitted' => 'none',
+                    'missed_yesterday'=> false,
+                ])->values(),
+                'summary'        => ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0],
+                'absence_queue'  => [],
+                'announcements'  => [],
+                'follow_up_queue'=> [],
+                'group_identity' => null,
+            ]);
+        }
 
         $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $yesterday, $programStart) {
             $studentIds = [$pair->student_a_id, $pair->student_b_id];
@@ -109,11 +140,77 @@ class HalqaDashboardController extends Controller
 
         $absenceQueue = $pairs->filter(fn ($p) => $p['missed_yesterday'])->values();
 
+        // ── Announcements for this halqa ──────────────────────────────────────
+        $halqaId = $halqa->id;
+        $announcements = Announcement::active()
+            ->where(function ($q) use ($halqaId) {
+                $q->whereNull('halqa_id')->orWhere('halqa_id', $halqaId);
+            })
+            ->latest('created_at')
+            ->get()
+            ->map(fn ($a) => ['id' => $a->id, 'title' => $a->title, 'body' => $a->body])
+            ->toArray();
+
+        // ── Follow-up queue ────────────────────────────────────────────────────
+        // Open action items past due
+        $overdueActions = MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))
+            ->where('status', 'open')
+            ->where('due_date', '<=', $today->toDateString())
+            ->with(['student:id,name'])
+            ->get()
+            ->map(fn ($a) => ['id' => $a->id, 'student' => $a->student->name, 'description' => $a->description, 'due_date' => $a->due_date?->toDateString()])
+            ->toArray();
+
+        // Contact notes snoozed to today or earlier
+        $snoozedContacts = ContactLog::where('contacted_by', $leader->id)
+            ->where('snooze_until', '<=', $today->toDateString())
+            ->where('outcome', 'pending')
+            ->with(['student:id,name'])
+            ->get()
+            ->map(fn ($c) => ['id' => $c->id, 'student' => $c->student->name, 'note' => $c->note, 'snooze_until' => $c->snooze_until?->toDateString()])
+            ->toArray();
+
+        // ── Group identity panel ───────────────────────────────────────────────
+        $cs = app(ConsistencyService::class);
+        $groupCons = $cs->getGroupConsistency($halqa->id);
+
+        // Halqa rank among all halqas
+        $allHalqasCons = Halqa::all()->map(fn ($h) => $cs->getGroupConsistency($h->id))->sortDesc()->values()->toArray();
+        $halqaRank     = (int) array_search($groupCons, $allHalqasCons) + 1;
+        $totalHalqas   = count($allHalqasCons);
+
+        // Most consistent student this week
+        $weekStart = $today->copy()->startOfWeek(Carbon::SATURDAY)->toDateString();
+        $memberIds = $halqa->pairs->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
+        $topStudent = null;
+        if ($memberIds->isNotEmpty()) {
+            $weekSubs = PairSubmission::whereIn('subject_student_id', $memberIds)
+                ->where('submission_date', '>=', $weekStart)
+                ->selectRaw('subject_student_id, COUNT(*) as cnt')
+                ->groupBy('subject_student_id')
+                ->orderByDesc('cnt')
+                ->first();
+            if ($weekSubs) {
+                $su = \App\Models\User::find($weekSubs->subject_student_id);
+                $topStudent = $su ? ['name' => $su->name, 'count' => $weekSubs->cnt] : null;
+            }
+        }
+
+        $groupIdentity = [
+            'consistency'  => $groupCons,
+            'rank'         => $halqaRank,
+            'total_halqas' => $totalHalqas,
+            'top_student'  => $topStudent,
+        ];
+
         return Inertia::render('Leader/Dashboard', [
-            'halqa'         => ['id' => $halqa->id, 'name' => $halqa->name],
-            'pairs'         => $pairs->values(),
-            'summary'       => $summary,
-            'absence_queue' => $absenceQueue,
+            'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
+            'pairs'          => $pairs->values(),
+            'summary'        => $summary,
+            'absence_queue'  => $absenceQueue,
+            'announcements'  => $announcements,
+            'follow_up_queue'=> array_merge($overdueActions, $snoozedContacts),
+            'group_identity' => $groupIdentity,
         ]);
     }
 

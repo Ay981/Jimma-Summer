@@ -147,49 +147,43 @@ function ContactEntry({ entry }) {
 
 // ── Add contact note form ─────────────────────────────────────────────────────
 
-function AddContactForm({ studentId, pairId }) {
+function AddContactForm({ studentId, pairId, onEscalate }) {
     const { data, setData, post, processing, reset, errors } = useForm({
         student_id:         studentId,
         method:             'call',
         note:               '',
         follow_up_required: false,
         contacted_at:       new Date().toISOString().slice(0, 16),
+        snooze_days:        '',
+        outcome:            'pending',
     });
 
     function submit(e) {
         e.preventDefault();
         post(`/leader/members/${pairId}/contact`, {
             preserveScroll: true,
-            onSuccess: () => reset('note'),
+            onSuccess: () => reset('note', 'snooze_days'),
         });
     }
 
+    const s = { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8125rem' };
+
     return (
         <form onSubmit={submit} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
-                <select
-                    value={data.method}
-                    onChange={(e) => setData('method', e.target.value)}
-                    style={{
-                        padding: '6px 8px', borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border)', background: 'var(--background)',
-                        color: 'var(--foreground)', fontSize: '0.8125rem',
-                    }}
-                >
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <select value={data.method} onChange={(e) => setData('method', e.target.value)} style={s}>
                     <option value="call">Call</option>
                     <option value="message">Message</option>
                     <option value="in_person">In Person</option>
                 </select>
-                <input
-                    type="datetime-local"
-                    value={data.contacted_at}
-                    onChange={(e) => setData('contacted_at', e.target.value)}
-                    style={{
-                        flex: 1, padding: '6px 8px', borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border)', background: 'var(--background)',
-                        color: 'var(--foreground)', fontSize: '0.8125rem',
-                    }}
-                />
+                <input type="datetime-local" value={data.contacted_at} onChange={(e) => setData('contacted_at', e.target.value)} style={{ ...s, flex: 1 }} />
+                <select value={data.outcome} onChange={(e) => setData('outcome', e.target.value)} style={s}>
+                    <option value="pending">Pending</option>
+                    <option value="responded">Responded</option>
+                    <option value="no_response">No Response</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="escalated">Escalated</option>
+                </select>
             </div>
             <textarea
                 value={data.note}
