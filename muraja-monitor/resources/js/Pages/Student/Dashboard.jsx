@@ -1,7 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AyatBox from '@/Components/UI/AyatBox';
-import AnnouncementBanner from '@/Components/UI/AnnouncementBanner';
 import Heatmap from '@/Components/UI/Heatmap';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
 import StudentLayout from '@/Layouts/StudentLayout';
@@ -118,7 +117,6 @@ export default function Dashboard({
     weekly_target, week_pages, today_submitted, today_submission,
     pair_id, partner, halqa, ayat, checkins_30_days,
     earned_badges, locked_badges, weekly_summary, personal_best,
-    announcements,
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
@@ -127,7 +125,7 @@ export default function Dashboard({
         <StudentLayout title="Dashboard">
             <Head title="Dashboard" />
 
-            <div style={{maxWidth:'1200px',margin:'0 auto',padding:'0 2rem',display:'flex',flexDirection:'column',gap:'20px'}}>
+            <div className="page-content" style={{display:'flex',flexDirection:'column',gap:'20px'}}>
 
                 {/* ── Greeting ──────────────────────────────────────────── */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'8px'}}>
@@ -152,9 +150,6 @@ export default function Dashboard({
                 {/* ── Ayat ──────────────────────────────────────────────── */}
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
 
-                {/* ── Announcements ─────────────────────────────────────── */}
-                <AnnouncementBanner announcements={announcements} />
-
                 {/* ── Stat Cards ────────────────────────────────────────── */}
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'12px'}}>
                     <StatCard label="Consistency" value={`${Math.round(consistency)}%`} sub="Overall program" />
@@ -175,7 +170,7 @@ export default function Dashboard({
                 </div>
 
                 {/* ── Main grid: Submission + Partner ───────────────────── */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+                <div className="grid-2col" style={{gap:'16px'}}>
 
                     {/* Submission card */}
                     <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
@@ -295,7 +290,7 @@ export default function Dashboard({
                 </div>
 
                 {/* ── Personal Best ─────────────────────────────────────── */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <div className="grid-2col" style={{gap:'12px'}}>
                     <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px',textAlign:'center'}}>
                         <p style={{margin:'0 0 4px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>LONGEST STREAK</p>
                         <p style={{margin:0,fontSize:'2rem',fontWeight:700,color:'var(--foreground)'}}>{personal_best.longest_streak}</p>

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\AyatRotation;
-use App\Models\Announcement;
 use App\Models\Badge;
 use App\Models\Halqa;
 use App\Models\Pair;
@@ -89,20 +88,6 @@ class DashboardController extends Controller
             ? AyatRotation::skip((now()->dayOfYear - 1) % $ayatCount)->first()
             : null;
 
-        // ── Announcements ─────────────────────────────────────────────────────
-        $halqaId = $user->halqa_id;
-        $announcements = Announcement::active()
-            ->where(function ($q) use ($halqaId) {
-                $q->whereNull('halqa_id')->orWhere('halqa_id', $halqaId);
-            })
-            ->latest('created_at')
-            ->get()
-            ->map(fn ($a) => [
-                'id'    => $a->id,
-                'title' => $a->title,
-                'body'  => $a->body,
-            ])->toArray();
-
         // ── Weekly summary (Fridays) — only when program has started ───────────
         $weeklySummary = null;
         if (now()->dayOfWeek === Carbon::FRIDAY && !Carbon::today()->lt($programStart)) {
@@ -163,7 +148,6 @@ class DashboardController extends Controller
                 'total_halqas'      => $totalHalqas,
             ] : null,
             'ayat'              => $ayat ? ['text' => $ayat->text, 'reference' => $ayat->reference] : null,
-            'announcements'     => $announcements,
             'checkins_30_days'  => $checkins30Days,
             'earned_badges'     => $earnedBadges,
             'locked_badges'     => $lockedBadges,

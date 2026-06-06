@@ -33,4 +33,9 @@ class MeetingLog extends Model
     {
         return $this->belongsTo(User::class, 'leader_id');
     }
+
+    public function actionItems()
+    {
+        return $this->hasMany(MeetingActionItem::class, 'meeting_id');
+    }
 }

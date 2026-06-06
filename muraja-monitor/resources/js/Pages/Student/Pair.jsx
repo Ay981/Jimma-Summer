@@ -8,7 +8,7 @@ export default function Pair({ pair }) {
     return (
         <StudentLayout title="My Partner">
             <Head title="My Partner" />
-            <div style={{maxWidth:'1200px',margin:'0 auto',padding:'0 2rem'}}>
+            <div className="page-content">
                 <h1 style={{margin:'0 0 20px',fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>My Partner</h1>
 
                 {!pair ? (

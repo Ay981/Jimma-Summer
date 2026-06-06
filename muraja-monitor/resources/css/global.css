@@ -219,3 +219,111 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* ── Responsive page wrapper ─────────────────────────────────────────────────
+   Use class="page-content" on the top-level inner div of every page.
+   On desktop: the side padding and max-width cap keep lines readable.
+   On mobile : full width, no extra side padding (layout already has 20px).
+   ─────────────────────────────────────────────────────────────────────────── */
+.page-content {
+	width: 100%;
+	box-sizing: border-box;
+}
+@media (min-width: 769px) {
+	.page-content {
+		max-width: 1200px;
+		margin-left: auto;
+		margin-right: auto;
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
+}
+
+/* ── Responsive 2-column grid ────────────────────────────────────────────────
+   class="grid-2col" → 2 equal columns on desktop, stacked on mobile.
+   ─────────────────────────────────────────────────────────────────────────── */
+.grid-2col {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+}
+@media (min-width: 640px) {
+	.grid-2col {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+/* ── Responsive 3-column grid ────────────────────────────────────────────────
+   class="grid-3col"
+   ─────────────────────────────────────────────────────────────────────────── */
+.grid-3col {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+}
+@media (min-width: 640px) {
+	.grid-3col {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+@media (min-width: 900px) {
+	.grid-3col {
+		grid-template-columns: 1fr 1fr 1fr;
+	}
+}
+
+/* ── Pair row (leader dashboard) ─────────────────────────────────────────────
+   On mobile: hide sparkline + last-seen columns.
+   ─────────────────────────────────────────────────────────────────────────── */
+.pair-row {
+	display: grid;
+	grid-template-columns: 1fr auto auto auto auto auto auto;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 14px;
+	border-radius: var(--radius-md);
+	background: var(--card);
+	border: 1px solid var(--border);
+	color: var(--foreground);
+	transition: background 0.1s;
+}
+@media (max-width: 639px) {
+	.pair-row {
+		grid-template-columns: 1fr auto auto;
+	}
+	.pair-row-hide-mobile {
+		display: none !important;
+	}
+}
+
+/* ── Column header matching pair-row ──────────────────────────────────────── */
+.pair-row-header {
+	display: grid;
+	grid-template-columns: 1fr auto auto auto auto auto;
+	gap: 12px;
+}
+@media (max-width: 639px) {
+	.pair-row-header {
+		display: none;
+	}
+}
+
+/* ── Admin dashboard top grid ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+	.top-grid {
+		grid-template-columns: 1fr !important;
+	}
+}
+
+/* ── Chart grids (used in Admin Dashboard) ───────────────────────────────────
+   Existing className="chart-grid" and "triple-grid" — ensure they stack on mobile.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+	.chart-grid {
+		grid-template-columns: 1fr !important;
+	}
+	.triple-grid {
+		grid-template-columns: 1fr !important;
+	}
+}
+

@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import {
     Bell, BookOpen, ClockCounterClockwise, House,
-    Medal, Mosque, SignOut, UsersThree,
+    Medal, Megaphone, Mosque, SignOut, UsersThree,
 } from '@phosphor-icons/react';
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -212,12 +212,13 @@ export default function StudentLayout({ children, title }) {
     const { auth } = usePage().props;
 
     const navItems = [
-        { href: '/student/dashboard', icon: House,                  label: 'Dashboard' },
-        { href: '/student/history',   icon: ClockCounterClockwise,  label: 'History' },
-        { href: '/student/pair',      icon: UsersThree,               label: 'My Partner' },
-        { href: '/student/halqa',     icon: Mosque,                 label: 'My Halqa' },
-        { href: '/student/badges',    icon: Medal,                  label: 'Badges' },
-        { href: '/student/journal',   icon: BookOpen,               label: 'Journal' },
+        { href: '/student/dashboard',     icon: House,                  label: 'Dashboard' },
+        { href: '/student/announcements', icon: Megaphone,              label: 'Announcements' },
+        { href: '/student/history',       icon: ClockCounterClockwise,  label: 'History' },
+        { href: '/student/pair',          icon: UsersThree,             label: 'My Partner' },
+        { href: '/student/halqa',         icon: Mosque,                 label: 'My Halqa' },
+        { href: '/student/badges',        icon: Medal,                  label: 'Badges' },
+        { href: '/student/journal',       icon: BookOpen,               label: 'Journal' },
     ];
 
     function isActive(href) {
@@ -311,10 +312,11 @@ export default function StudentLayout({ children, title }) {
             }}
                 className="mobile-bottom-nav"
             >
-                {navItems.slice(0, 5).map((item) => (
-                    <MobileNavItem key={item.href} {...item} active={isActive(item.href)} />
-                ))}
-                <MobileNavItem href="/student/journal" icon={BookOpen} label="Journal" active={isActive('/student/journal')} />
+                {/* Show 5 most important nav items on mobile */}
+                {['/student/dashboard', '/student/announcements', '/student/history', '/student/pair', '/student/halqa'].map((href) => {
+                    const item = navItems.find((n) => n.href === href);
+                    return item ? <MobileNavItem key={href} {...item} active={isActive(href)} /> : null;
+                })}
             </nav>
 
             <Toast />

@@ -38,7 +38,7 @@ class ConsistencyService
         if ($this->programNotStarted()) return 0;
 
         $user          = User::find($userId);
-        $availableDays = $user?->available_times ?? [];
+        $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
 
         $submittedSet = PairSubmission::where('subject_student_id', $userId)
@@ -86,7 +86,7 @@ class ConsistencyService
         if ($this->programNotStarted()) return 0;
 
         $user          = User::find($userId);
-        $availableDays = $user?->available_times ?? [];
+        $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
 
         $dates = PairSubmission::where('subject_student_id', $userId)
@@ -139,7 +139,7 @@ class ConsistencyService
         if ($this->programNotStarted()) return null;
 
         $user          = User::find($userId);
-        $availableDays = $user?->available_times ?? [];
+        $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
         $today         = Carbon::today();
 

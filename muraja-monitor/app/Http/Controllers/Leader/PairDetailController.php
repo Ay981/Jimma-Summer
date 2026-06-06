@@ -92,14 +92,18 @@ class PairDetailController extends Controller
                 ->orderByDesc('created_at')
                 ->take(10)
                 ->get()
-                ->map(fn ($n) => [
-                    'id'         => $n->id,
-                    'type'       => class_basename($n->type),
-                    'message'    => json_decode($n->data, true)['message'] ?? '',
-                    'sent_at'    => Carbon::parse($n->created_at)->format('Y-m-d H:i'),
-                    'seen_at'    => $n->seen_at ? Carbon::parse($n->seen_at)->format('Y-m-d H:i') : null,
-                    'read_at'    => $n->read_at ? Carbon::parse($n->read_at)->format('Y-m-d H:i') : null,
-                ])->toArray();
+                ->map(function ($n) {
+                    // $n->data is already cast to array by DatabaseNotification
+                    $data = is_array($n->data) ? $n->data : (json_decode($n->data, true) ?? []);
+                    return [
+                        'id'      => $n->id,
+                        'type'    => class_basename($n->type),
+                        'message' => $data['message'] ?? '',
+                        'sent_at' => Carbon::parse($n->created_at)->format('Y-m-d H:i'),
+                        'seen_at' => $n->seen_at ? Carbon::parse($n->seen_at)->format('Y-m-d H:i') : null,
+                        'read_at' => $n->read_at  ? Carbon::parse($n->read_at)->format('Y-m-d H:i')  : null,
+                    ];
+                })->toArray();
 
             return [
                 'id'           => $student->id,

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Halqa;
 use App\Models\Pair;
-use App\Models\PairingRequest;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
@@ -13,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,16 +67,7 @@ class PairController extends Controller
             ];
         });
 
-        // Pending pair requests
-        $requests = PairingRequest::where('status', 'pending')
-            ->with('student:id,name,phone')
-            ->get()
-            ->map(fn ($r) => [
-                'id'                      => $r->id,
-                'student'                 => ['id' => $r->student->id, 'name' => $r->student->name, 'phone' => $r->student->phone],
-                'requested_partner_name'  => $r->requested_partner_name,
-                'requested_partner_phone' => $r->requested_partner_phone,
-            ])->toArray();
+        $requests = [];
 
         // Unassigned students (no pair)
         $assignedIds = Pair::whereNotNull('student_b_id')
@@ -100,7 +91,7 @@ class PairController extends Controller
 
         return Inertia::render('Admin/Pairs', [
             'pairs'     => $pairRows->values(),
-            'requests'  => $requests,
+            'requests'  => [],
             'unassigned'=> array_values(array_filter($unassigned, fn ($s) => !in_array($s['id'], array_merge(
                 array_column(array_column($suggested['matched'], 'student_a'), 'id'),
                 array_column(array_column($suggested['matched'], 'student_b'), 'id'),
@@ -111,44 +102,117 @@ class PairController extends Controller
         ]);
     }
 
-    // ── Pair request: approve ─────────────────────────────────────────────────
+    // ── Swap students between pairs (same halqa) ──────────────────────────────
 
-    public function approveRequest(PairingRequest $pairingRequest): RedirectResponse
+    public function swapPairStudents(Request $request): RedirectResponse
     {
-        abort_if($pairingRequest->status !== 'pending', 422);
-
-        // Try to find the requested partner by name + phone
-        $partner = User::where('name', 'like', '%' . $pairingRequest->requested_partner_name . '%')
-            ->where('role', 'student')
-            ->first();
-
-        // Create pair even if partner not found (solo until they're added)
-        $pair = Pair::create([
-            'student_a_id' => $pairingRequest->student_id,
-            'student_b_id' => $partner?->id,
-            'status'       => $partner ? 'active' : 'solo',
+        $request->validate([
+            'pair_a_id' => ['required', 'exists:pairs,id'],
+            'pair_b_id' => ['required', 'exists:pairs,id'],
+            'slot'      => ['required', 'in:a,b'],
         ]);
 
-        $pairingRequest->update(['status' => 'approved']);
+        $pairA = Pair::findOrFail($request->pair_a_id);
+        $pairB = Pair::findOrFail($request->pair_b_id);
 
-        return back()->with('success', $partner
-            ? "Pair created: {$pairingRequest->student->name} ↔ {$partner->name}"
-            : "Pair created (partner not found in system yet).");
+        abort_if($pairA->halqa_id !== $pairB->halqa_id, 422, 'Pairs must be in the same halqa.');
+
+        // Swap student_b of pairA with student_b of pairB (or student_a based on slot)
+        $slot = $request->slot;
+        DB::transaction(function () use ($pairA, $pairB, $slot) {
+            if ($slot === 'b') {
+                [$pairA->student_b_id, $pairB->student_b_id] = [$pairB->student_b_id, $pairA->student_b_id];
+            } else {
+                [$pairA->student_a_id, $pairB->student_a_id] = [$pairB->student_a_id, $pairA->student_a_id];
+            }
+            $pairA->save();
+            $pairB->save();
+
+            // Notify affected students
+            foreach (array_filter([$pairA->student_a_id, $pairA->student_b_id, $pairB->student_a_id, $pairB->student_b_id]) as $uid) {
+                $u = User::find($uid);
+                $u?->notifications()->create([
+                    'id'              => Str::uuid(),
+                    'type'            => 'App\Notifications\PairSwap',
+                    'notifiable_type' => User::class,
+                    'notifiable_id'   => $uid,
+                    'data'            => json_encode(['message' => 'You have been moved to a new pair.']),
+                    'created_at'      => now(),
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Pair students swapped.');
     }
 
-    // ── Pair request: reject ──────────────────────────────────────────────────
+    // ── Cross-halqa pair merge ────────────────────────────────────────────────
 
-    public function rejectRequest(PairingRequest $pairingRequest): RedirectResponse
+    public function crossHalqaPair(Request $request): RedirectResponse
     {
-        abort_if($pairingRequest->status !== 'pending', 422);
-        $pairingRequest->update(['status' => 'rejected']);
-        return back()->with('success', 'Request rejected. Student moved to assignment pool.');
+        $request->validate([
+            'student_a_id' => ['required', 'exists:users,id'],
+            'student_b_id' => ['required', 'exists:users,id'],
+        ]);
+
+        $studentA = User::findOrFail($request->student_a_id);
+        $studentB = User::findOrFail($request->student_b_id);
+
+        abort_if($studentA->halqa_id === $studentB->halqa_id, 422, 'Both students are already in the same halqa. Use pair swap instead.');
+
+        DB::transaction(function () use ($studentA, $studentB) {
+            // Find A's current pair and old partner
+            $pairA = Pair::where(fn ($q) => $q->where('student_a_id', $studentA->id)->orWhere('student_b_id', $studentA->id))->first();
+            $oldPartnerId = null;
+            if ($pairA) {
+                $oldPartnerId = $pairA->student_a_id === $studentA->id ? $pairA->student_b_id : $pairA->student_a_id;
+                $pairA->delete();
+            }
+
+            // Move A to B's halqa
+            $studentA->update(['halqa_id' => $studentB->halqa_id]);
+
+            // Find or create pair for A+B
+            Pair::create([
+                'student_a_id' => $studentA->id,
+                'student_b_id' => $studentB->id,
+                'halqa_id'     => $studentB->halqa_id,
+                'status'       => 'active',
+            ]);
+
+            // Move A's old partner to A's original halqa and pair them with someone there
+            if ($oldPartnerId) {
+                $oldPartner = User::find($oldPartnerId);
+                if ($oldPartner) {
+                    $oldPartner->update(['halqa_id' => $studentA->getOriginal('halqa_id') ?? $oldPartner->halqa_id]);
+                }
+            }
+
+            // Notify all affected
+            foreach (array_filter([$studentA->id, $studentB->id, $oldPartnerId]) as $uid) {
+                $u = User::find($uid);
+                $u?->notifications()->create([
+                    'id'              => \Illuminate\Support\Str::uuid(),
+                    'type'            => 'App\Notifications\HalqaSwap',
+                    'notifiable_type' => User::class,
+                    'notifiable_id'   => $uid,
+                    'data'            => json_encode(['message' => 'You have been reassigned to a new halqa or pair.']),
+                    'created_at'      => now(),
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Cross-halqa pairing complete. Affected students notified.');
     }
 
     // ── Confirm bulk assignment ───────────────────────────────────────────────
 
     public function confirmAssignment(Request $request): RedirectResponse
     {
+        // FIX 8: Guard against no halqas
+        if (Halqa::count() === 0) {
+            return back()->with('error', 'Create halqas first before assigning students.');
+        }
+
         $request->validate([
             'pairs'           => ['required', 'array'],
             'pairs.*.a'       => ['required', 'integer', 'exists:users,id'],

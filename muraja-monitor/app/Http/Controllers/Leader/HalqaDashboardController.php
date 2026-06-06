@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Leader;
 
 use App\Http\Controllers\Controller;
-use App\Models\Announcement;
 use App\Models\ContactLog;
 use App\Models\Halqa;
 use App\Models\MeetingActionItem;
@@ -26,9 +25,10 @@ class HalqaDashboardController extends Controller
             return Inertia::render('Leader/Dashboard', [
                 'halqa'          => null,
                 'pairs'          => [],
+                'students'       => [],
                 'summary'        => ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0],
+                'today_subs'     => 0,
                 'absence_queue'  => [],
-                'announcements'  => [],
                 'follow_up_queue'=> [],
                 'group_identity' => null,
             ]);
@@ -55,9 +55,10 @@ class HalqaDashboardController extends Controller
                 ])->values(),
                 'summary'        => ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0],
                 'absence_queue'  => [],
-                'announcements'  => [],
                 'follow_up_queue'=> [],
                 'group_identity' => null,
+                'students'       => [],
+                'today_subs'     => 0,
             ]);
         }
 
@@ -140,17 +141,6 @@ class HalqaDashboardController extends Controller
 
         $absenceQueue = $pairs->filter(fn ($p) => $p['missed_yesterday'])->values();
 
-        // ── Announcements for this halqa ──────────────────────────────────────
-        $halqaId = $halqa->id;
-        $announcements = Announcement::active()
-            ->where(function ($q) use ($halqaId) {
-                $q->whereNull('halqa_id')->orWhere('halqa_id', $halqaId);
-            })
-            ->latest('created_at')
-            ->get()
-            ->map(fn ($a) => ['id' => $a->id, 'title' => $a->title, 'body' => $a->body])
-            ->toArray();
-
         // ── Follow-up queue ────────────────────────────────────────────────────
         // Open action items past due
         $overdueActions = MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))
@@ -206,12 +196,70 @@ class HalqaDashboardController extends Controller
         return Inertia::render('Leader/Dashboard', [
             'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
             'pairs'          => $pairs->values(),
+            'students'       => $this->buildStudentRows($halqa, $today, $programStart),
             'summary'        => $summary,
+            'today_subs'     => $pairs->sum(fn ($p) => $p['today_submitted'] === 'both' ? 2 : ($p['today_submitted'] === 'one' ? 1 : 0)),
             'absence_queue'  => $absenceQueue,
-            'announcements'  => $announcements,
             'follow_up_queue'=> array_merge($overdueActions, $snoozedContacts),
             'group_identity' => $groupIdentity,
         ]);
+    }
+
+    private function buildStudentRows(\App\Models\Halqa $halqa, Carbon $today, Carbon $programStart): array
+    {
+        $memberIds = $halqa->pairs->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
+        if ($memberIds->isEmpty()) return [];
+
+        $window14      = $today->copy()->subDays(13);
+        $effectiveStart = $programStart->gt($window14) ? $programStart->copy() : $window14->copy();
+        $effectiveDays  = max(1, $effectiveStart->diffInDays($today) + 1);
+        $last14         = collect(range(13, 0))->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
+
+        $subs14 = PairSubmission::whereIn('subject_student_id', $memberIds)
+            ->whereBetween('submission_date', [$last14->first(), $last14->last()])
+            ->get()->groupBy('subject_student_id');
+
+        $lastSubs = PairSubmission::whereIn('subject_student_id', $memberIds)
+            ->selectRaw('subject_student_id, MAX(submission_date::text) as last_sub')
+            ->groupBy('subject_student_id')
+            ->pluck('last_sub', 'subject_student_id');
+
+        // Pair map: student_id → pair_id
+        $pairMap = [];
+        foreach ($halqa->pairs as $p) {
+            $pairMap[$p->student_a_id] = $p->id;
+            if ($p->student_b_id) $pairMap[$p->student_b_id] = $p->id;
+        }
+
+        return \App\Models\User::whereIn('id', $memberIds)->where('role', 'student')->get()
+            ->map(function ($student) use ($subs14, $lastSubs, $last14, $effectiveDays, $effectiveStart, $today, $pairMap) {
+                $studentSubs = ($subs14[$student->id] ?? collect())->keyBy(
+                    fn ($s) => Carbon::parse($s->submission_date)->toDateString()
+                );
+                $sparkline = $last14->map(fn ($d) => isset($studentSubs[$d]) ? 1 : 0)->values()->toArray();
+
+                $effDates  = collect(range(0, $effectiveDays - 1))
+                    ->map(fn ($i) => $effectiveStart->copy()->addDays($i)->toDateString());
+                $submitted  = $effDates->filter(fn ($d) => isset($studentSubs[$d]))->count();
+                $consistency = round(($submitted / $effectiveDays) * 100, 1);
+
+                $lastSub   = $lastSubs[$student->id] ?? null;
+                $status    = $this->computeStatus($sparkline, $consistency, $lastSub, $effectiveDays);
+                $todaySub  = isset($studentSubs[$today->toDateString()]);
+
+                return [
+                    'id'           => $student->id,
+                    'name'         => $student->name,
+                    'student_id'   => $student->student_id,
+                    'consistency'  => $consistency,
+                    'sparkline'    => $sparkline,
+                    'status'       => $status,
+                    'last_submission' => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
+                    'today_submitted' => $todaySub,
+                    'pair_id'      => $pairMap[$student->id] ?? null,
+                    'is_solo'      => $student->is_solo ?? false,
+                ];
+            })->values()->toArray();
     }
 
     private function computeStatus(array $sparkline14, float $consistency, ?string $lastSub, int $effectiveDays): string

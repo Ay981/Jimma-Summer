@@ -8,14 +8,12 @@ use App\Models\Halqa;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
-use App\Models\ProgramSnapshot;
 use App\Models\User;
 use App\Services\ConsistencyService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
-use ZipArchive;
 
 class ReportsController extends Controller
 {
@@ -128,7 +126,7 @@ class ReportsController extends Controller
 
     // ── Batch completion certificates ZIP ────────────────────────────────────
 
-    public function exportCertificatesZip(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportCertificatesZip(): Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $threshold   = (int) ProgramSetting::get('certificate_threshold', 80);
         $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
@@ -136,23 +134,40 @@ class ReportsController extends Controller
         $start       = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
         $days        = max(1, $start->diffInDays($today) + 1);
 
-        $students = User::where('role', 'student')->where('is_active', true)->with('halqa')->get()->filter(function ($s) use ($days, $threshold) {
-            $total = PairSubmission::where('subject_student_id', $s->id)->count();
-            return round(($total / $days) * 100) >= $threshold;
-        });
+        $students = User::where('role', 'student')
+            ->where('is_active', true)
+            ->with('halqa')
+            ->get()
+            ->filter(function ($s) use ($days, $threshold) {
+                $total = PairSubmission::where('subject_student_id', $s->id)->count();
+                return round(($total / $days) * 100) >= $threshold;
+            });
 
-        $zipPath = storage_path('app/tmp-certificates-' . uniqid() . '.zip');
-        $zip     = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        if ($students->isEmpty()) {
+            return response('No students have met the certificate threshold yet.', 404, [
+                'Content-Type' => 'text/plain',
+            ]);
+        }
+
+        // Use system temp dir — always writable, no storage config needed
+        $zipPath = sys_get_temp_dir() . '/certificates-' . uniqid() . '.zip';
+        $zip = new \ZipArchive();
+
+        $opened = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        if ($opened !== true) {
+            abort(500, "Could not create ZIP archive (ZipArchive error {$opened}).");
+        }
 
         foreach ($students as $s) {
-            $pages = PairSubmission::where('subject_student_id', $s->id)->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0;
+            $pages = (int) (PairSubmission::where('subject_student_id', $s->id)
+                ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')
+                ->value('p') ?? 0);
             $total = PairSubmission::where('subject_student_id', $s->id)->count();
             $cons  = round(($total / $days) * 100, 1);
 
             $pdf = Pdf::loadView('pdf.certificate', [
                 'student'      => $s,
-                'pages'        => (int) $pages,
+                'pages'        => $pages,
                 'consistency'  => $cons,
                 'program_name' => $programName,
                 'generated'    => $today->format('d F Y'),
@@ -162,59 +177,60 @@ class ReportsController extends Controller
         }
 
         $zip->close();
-        return response()->download($zipPath, 'certificates-' . today()->toDateString() . '.zip')->deleteFileAfterSend();
+
+        return response()->download($zipPath, 'certificates-' . $today->toDateString() . '.zip')
+            ->deleteFileAfterSend();
     }
 
-    // ── Full program PDF report ───────────────────────────────────────────────
+    // ── Full program PDF report — direct download ─────────────────────────────
 
     public function exportProgramReport(): Response
     {
-        $today        = Carbon::today();
-        $start        = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $days         = max(1, $start->diffInDays($today) + 1);
-        $programName  = ProgramSetting::get('program_name', "Muraja'a Monitor");
+        $today       = Carbon::today();
+        $start       = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $days        = max(1, $start->diffInDays($today) + 1);
+        $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
 
-        $halqas  = Halqa::with(['leader:id,name', 'members' => fn ($q) => $q->where('role', 'student'), 'pairs'])->get();
-        $leaders = User::where('role', 'leader')->with('ledHalqa')->get();
-
-        // Build halqa stats
+        // Halqa stats
+        $halqas = Halqa::with(['leader:id,name', 'members' => fn ($q) => $q->where('role', 'student'), 'pairs'])->get();
         $halqaStats = $halqas->map(function ($h) use ($days) {
             $ids   = $h->members->pluck('id');
             $total = $ids->isEmpty() ? 0 : PairSubmission::whereIn('subject_student_id', $ids)->count();
-            $pages = $ids->isEmpty() ? 0 : PairSubmission::whereIn('subject_student_id', $ids)->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p');
-            $cons  = $ids->isEmpty() ? 0 : round(($total / ($ids->count() * $days)) * 100, 1);
-            return ['name' => $h->name, 'leader' => $h->leader?->name ?? '—', 'pairs' => $h->pairs->count(), 'members' => $ids->count(), 'consistency' => $cons, 'pages' => (int) $pages];
-        })->toArray();
+            $pages = $ids->isEmpty() ? 0 : (int) (PairSubmission::whereIn('subject_student_id', $ids)->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
+            $cons  = $ids->isEmpty() ? 0 : round(($total / max(1, $ids->count() * $days)) * 100, 1);
+            return ['name' => $h->name, 'leader' => $h->leader?->name ?? '—', 'pairs' => $h->pairs->count(), 'members' => $ids->count(), 'consistency' => $cons, 'pages' => $pages];
+        })->values()->toArray();
 
         // At-risk students
-        $atRisk = User::where('role', 'student')->where('is_active', true)->get()->filter(function ($s) use ($days) {
-            $total = PairSubmission::where('subject_student_id', $s->id)->count();
-            $cons  = round(($total / $days) * 100, 1);
-            $last  = PairSubmission::where('subject_student_id', $s->id)->orderByDesc('submission_date')->value('submission_date');
-            $daysSince = $last ? Carbon::parse($last)->diffInDays(Carbon::today()) : 999;
-            return $cons < 40 || $daysSince >= 7;
-        })->map(fn ($s) => ['name' => $s->name, 'halqa' => $s->halqa?->name ?? '—'])->values()->toArray();
+        $atRisk = User::where('role', 'student')->where('is_active', true)->get()
+            ->filter(function ($s) use ($days) {
+                $total = PairSubmission::where('subject_student_id', $s->id)->count();
+                $cons  = round(($total / $days) * 100, 1);
+                $last  = PairSubmission::where('subject_student_id', $s->id)->orderByDesc('submission_date')->value('submission_date');
+                return $cons < 40 || ($last && Carbon::parse($last)->diffInDays(Carbon::today()) >= 7) || !$last;
+            })
+            ->map(fn ($s) => ['name' => $s->name, 'halqa' => $s->halqa?->name ?? '—'])
+            ->values()->toArray();
 
-        // Leaderboard controller data
+        // Leaderboard data via controller methods
         $lb = new LeaderboardController();
-        $students  = array_slice(invokable_method($lb, 'studentBoard'), 0, 10);
-        $pairBoard = array_slice(invokable_method($lb, 'pairBoard'), 0, 10);
-        $awards    = invokable_method($lb, 'awards');
+        $students  = array_slice($lb->studentBoard(), 0, 15);
+        $pairBoard = array_slice($lb->pairBoard(), 0, 10);
+        $awards    = $lb->awards();
 
-        $pdf = Pdf::loadView('pdf.program-report', compact(
-            'halqaStats', 'atRisk', 'students', 'pairBoard', 'awards',
-            'programName', 'today', 'start', 'days', 'leaders'
-        ));
+        $pdf = Pdf::loadView('pdf.program-report', [
+            'halqaStats'  => $halqaStats,
+            'atRisk'      => $atRisk,
+            'students'    => $students,
+            'pairBoard'   => $pairBoard,
+            'awards'      => $awards,
+            'programName' => $programName,
+            'today'       => $today,
+            'start'       => $start,
+            'days'        => $days,
+        ]);
         $pdf->setPaper('A4', 'portrait');
 
-        return $pdf->download("program-report-{$today->toDateString()}.pdf");
+        return $pdf->download('program-report-' . $today->toDateString() . '.pdf');
     }
-}
-
-// Helper for calling private methods on controller
-function invokable_method(object $obj, string $method, array $args = []): mixed
-{
-    $ref = new \ReflectionMethod($obj, $method);
-    $ref->setAccessible(true);
-    return $ref->invoke($obj, ...$args);
 }

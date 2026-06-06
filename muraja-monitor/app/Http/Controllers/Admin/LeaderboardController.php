@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Badge;
+use App\Models\ContactLog;
 use App\Models\Halqa;
+use App\Models\MeetingActionItem;
+use App\Models\MeetingLog;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
@@ -21,12 +24,25 @@ class LeaderboardController extends Controller
 {
     public function index(): Response
     {
+        $today      = Carbon::today();
+        $programEnd = ProgramSetting::get('program_end_date');
+        $isEnded    = $programEnd && $today->gt(Carbon::parse($programEnd));
+        $isLocked   = ProgramSnapshot::orderByDesc('created_at')->exists();
+
         return Inertia::render('Admin/Leaderboard', [
-            'students'  => $this->studentBoard(),
-            'pairs'     => $this->pairBoard(),
-            'halqas'    => $this->halqaBoard(),
-            'awards'    => $this->awards(),
-            'snapshots' => ProgramSnapshot::orderByDesc('created_at')->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->program_name, 'ended_at' => Carbon::parse($s->ended_at)->toDateString(), 'created_at' => Carbon::parse($s->created_at)->toDateString()])->toArray(),
+            'students'   => $this->studentBoard(),
+            'pairs'      => $this->pairBoard(),
+            'halqas'     => $this->halqaBoard(),
+            'leaders'    => $this->leaderBoard(),
+            'awards'     => $this->awards(),
+            'is_ended'   => $isEnded && !$isLocked,
+            'is_locked'  => $isLocked,
+            'snapshots'  => ProgramSnapshot::orderByDesc('created_at')->get()->map(fn ($s) => [
+                'id'         => $s->id,
+                'name'       => $s->program_name,
+                'ended_at'   => Carbon::parse($s->ended_at)->toDateString(),
+                'created_at' => Carbon::parse($s->created_at)->toDateString(),
+            ])->toArray(),
         ]);
     }
 
@@ -35,17 +51,29 @@ class LeaderboardController extends Controller
         $request->validate(['program_name' => ['required', 'string', 'max:255']]);
 
         ProgramSnapshot::create([
-            'program_name' => $request->program_name,
-            'ended_at'     => now(),
+            'program_name'  => $request->program_name,
+            'ended_at'      => now(),
             'snapshot_data' => [
                 'students' => $this->studentBoard(),
                 'pairs'    => $this->pairBoard(),
                 'halqas'   => $this->halqaBoard(),
+                'leaders'  => $this->leaderBoard(),
                 'awards'   => $this->awards(),
             ],
         ]);
 
         return back()->with('success', 'Leaderboard locked and archived.');
+    }
+
+    public function unlock(Request $request): RedirectResponse
+    {
+        // Admins can delete the most recent snapshot to unlock
+        $latest = ProgramSnapshot::orderByDesc('created_at')->first();
+        if ($latest) {
+            $latest->delete();
+            return back()->with('success', 'Leaderboard unlocked. Last snapshot removed.');
+        }
+        return back()->with('error', 'No snapshot to unlock.');
     }
 
     public function certificate(User $student)
@@ -134,7 +162,99 @@ class LeaderboardController extends Controller
         })->filter()->sortByDesc('consistency')->values()->map(fn ($h, $i) => array_merge($h, ['rank' => $i + 1]))->toArray();
     }
 
-    private function awards(): array
+    /**
+     * Part 6 — Best halqa leader leaderboard.
+     * Scoring: meetings, attendance rate, contact notes, follow-ups resolved,
+     * nudges, login frequency, members moved from at-risk to on-track.
+     */
+    private function leaderBoard(): array
+    {
+        $today = Carbon::today();
+        $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+
+        $leaders = User::where('role', 'leader')->where('is_active', true)->with('ledHalqa')->get();
+
+        return $leaders->map(function ($leader) use ($today, $start) {
+            $halqa = $leader->ledHalqa;
+            if (!$halqa) return null;
+
+            // Meetings held (finalised only — state = 'final')
+            $meetings = MeetingLog::where('halqa_id', $halqa->id)->where('state', 'final')->get();
+            $meetingCount = $meetings->count();
+
+            // Average attendance rate across meetings
+            $studentCount = \App\Models\User::where('halqa_id', $halqa->id)->where('role', 'student')->count();
+            $avgAttendance = $meetingCount > 0 && $studentCount > 0
+                ? round($meetings->avg('attendance_count') / max(1, $studentCount) * 100, 1)
+                : 0;
+
+            // Contact notes written
+            $contactNotes = ContactLog::where('contacted_by', $leader->id)->count();
+
+            // Follow-ups: action items resolved vs created
+            $totalActions   = MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))->count();
+            $resolvedActions= MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))->where('status', 'resolved')->count();
+
+            // Nudges sent
+            $nudges = ContactLog::where('contacted_by', $leader->id)
+                ->where('note', 'like', '[Nudge]%')
+                ->count();
+
+            // Login frequency during program
+            $loginCount = \App\Models\AuditLog::where('user_id', $leader->id)
+                ->where('action', 'login')
+                ->where('created_at', '>=', $start->toDateString())
+                ->count();
+
+            // Members recovered: students who had at-risk contact and later improved
+            $contactedAtRiskIds = ContactLog::where('contacted_by', $leader->id)
+                ->pluck('student_id')
+                ->unique();
+            $recoveredCount = 0;
+            foreach ($contactedAtRiskIds as $sid) {
+                $student = \App\Models\User::find($sid);
+                if (!$student) continue;
+                $preCons  = $this->consistencyInWindow($sid, $start->copy(), $start->copy()->addDays(6));
+                $postCons = $this->consistencyInWindow($sid, $today->copy()->subDays(6), $today->copy());
+                if ($preCons < 40 && $postCons >= 70) $recoveredCount++;
+            }
+
+            // Weighted score
+            $score = ($meetingCount * 10)
+                   + ($avgAttendance * 0.5)
+                   + ($contactNotes * 2)
+                   + ($resolvedActions * 5)
+                   + ($nudges * 1)
+                   + ($loginCount * 0.5)
+                   + ($recoveredCount * 15);
+
+            return [
+                'id'               => $leader->id,
+                'name'             => $leader->name,
+                'halqa'            => $halqa->name,
+                'meetings'         => $meetingCount,
+                'avg_attendance'   => $avgAttendance,
+                'contact_notes'    => $contactNotes,
+                'resolved_actions' => $resolvedActions,
+                'total_actions'    => $totalActions,
+                'nudges'           => $nudges,
+                'logins'           => $loginCount,
+                'recovered'        => $recoveredCount,
+                'score'            => round($score, 1),
+            ];
+        })->filter()->sortByDesc('score')->values()->map(fn ($l, $i) => array_merge($l, ['rank' => $i + 1]))->toArray();
+    }
+
+    private function consistencyInWindow(int $userId, Carbon $from, Carbon $to): float
+    {
+        $days = max(1, $from->diffInDays($to) + 1);
+        $subs = PairSubmission::where('subject_student_id', $userId)
+            ->whereBetween('submission_date', [$from->toDateString(), $to->toDateString()])
+            ->count();
+        return round(($subs / $days) * 100, 1);
+    }
+
+    public function awards(): array
     {
         $students = $this->studentBoard();
         $pairs    = $this->pairBoard();
