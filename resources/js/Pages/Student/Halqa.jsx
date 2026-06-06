@@ -6,7 +6,7 @@ export default function Halqa({ halqa }) {
     return (
         <StudentLayout title="My Halqa">
             <Head title="My Halqa" />
-            <div style={{maxWidth:'1200px',margin:'0 auto',padding:'0 2rem'}}>
+            <div className="page-content">
                 <h1 style={{margin:'0 0 20px',fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>My Halqa</h1>
 
                 {!halqa ? (

@@ -57,39 +57,46 @@ function SankeyDiagram({ data }) {
     const students = nodes.filter((n) => n.type === 'student');
     if (!halqas.length) return <p style={{ color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>No data.</p>;
 
-    const H = Math.max(200, students.length * 18);
-    const W = 420;
-    const halqaX = 10, studentX = 300;
+    const ROW = 20;
+    const H = Math.max(180, Math.max(halqas.length, students.length) * ROW);
+    const W = 320;  // viewBox width — scales with container
+    const halqaX = 8, studentX = 230;
 
-    const halqaY = (i) => (i + 0.5) * (H / halqas.length);
+    const halqaY   = (i) => (i + 0.5) * (H / halqas.length);
     const studentY = (i) => (i + 0.5) * (H / students.length);
 
-    const halqaIdx = Object.fromEntries(halqas.map((h, i) => [h.id, i]));
+    const halqaIdx   = Object.fromEntries(halqas.map((h, i) => [h.id, i]));
     const studentIdx = Object.fromEntries(students.map((s, i) => [s.id, i]));
 
     return (
-        <div style={{ overflowY: 'auto', maxHeight: '320px' }}>
-            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+        <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+            {/* width:100% makes it fill the card; viewBox handles coordinate space */}
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
                 {links.map((l, i) => {
                     const hi = halqaIdx[l.source];
                     const si = studentIdx[l.target];
                     if (hi === undefined || si === undefined) return null;
                     const y1 = halqaY(hi), y2 = studentY(si);
-                    const strokeW = Math.max(0.5, Math.min(6, l.value / 20));
-                    const alpha = Math.max(0.1, Math.min(0.7, l.value / 100));
+                    const strokeW = Math.max(0.5, Math.min(5, l.value / 20));
+                    const alpha   = Math.max(0.1, Math.min(0.7, l.value / 100));
                     return (
-                        <path key={i} d={`M ${halqaX + 80},${y1} C ${halqaX + 160},${y1} ${studentX - 80},${y2} ${studentX},${y2}`}
-                            fill="none" stroke="var(--success)" strokeWidth={strokeW} opacity={alpha} />
+                        <path key={i}
+                            d={`M ${halqaX + 68},${y1} C ${halqaX + 130},${y1} ${studentX - 60},${y2} ${studentX},${y2}`}
+                            fill="none" stroke="var(--success)" strokeWidth={strokeW} opacity={alpha}
+                        />
                     );
                 })}
                 {halqas.map((h, i) => (
                     <g key={h.id} transform={`translate(${halqaX},${halqaY(i) - 8})`}>
-                        <rect width={78} height={16} rx={3} fill="var(--secondary)" />
-                        <text x={4} y={11} fontSize={9} fill="var(--foreground)">{h.label.slice(0, 12)}</text>
+                        <rect width={66} height={15} rx={3} fill="var(--secondary)" />
+                        <text x={4} y={10} fontSize={8} fill="var(--foreground)">{h.label.slice(0, 10)}</text>
                     </g>
                 ))}
                 {students.map((s, i) => (
-                    <text key={s.id} x={studentX + 4} y={studentY(i) + 3} fontSize={8} fill="var(--muted-foreground)">{s.label.split(' ')[0]}</text>
+                    <text key={s.id} x={studentX + 3} y={studentY(i) + 3}
+                        fontSize={7} fill="var(--muted-foreground)">
+                        {s.label.split(' ')[0]}
+                    </text>
                 ))}
             </svg>
         </div>
@@ -131,6 +138,7 @@ export default function AdminDashboard({
     return (
         <AdminLayout title="Dashboard">
             <Head title="Admin Dashboard" />
+            <div style={{ maxWidth: '1400px' }}>
 
             <p style={{ margin: '0 0 16px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
                 Program started {new Date(program_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -141,7 +149,7 @@ export default function AdminDashboard({
                 {/* Pulse */}
                 <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 20px', display: 'flex', gap: '24px', alignItems: 'center' }}>
                     <PulseMeter score={pulse ?? 0} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
+                    <div className="pulse-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
                         {[
                             { label: 'Submitted today', value: todaySubs, sub: `of ${activeStudents}` },
                             { label: 'On Track',  value: sc.on_track  ?? 0, color: 'var(--success)' },
@@ -272,11 +280,23 @@ export default function AdminDashboard({
 
             <style>{`
                 @media (max-width: 900px) {
-                    .top-grid { grid-template-columns: 1fr !important; }
-                    .chart-grid { grid-template-columns: 1fr !important; }
+                    .top-grid    { grid-template-columns: 1fr !important; }
+                    .chart-grid  { grid-template-columns: 1fr !important; }
                     .triple-grid { grid-template-columns: 1fr !important; }
                 }
+                @media (max-width: 640px) {
+                    .pulse-stats { grid-template-columns: repeat(3, 1fr) !important; gap: 6px 10px !important; }
+                }
+                /* Big screens: pin pulse and early-warning columns so the middle
+                   doesn't balloon. :has(> div:nth-child(3)) ensures the rule only
+                   fires when all three cards are rendered (early-warning present). */
+                @media (min-width: 1280px) {
+                    .top-grid:has(> div:nth-child(3)) {
+                        grid-template-columns: 360px 1fr 240px !important;
+                    }
+                }
             `}</style>
+            </div>
         </AdminLayout>
     );
 }

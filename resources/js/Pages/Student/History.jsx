@@ -72,7 +72,7 @@ export default function History({ submissions, current_month, months, is_editabl
     return (
         <StudentLayout title="History">
             <Head title="History" />
-            <div style={{maxWidth:'1200px',margin:'0 auto',padding:'0 2rem'}}>
+            <div className="page-content">
 
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'8px'}}>
                     <h1 style={{margin:0,fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>Submission History</h1>

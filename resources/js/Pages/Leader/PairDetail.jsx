@@ -3,6 +3,56 @@ import { useState } from 'react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 import Heatmap from '@/Components/UI/Heatmap';
 
+// ── Escalate modal ────────────────────────────────────────────────────────────
+
+function EscalateModal({ studentId, pairId, onClose }) {
+    const { data, setData, post, processing } = useForm({ note_summary: '' });
+
+    function submit(e) {
+        e.preventDefault();
+        if (!data.note_summary.trim()) return;
+        post(`/leader/escalate/${studentId}`, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+            onClick={onClose}
+        >
+            <div
+                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '380px', maxWidth: '95vw' }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 700 }}>Escalate to Admin</h3>
+                <p style={{ margin: '0 0 10px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                    A flag will appear in admin outreach with your summary. The contact log will not be duplicated.
+                </p>
+                <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <textarea
+                        value={data.note_summary}
+                        onChange={(e) => setData('note_summary', e.target.value)}
+                        placeholder="Brief summary for admin..."
+                        rows={3}
+                        required
+                        style={{
+                            padding: '7px 10px', border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-sm)', background: 'var(--background)',
+                            color: 'var(--foreground)', fontSize: '0.8125rem',
+                            resize: 'vertical', fontFamily: 'inherit',
+                        }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '6px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" disabled={processing} style={{ padding: '6px 14px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer' }}>
+                            Escalate
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 // ── History card (transaction aesthetic) ─────────────────────────────────────
 
 function HistoryCard({ entry, pairId }) {
@@ -147,7 +197,7 @@ function ContactEntry({ entry }) {
 
 // ── Add contact note form ─────────────────────────────────────────────────────
 
-function AddContactForm({ studentId, pairId, onEscalate }) {
+function AddContactForm({ studentId, pairId }) {
     const { data, setData, post, processing, reset, errors } = useForm({
         student_id:         studentId,
         method:             'call',
@@ -157,6 +207,7 @@ function AddContactForm({ studentId, pairId, onEscalate }) {
         snooze_days:        '',
         outcome:            'pending',
     });
+    const [showEscalate, setShowEscalate] = useState(false);
 
     function submit(e) {
         e.preventDefault();
@@ -169,7 +220,9 @@ function AddContactForm({ studentId, pairId, onEscalate }) {
     const s = { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8125rem' };
 
     return (
+        <>
         <form onSubmit={submit} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Row 1: method / datetime / outcome */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <select value={data.method} onChange={(e) => setData('method', e.target.value)} style={s}>
                     <option value="call">Call</option>
@@ -185,6 +238,8 @@ function AddContactForm({ studentId, pairId, onEscalate }) {
                     <option value="escalated">Escalated</option>
                 </select>
             </div>
+
+            {/* Note textarea */}
             <textarea
                 value={data.note}
                 onChange={(e) => setData('note', e.target.value)}
@@ -198,8 +253,10 @@ function AddContactForm({ studentId, pairId, onEscalate }) {
                     resize: 'vertical', fontFamily: 'inherit',
                 }}
             />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ fontSize: '0.8125rem', display: 'flex', gap: '5px', alignItems: 'center', cursor: 'pointer' }}>
+
+            {/* Row 3: follow-up checkbox + snooze + buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: '0.8125rem', display: 'flex', gap: '5px', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
                     <input
                         type="checkbox"
                         checked={data.follow_up_required}
@@ -207,21 +264,70 @@ function AddContactForm({ studentId, pairId, onEscalate }) {
                     />
                     Follow-up needed
                 </label>
-                <button
-                    type="submit"
-                    disabled={processing}
-                    style={{
-                        padding: '6px 16px', borderRadius: 'var(--radius-sm)',
-                        border: 'none', background: 'var(--primary)',
-                        color: 'var(--primary-foreground)', fontSize: '0.8125rem',
-                        fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer',
-                    }}
-                >
-                    Add note
-                </button>
+
+                {/* Snooze input */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', flexShrink: 0 }}>
+                        Snooze
+                    </label>
+                    <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={data.snooze_days}
+                        onChange={(e) => setData('snooze_days', e.target.value)}
+                        placeholder="days"
+                        style={{
+                            width: '60px', padding: '4px 6px',
+                            borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                            background: 'var(--background)', color: 'var(--foreground)',
+                            fontSize: '0.8125rem',
+                        }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>days</span>
+                </div>
+
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+                    {/* Escalate button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowEscalate(true)}
+                        style={{
+                            padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--destructive)', background: 'transparent',
+                            color: 'var(--destructive)', fontSize: '0.8125rem',
+                            fontWeight: 500, cursor: 'pointer',
+                        }}
+                    >
+                        ⚑ Escalate
+                    </button>
+
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        style={{
+                            padding: '6px 16px', borderRadius: 'var(--radius-sm)',
+                            border: 'none', background: 'var(--primary)',
+                            color: 'var(--primary-foreground)', fontSize: '0.8125rem',
+                            fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer',
+                        }}
+                    >
+                        Add note
+                    </button>
+                </div>
             </div>
+
             {errors.note && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.note}</p>}
         </form>
+
+        {showEscalate && (
+            <EscalateModal
+                studentId={studentId}
+                pairId={pairId}
+                onClose={() => setShowEscalate(false)}
+            />
+        )}
+        </>
     );
 }
 
@@ -281,6 +387,7 @@ function StudentPanel({ student, pairId }) {
         { key: 'history',  label: 'History' },
         { key: 'contact',  label: 'Contact Log' },
         { key: 'notes',    label: 'Private Notes' },
+        { key: 'info',     label: 'Info' },
     ];
 
     function toggleWatchlist() {
@@ -404,6 +511,50 @@ function StudentPanel({ student, pairId }) {
                     initialNote={student.private_note}
                 />
             )}
+
+            {section === 'info' && (
+                <div style={{ padding: '14px 16px' }}>
+                    {/* Last login */}
+                    <p style={{ margin: '0 0 12px', fontSize: '0.8125rem' }}>
+                        <strong>Last login:</strong>{' '}
+                        <span style={{ color: 'var(--muted-foreground)' }}>{student.last_login}</span>
+                    </p>
+
+                    {/* Notification delivery log */}
+                    <p style={{ margin: '0 0 6px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)' }}>
+                        Recent Notifications
+                    </p>
+                    {(student.notif_log ?? []).length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>No notifications sent yet.</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {student.notif_log.map((n) => (
+                                <div key={n.id} style={{
+                                    padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--muted)', fontSize: '0.8125rem',
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                        <span style={{ color: 'var(--foreground)', flex: 1 }}>{n.message}</span>
+                                        <span style={{
+                                            fontSize: '0.6875rem', padding: '1px 6px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: n.seen_at ? 'var(--success)' : 'var(--secondary)',
+                                            color: n.seen_at ? 'var(--success-foreground)' : 'var(--secondary-foreground)',
+                                            flexShrink: 0, fontWeight: 600,
+                                        }}>
+                                            {n.seen_at ? 'Seen' : 'Unseen'}
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: '3px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
+                                        Sent {n.sent_at}
+                                        {n.seen_at && ` · Seen ${n.seen_at}`}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -422,7 +573,7 @@ export default function PairDetail({ pair, halqa }) {
                     href="/leader/dashboard"
                     style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', textDecoration: 'none' }}
                 >
-                    ← Dashboard
+                    ← {halqa?.name ?? 'Dashboard'}
                 </Link>
                 <span style={{ color: 'var(--border)' }}>·</span>
                 <span style={{ fontSize: '0.8125rem', color: 'var(--foreground)', fontWeight: 500 }}>

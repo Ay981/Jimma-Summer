@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
-    ChartBar, ClipboardText, FilePdf, House, SignOut,
+    ClipboardText, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
 } from '@phosphor-icons/react';
 
 function Toast() {
@@ -33,7 +33,7 @@ function Toast() {
 }
 
 function NavItem({ href, icon: Icon, label, active, external }) {
-    const sharedStyle = {
+    const style = {
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: '9px 12px', borderRadius: 'var(--radius-md)',
         textDecoration: 'none',
@@ -43,16 +43,17 @@ function NavItem({ href, icon: Icon, label, active, external }) {
         fontSize: '0.9rem',
         transition: 'background 0.1s',
     };
+
     if (external) {
         return (
-            <a href={href} target="_blank" rel="noreferrer" style={sharedStyle}>
+            <a href={href} target="_blank" rel="noreferrer" style={style}>
                 <Icon size={18} weight="regular" />
                 {label}
             </a>
         );
     }
     return (
-        <Link href={href} style={sharedStyle}>
+        <Link href={href} style={style}>
             <Icon size={18} weight={active ? 'fill' : 'regular'} />
             {label}
         </Link>
@@ -60,7 +61,7 @@ function NavItem({ href, icon: Icon, label, active, external }) {
 }
 
 function MobileNavItem({ href, icon: Icon, label, active, external }) {
-    const sharedStyle = {
+    const style = {
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
         flex: 1, padding: '6px 4px', textDecoration: 'none',
         color: active ? 'var(--primary)' : 'var(--muted-foreground)',
@@ -68,40 +69,16 @@ function MobileNavItem({ href, icon: Icon, label, active, external }) {
     };
     if (external) {
         return (
-            <a href={href} target="_blank" rel="noreferrer" style={sharedStyle}>
+            <a href={href} target="_blank" rel="noreferrer" style={style}>
                 <Icon size={20} weight="regular" />
                 {label}
             </a>
         );
     }
     return (
-        <Link href={href} style={sharedStyle}>
+        <Link href={href} style={style}>
             <Icon size={20} weight={active ? 'fill' : 'regular'} />
             {label}
-        </Link>
-    );
-}
-
-function HeaderLogoutButton() {
-    return (
-        <Link
-            href="/logout"
-            method="post"
-            as="button"
-            aria-label="Log out"
-            className="mobile-header-action"
-            style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--muted-foreground)',
-                padding: '6px',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-            }}
-        >
-            <SignOut size={20} />
         </Link>
     );
 }
@@ -111,17 +88,37 @@ export default function LeaderLayout({ children, title }) {
     const { auth } = usePage().props;
 
     const navItems = [
-        { href: '/leader/dashboard',  icon: House,         label: 'Dashboard' },
-        { href: '/leader/meetings',   icon: ClipboardText, label: 'Meetings' },
-        { href: '/leader/export/pdf', icon: FilePdf,       label: 'Export PDF', external: true },
+        { href: '/leader/dashboard',               icon: House,         label: 'Dashboard' },
+        { href: '/leader/dashboard?view=pairs',    icon: GitBranch,     label: 'Pairs',         viewKey: 'pairs' },
+        { href: '/leader/dashboard?view=students', icon: UsersThree,    label: 'Students',      viewKey: 'students' },
+        { href: '/leader/announcements',           icon: Megaphone,     label: 'Announcements' },
+        { href: '/leader/meetings',                icon: ClipboardText, label: 'Meetings' },
+        { href: '/leader/export/pdf',              icon: FilePdf,       label: 'Export PDF',    external: true },
     ];
 
-    function isActive(href) {
-        return url.startsWith(href);
+    function isActive(item) {
+        if (item.href === '/leader/export/pdf') return false;
+        // For view-parameterised links, match path + param
+        if (item.viewKey) {
+            const param = typeof window !== 'undefined'
+                ? new URLSearchParams(window.location.search).get('view')
+                : null;
+            return url.startsWith('/leader/dashboard') && (param === item.viewKey);
+        }
+        // For plain Dashboard link — active only when no ?view= param
+        if (item.href === '/leader/dashboard') {
+            const param = typeof window !== 'undefined'
+                ? new URLSearchParams(window.location.search).get('view')
+                : null;
+            return url.startsWith('/leader/dashboard') && !param;
+        }
+        return url.startsWith(item.href);
     }
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--background)' }}>
+
+            {/* ── Sidebar ───────────────────────────────────────────────── */}
             <aside
                 className="sidebar-desktop"
                 style={{
@@ -131,16 +128,19 @@ export default function LeaderLayout({ children, title }) {
                     position: 'sticky', top: 0, height: '100vh',
                 }}
             >
+                {/* Logo */}
                 <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--sidebar-border)' }}>
                     <img src="/images/logo.png" alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
                 </div>
 
+                {/* Nav */}
                 <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     {navItems.map((item) => (
-                        <NavItem key={item.href} {...item} active={isActive(item.href)} />
+                        <NavItem key={item.href} {...item} active={isActive(item)} />
                     ))}
                 </nav>
 
+                {/* User + logout */}
                 <div style={{ padding: '10px 8px', borderTop: '1px solid var(--sidebar-border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px' }}>
                         <div>
@@ -161,22 +161,41 @@ export default function LeaderLayout({ children, title }) {
                 </div>
             </aside>
 
+            {/* ── Main ─────────────────────────────────────────────────── */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+
+                {/* Top bar */}
                 <header style={{
                     height: '52px', borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0 16px', background: 'var(--card)',
                     position: 'sticky', top: 0, zIndex: 100,
                 }}>
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '28px', objectFit: 'contain' }}
+                    <img
+                        src="/images/logo.png" alt="Logo"
+                        style={{ height: '28px', objectFit: 'contain' }}
                         className="mobile-only"
                     />
-                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--foreground)' }}
+                    <span
+                        style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--foreground)' }}
                         className="desktop-only"
                     >
                         {title}
                     </span>
-                    <HeaderLogoutButton />
+                    <Link
+                        href="/logout"
+                        method="post"
+                        as="button"
+                        aria-label="Log out"
+                        className="mobile-header-action"
+                        style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--muted-foreground)', padding: '6px',
+                            borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center',
+                        }}
+                    >
+                        <SignOut size={20} />
+                    </Link>
                 </header>
 
                 <main style={{ flex: 1, padding: '20px 20px 80px' }}>
@@ -184,6 +203,7 @@ export default function LeaderLayout({ children, title }) {
                 </main>
             </div>
 
+            {/* ── Mobile bottom nav ─────────────────────────────────────── */}
             <nav
                 className="mobile-bottom-nav"
                 style={{
@@ -194,7 +214,7 @@ export default function LeaderLayout({ children, title }) {
                 }}
             >
                 {navItems.map((item) => (
-                    <MobileNavItem key={item.href} {...item} active={isActive(item.href)} />
+                    <MobileNavItem key={item.href} {...item} active={isActive(item)} />
                 ))}
             </nav>
 

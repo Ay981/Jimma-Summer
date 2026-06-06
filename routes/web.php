@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Student\AnnouncementController as StudentAnnouncements;
 use App\Http\Controllers\Student\BadgeController as StudentBadge;
 use App\Http\Controllers\Student\CheckinController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboard;
@@ -9,6 +10,8 @@ use App\Http\Controllers\Student\HistoryController;
 use App\Http\Controllers\Student\JournalController;
 use App\Http\Controllers\Student\NotificationController as StudentNotification;
 use App\Http\Controllers\Student\PairController as StudentPair;
+use App\Http\Controllers\Student\ProfileController as StudentProfile;
+use App\Http\Controllers\Leader\AnnouncementController as LeaderAnnouncements;
 use App\Http\Controllers\Leader\HalqaDashboardController as LeaderDashboard;
 use App\Http\Controllers\Leader\BroadcastController as LeaderBroadcast;
 use App\Http\Controllers\Leader\MeetingController as LeaderMeeting;
@@ -51,30 +54,40 @@ Route::middleware('auth')->group(function () {
 // ── Student Routes ─────────────────────────────────────────────────────────────
 
 Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')->group(function () {
-    Route::get('/dashboard', [StudentDashboard::class, 'index'])->name('dashboard');
-    Route::put('/settings/weekly-target', [StudentDashboard::class, 'updateWeeklyTarget'])->name('settings.weeklyTarget');
+    // Profile completion — must come before the profile guard is applied
+    Route::get('/profile/complete',  [StudentProfile::class, 'show'])->name('profile.complete');
+    Route::post('/profile/complete', [StudentProfile::class, 'store'])->name('profile.complete.store');
 
-    Route::post('/checkin', [CheckinController::class, 'store'])->name('checkin.store');
-    Route::put('/checkin/{submission}', [CheckinController::class, 'update'])->name('checkin.update');
+    // Everything else requires profile completion
+    Route::middleware('profile.complete')->group(function () {
+        Route::get('/dashboard', [StudentDashboard::class, 'index'])->name('dashboard');
+        Route::put('/settings/weekly-target', [StudentDashboard::class, 'updateWeeklyTarget'])->name('settings.weeklyTarget');
 
-    Route::get('/history', [HistoryController::class, 'index'])->name('history');
-    Route::get('/pair', [StudentPair::class, 'show'])->name('pair');
-    Route::get('/halqa', [StudentHalqa::class, 'show'])->name('halqa');
+        Route::get('/announcements', [StudentAnnouncements::class, 'index'])->name('announcements');
 
-    Route::get('/badges', [StudentBadge::class, 'index'])->name('badges');
+        Route::post('/checkin', [CheckinController::class, 'store'])->name('checkin.store');
+        Route::put('/checkin/{submission}', [CheckinController::class, 'update'])->name('checkin.update');
 
-    Route::get('/journal', [JournalController::class, 'index'])->name('journal');
-    Route::post('/journal', [JournalController::class, 'store'])->name('journal.store');
+        Route::get('/history', [HistoryController::class, 'index'])->name('history');
+        Route::get('/pair', [StudentPair::class, 'show'])->name('pair');
+        Route::get('/halqa', [StudentHalqa::class, 'show'])->name('halqa');
 
-    Route::post('/notifications/{id}/read', [StudentNotification::class, 'markRead'])->name('notifications.read');
-    Route::post('/notifications/{id}/seen', [StudentNotification::class, 'markSeen'])->name('notifications.seen');
-    Route::post('/notifications/read-all', [StudentNotification::class, 'markAllRead'])->name('notifications.readAll');
+        Route::get('/badges', [StudentBadge::class, 'index'])->name('badges');
+
+        Route::get('/journal', [JournalController::class, 'index'])->name('journal');
+        Route::post('/journal', [JournalController::class, 'store'])->name('journal.store');
+
+        Route::post('/notifications/{id}/read', [StudentNotification::class, 'markRead'])->name('notifications.read');
+        Route::post('/notifications/{id}/seen', [StudentNotification::class, 'markSeen'])->name('notifications.seen');
+        Route::post('/notifications/read-all', [StudentNotification::class, 'markAllRead'])->name('notifications.readAll');
+    });
 });
 
 // ── Leader Routes ──────────────────────────────────────────────────────────────
 
 Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->group(function () {
     Route::get('/dashboard', [LeaderDashboard::class, 'index'])->name('dashboard');
+    Route::get('/announcements', [LeaderAnnouncements::class, 'index'])->name('announcements');
 
     // Pair detail & actions
     Route::get('/members/{pair}',                                       [LeaderPairDetail::class, 'show'])->name('members.show');
@@ -129,23 +142,26 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     // Halqas
     Route::get('/halqas',                                    [AdminHalqa::class, 'index'])->name('halqas');
     Route::post('/halqas',                                   [AdminHalqa::class, 'store'])->name('halqas.store');
+    Route::post('/halqas/bulk-create',                       [AdminHalqa::class, 'bulkCreate'])->name('halqas.bulkCreate');
+    Route::post('/halqas/random-assign',                     [AdminHalqa::class, 'randomAssign'])->name('halqas.randomAssign');
+    Route::post('/halqas/swap-students',                     [AdminHalqa::class, 'swapStudents'])->name('halqas.swapStudents');
     Route::put('/halqas/{halqa}',                            [AdminHalqa::class, 'update'])->name('halqas.update');
     Route::delete('/halqas/{halqa}',                         [AdminHalqa::class, 'destroy'])->name('halqas.destroy');
-    Route::post('/halqas/{halqa}/generate-code',             [AdminHalqa::class, 'generateCode'])->name('halqas.generateCode');
-    Route::post('/halqas/codes/{code}/deactivate',           [AdminHalqa::class, 'deactivateCode'])->name('halqas.codes.deactivate');
     Route::post('/halqas/{halqa}/assign-pair',               [AdminHalqa::class, 'assignPair'])->name('halqas.assignPair');
+    Route::post('/halqas/{halqa}/random-pair',               [AdminHalqa::class, 'randomPair'])->name('halqas.randomPair');
 
     // Pairs
     Route::get('/pairs',                                     [AdminPair::class, 'index'])->name('pairs');
-    Route::post('/pairs/requests/{pairingRequest}/approve',  [AdminPair::class, 'approveRequest'])->name('pairs.requests.approve');
-    Route::post('/pairs/requests/{pairingRequest}/reject',   [AdminPair::class, 'rejectRequest'])->name('pairs.requests.reject');
     Route::post('/pairs/confirm-assignment',                 [AdminPair::class, 'confirmAssignment'])->name('pairs.confirmAssignment');
+    Route::post('/pairs/swap-students',                      [AdminPair::class, 'swapPairStudents'])->name('pairs.swapStudents');
+    Route::post('/pairs/cross-halqa',                        [AdminPair::class, 'crossHalqaPair'])->name('pairs.crossHalqa');
     Route::delete('/pairs/{pair}',                           [AdminPair::class, 'destroy'])->name('pairs.destroy');
     Route::put('/pairs/{pair}/halqa',                        [AdminPair::class, 'assignHalqa'])->name('pairs.assignHalqa');
 
     // Leaderboard
     Route::get('/leaderboard',                               [AdminLeaderboard::class, 'index'])->name('leaderboard');
     Route::post('/leaderboard/lock',                         [AdminLeaderboard::class, 'lock'])->name('leaderboard.lock');
+    Route::post('/leaderboard/unlock',                       [AdminLeaderboard::class, 'unlock'])->name('leaderboard.unlock');
     Route::get('/leaderboard/certificate/{student}',         [AdminLeaderboard::class, 'certificate'])->name('leaderboard.certificate');
     Route::get('/leaderboard/pdf',                           [AdminReports::class, 'exportProgramReport'])->name('leaderboard.pdf');
 

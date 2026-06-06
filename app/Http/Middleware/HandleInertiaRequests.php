@@ -50,8 +50,9 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'flash' => [
-                'success' => session('success'),
-                'error'   => session('error'),
+                'success'       => session('success'),
+                'error'         => session('error'),
+                'import_result' => session('import_result'),
             ],
             'notifications' => $user ? [
                 'unread_count' => $user->unreadNotifications()->count(),

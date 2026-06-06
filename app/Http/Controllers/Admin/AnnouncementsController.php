@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Halqa;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -41,12 +43,15 @@ class AnnouncementsController extends Controller
             'halqa_id' => ['nullable', 'exists:halqas,id'],
         ]);
 
-        Announcement::create([
+        $announcement = Announcement::create([
             'posted_by' => auth()->id(),
             'halqa_id'  => $request->halqa_id,
             'title'     => $request->title,
             'body'      => $request->body,
         ]);
+
+        // Dispatch in-app notifications to relevant users
+        $this->notifyRelevantUsers($announcement);
 
         return back()->with('success', 'Announcement posted.');
     }
@@ -67,5 +72,32 @@ class AnnouncementsController extends Controller
     {
         $announcement->delete();
         return back()->with('success', 'Announcement deleted.');
+    }
+
+    private function notifyRelevantUsers(Announcement $announcement): void
+    {
+        $query = User::whereIn('role', ['student', 'leader'])->where('is_active', true);
+
+        if ($announcement->halqa_id) {
+            // Targeted: only members of that halqa
+            $query->where('halqa_id', $announcement->halqa_id);
+        }
+
+        $users = $query->get();
+        $route = fn ($u) => $u->role === 'student' ? '/student/announcements' : '/leader/announcements';
+
+        foreach ($users as $user) {
+            $user->notifications()->create([
+                'id'              => Str::uuid(),
+                'type'            => 'App\Notifications\NewAnnouncement',
+                'notifiable_type' => User::class,
+                'notifiable_id'   => $user->id,
+                'data'            => json_encode([
+                    'message'  => "New announcement: {$announcement->title}",
+                    'redirect' => $route($user),
+                ]),
+                'created_at' => now(),
+            ]);
+        }
     }
 }

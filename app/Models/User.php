@@ -19,10 +19,15 @@ class User extends Authenticatable
         'halqa_id',
         'weekly_target',
         'current_juz',
+        'memo_level',
         'available_times',
+        'available_days',
+        'health_notes',
         'is_active',
         'is_monitored',
+        'is_solo',
         'must_change_password',
+        'profile_completed',
     ];
 
     protected $hidden = [
@@ -35,9 +40,12 @@ class User extends Authenticatable
         return [
             'password'             => 'hashed',
             'available_times'      => 'array',
+            'available_days'       => 'array',
             'is_active'            => 'boolean',
             'is_monitored'         => 'boolean',
+            'is_solo'              => 'boolean',
             'must_change_password' => 'boolean',
+            'profile_completed'    => 'boolean',
         ];
     }
 

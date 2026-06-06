@@ -117,20 +117,25 @@ function AddStudentModal({ halqas, onClose }) {
 // ── CSV Import modal ──────────────────────────────────────────────────────────
 
 function ImportModal({ onClose }) {
-    const { data, setData, post, processing, errors } = useForm({ csv: null });
-    const [result, setResult] = useState(null);
+    const [csvFile, setCsvFile] = useState(null);
+    const [result, setResult]   = useState(null);
+    const [processing, setProc] = useState(false);
     const fileRef = useRef();
 
     function submit(e) {
         e.preventDefault();
+        if (!csvFile) return;
+        setProc(true);
         const form = new FormData();
-        form.append('csv', data.csv);
+        form.append('csv', csvFile);
         router.post('/admin/students/import', form, {
             forceFormData: true,
             onSuccess: (page) => {
+                // import_result is now shared via HandleInertiaRequests
                 const r = page.props?.flash?.import_result;
-                if (r) setResult(r);
+                setResult(r ?? { created: 0, failed: [] });
             },
+            onFinish: () => setProc(false),
         });
     }
 
@@ -139,30 +144,40 @@ function ImportModal({ onClose }) {
         const header = 'line,student_id,reason\n';
         const rows = result.failed.map((f) => `${f.line},"${f.data}","${f.reason}"`).join('\n');
         const blob = new Blob([header + rows], { type: 'text/csv' });
-        const a    = document.createElement('a');
-        a.href     = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
         a.download = 'failed-import.csv';
         a.click();
     }
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
-            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px', width: '460px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px', width: '480px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
                 <h3 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: 700 }}>Bulk CSV Import</h3>
+
                 {!result ? (
                     <>
-                        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
-                            Expected columns: <code>name, student_id, phone, current_juz, available_times, has_pair_request, requested_partner_name, requested_partner_phone</code>
-                        </p>
-                        <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
-                            available_times: comma-separated (subhi, zuhr, asr, maghrib, isha). Student IDs: JUMU-1446-001 format.
-                        </p>
+                        <div style={{ background: 'var(--muted)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: '12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            <strong style={{ color: 'var(--foreground)' }}>Required columns:</strong>{' '}
+                            <code>name</code> · <code>student_id</code> · <code>phone</code> · <code>current_juz</code> · <code>available_times</code>
+                            <br /><br />
+                            <strong style={{ color: 'var(--foreground)' }}>available_times:</strong> comma or semicolon-separated —
+                            <code> subhi</code>, <code>zuhr</code>, <code>asr</code>, <code>maghrib</code>, <code>isha</code>
+                            <br />
+                            <strong style={{ color: 'var(--foreground)' }}>student_id format:</strong> <code>JUMU-1446-001</code>
+                        </div>
+
                         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <input ref={fileRef} type="file" accept=".csv,.txt" onChange={(e) => setData('csv', e.target.files[0])} style={{ fontSize: '0.875rem' }} />
-                            {errors.csv && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.csv}</p>}
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept=".csv,.txt"
+                                onChange={(e) => setCsvFile(e.target.files[0] ?? null)}
+                                style={{ fontSize: '0.875rem' }}
+                            />
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                 <button type="button" onClick={onClose} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
-                                <button type="submit" disabled={processing || !data.csv} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: processing ? 'not-allowed' : 'pointer' }}>
+                                <button type="submit" disabled={processing || !csvFile} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: (processing || !csvFile) ? 'not-allowed' : 'pointer', opacity: !csvFile ? 0.6 : 1 }}>
                                     {processing ? 'Importing…' : 'Import'}
                                 </button>
                             </div>
@@ -170,24 +185,33 @@ function ImportModal({ onClose }) {
                     </>
                 ) : (
                     <div>
-                        <p style={{ margin: '0 0 8px', fontSize: '0.9rem' }}>✓ <strong>{result.created}</strong> students created.</p>
-                        {result.failed.length > 0 && (
+                        <div style={{ padding: '12px 14px', background: result.created > 0 ? 'var(--success)' : 'var(--muted)', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>
+                            <p style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: result.created > 0 ? 'var(--success-foreground)' : 'var(--foreground)' }}>
+                                ✓ {result.created} student{result.created !== 1 ? 's' : ''} created
+                            </p>
+                        </div>
+
+                        {result.failed?.length > 0 && (
                             <>
-                                <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: 'var(--destructive)' }}>✗ <strong>{result.failed.length}</strong> rows failed:</p>
+                                <p style={{ margin: '0 0 6px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--destructive)' }}>
+                                    ✗ {result.failed.length} row{result.failed.length !== 1 ? 's' : ''} skipped:
+                                </p>
                                 <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', marginBottom: '10px' }}>
                                     {result.failed.map((f, i) => (
                                         <div key={i} style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', fontSize: '0.8125rem' }}>
-                                            <span style={{ color: 'var(--muted-foreground)' }}>Line {f.line} · {f.data}</span> — {f.reason}
+                                            <span style={{ color: 'var(--muted-foreground)' }}>Line {f.line} · {f.data}</span>
+                                            <span style={{ color: 'var(--destructive)', marginLeft: '6px' }}>— {f.reason}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={downloadFailed} style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--secondary)', fontSize: '0.8125rem', cursor: 'pointer', marginBottom: '10px' }}>
-                                    Download failed rows CSV
+                                <button onClick={downloadFailed} style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--secondary)', fontSize: '0.8125rem', cursor: 'pointer', marginBottom: '12px' }}>
+                                    Download failed rows ↓
                                 </button>
                             </>
                         )}
+
                         <div style={{ textAlign: 'right' }}>
-                            <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Done</button>
+                            <button onClick={onClose} style={{ padding: '7px 20px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>Done</button>
                         </div>
                     </div>
                 )}
@@ -208,9 +232,11 @@ function StudentRow({ student }) {
     return (
         <Link
             href={`/admin/students/${student.id}`}
+            className="student-row"
             style={{
-                display: 'grid', gridTemplateColumns: '36px 1fr 100px 90px 80px 50px 70px auto',
-                alignItems: 'center', gap: '12px',
+                display: 'grid',
+                gridTemplateColumns: '36px 1fr 90px 80px 50px 60px 70px auto',
+                alignItems: 'center', gap: '10px',
                 padding: '10px 14px', textDecoration: 'none', color: 'var(--foreground)',
                 borderBottom: '1px solid var(--border)',
                 background: student.is_monitored ? 'oklch(97% 0.03 50)' : 'transparent',
@@ -231,21 +257,24 @@ function StudentRow({ student }) {
                 </p>
             </div>
 
-            <div>
+            {/* hidden on mobile */}
+            <div className="hide-mobile">
                 <SegmentedBar value={student.consistency} max={100} segments={10} />
             </div>
 
-            <Sparkline data={student.sparkline} width={80} height={22} color={sparkColor} />
+            <span className="hide-mobile">
+                <Sparkline data={student.sparkline} width={72} height={20} color={sparkColor} />
+            </span>
 
             <span style={{ fontSize: '0.875rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
                 {student.consistency}%
             </span>
 
-            <span style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
+            <span className="hide-mobile" style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
                 {student.streak}d
             </span>
 
-            <span style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
+            <span className="hide-mobile" style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: 'var(--muted-foreground)' }}>
                 {lastSeenStr}
             </span>
 
@@ -359,11 +388,36 @@ export default function Students({ students, halqas }) {
             </div>
 
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 100px 90px 80px 50px 70px auto', gap: '12px', padding: '5px 14px' }}>
-                {['', 'Student', 'Consistency', '14 days', '%', 'Streak', 'Last Sub', 'Status'].map((h) => (
-                    <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
+            <div className="student-row" style={{
+                display: 'grid',
+                gridTemplateColumns: '36px 1fr 90px 80px 50px 60px 70px auto',
+                gap: '10px', padding: '5px 14px',
+            }}>
+                {[
+                    { label: '',           cls: '' },
+                    { label: 'Student',    cls: '' },
+                    { label: 'Bar',        cls: 'hide-mobile' },
+                    { label: '14 days',    cls: 'hide-mobile' },
+                    { label: '%',          cls: '' },
+                    { label: 'Streak',     cls: 'hide-mobile' },
+                    { label: 'Last Sub',   cls: 'hide-mobile' },
+                    { label: 'Status',     cls: '' },
+                ].map(({ label, cls }, i) => (
+                    <span key={i} className={cls} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {label}
+                    </span>
                 ))}
             </div>
+
+            <style>{`
+                @media (max-width: 640px) {
+                    .student-row {
+                        grid-template-columns: 36px 1fr 50px auto !important;
+                        gap: 8px !important;
+                    }
+                    .hide-mobile { display: none !important; }
+                }
+            `}</style>
 
             {/* List */}
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>

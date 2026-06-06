@@ -12,7 +12,7 @@ export default function Journal({ entries, can_add, today_sub }) {
     return (
         <StudentLayout title="Journal">
             <Head title="Journal" />
-            <div style={{maxWidth:'1200px',margin:'0 auto',padding:'0 2rem'}}>
+            <div className="page-content">
 
                 <h1 style={{margin:'0 0 20px',fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>My Journal</h1>
 

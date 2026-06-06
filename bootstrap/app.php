@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     'guest'                => \App\Http\Middleware\RedirectIfAuthenticated::class,
     'role'                 => \App\Http\Middleware\RoleMiddleware::class,
     'must.change.password' => \App\Http\Middleware\MustChangePassword::class,
+    'profile.complete'     => \App\Http\Middleware\MustCompleteProfile::class,
 ]);
     })
     

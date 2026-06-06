@@ -103,20 +103,21 @@ class StudentController extends Controller
             $status = $this->status($sparkline, $cons, $lastSub, $effDays);
 
             return [
-                'id'           => $student->id,
-                'name'         => $student->name,
-                'student_id'   => $student->student_id,
-                'halqa'        => $student->halqa?->name ?? '—',
-                'partner'      => $partnerMap[$student->id] ?? null,
-                'consistency'  => $cons,
-                'sparkline'    => $sparkline,
-                'streak'       => $streak,
-                'pages_total'  => (int) ($totalPages[$student->id] ?? 0),
-                'status'       => $status,
-                'last_sub'     => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
-                'on_watchlist' => $student->watchlistEntries->count() > 0,
-                'is_active'    => $student->is_active,
-                'is_monitored' => $student->is_monitored,
+                'id'                => $student->id,
+                'name'              => $student->name,
+                'student_id'        => $student->student_id,
+                'halqa'             => $student->halqa?->name ?? '—',
+                'partner'           => $partnerMap[$student->id] ?? null,
+                'consistency'       => $cons,
+                'sparkline'         => $sparkline,
+                'streak'            => $streak,
+                'pages_total'       => (int) ($totalPages[$student->id] ?? 0),
+                'status'            => $status,
+                'last_sub'          => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
+                'on_watchlist'      => $student->watchlistEntries->count() > 0,
+                'is_active'         => $student->is_active,
+                'is_monitored'      => $student->is_monitored,
+                'profile_completed' => $student->profile_completed,
             ];
         });
 
@@ -193,22 +194,25 @@ class StudentController extends Controller
 
         return Inertia::render('Admin/StudentDetail', [
             'student' => [
-                'id'           => $student->id,
-                'name'         => $student->name,
-                'student_id'   => $student->student_id,
-                'phone'        => $student->phone,
-                'role'         => $student->role,
-                'is_active'    => $student->is_active,
-                'is_monitored' => $student->is_monitored,
-                'halqa'        => $student->halqa?->name ?? '—',
-                'halqa_id'     => $student->halqa_id,
-                'current_juz'  => $student->current_juz,
-                'available_times' => $student->available_times ?? [],
-                'partner'      => $partner ? ['id' => $partner->id, 'name' => $partner->name] : null,
-                'on_watchlist' => $onWatchlist,
-                'pages_total'  => (int) $totalPages,
-                'badges'       => $badges,
-                'admin_note'   => $adminNote,
+                'id'                => $student->id,
+                'name'              => $student->name,
+                'student_id'        => $student->student_id,
+                'phone'             => $student->phone,
+                'role'              => $student->role,
+                'is_active'         => $student->is_active,
+                'is_monitored'      => $student->is_monitored,
+                'profile_completed' => $student->profile_completed,
+                'halqa'             => $student->halqa?->name ?? '—',
+                'halqa_id'          => $student->halqa_id,
+                'current_juz'       => $student->current_juz,
+                'memo_level'        => $student->memo_level,
+                'available_times'   => $student->available_times ?? [],
+                'health_notes'      => $student->health_notes ?? '',
+                'partner'           => $partner ? ['id' => $partner->id, 'name' => $partner->name] : null,
+                'on_watchlist'      => $onWatchlist,
+                'pages_total'       => (int) $totalPages,
+                'badges'            => $badges,
+                'admin_note'        => $adminNote,
             ],
             'heatmap'     => $heatmap,
             'submissions' => $submissions,
@@ -278,13 +282,19 @@ class StudentController extends Controller
                 }
             }
 
-            // Parse available_times
-            $rawSlots = array_filter(array_map('trim', explode(',', $data['available_times'] ?? '')));
-            $slots    = array_values(array_filter(array_map(fn ($s) => $SLOTS[strtolower($s)] ?? null, $rawSlots)));
-            if (empty($slots)) {
-                $failed[] = ['line' => $line, 'reason' => 'No valid available_times', 'data' => $data['student_id']];
+            // Parse available_times — FIX 11: strip stray quotes first, then validate
+            $ALLOWED_KEYS = array_keys($SLOTS);
+            $rawSlots     = array_filter(array_map('trim', preg_split('/[,;]+/', str_replace('"', '', $data['available_times'] ?? ''))));
+            if (empty($rawSlots)) {
+                $failed[] = ['line' => $line, 'reason' => 'available_times is empty', 'data' => $data['student_id']];
                 continue;
             }
+            $invalidSlots = array_filter($rawSlots, fn ($s) => !array_key_exists(strtolower($s), $SLOTS));
+            if (!empty($invalidSlots)) {
+                $failed[] = ['line' => $line, 'reason' => 'Invalid available_times values: ' . implode(', ', $invalidSlots) . '. Allowed: ' . implode(', ', $ALLOWED_KEYS), 'data' => $data['student_id']];
+                continue;
+            }
+            $slots = array_values(array_map(fn ($s) => $SLOTS[strtolower($s)], $rawSlots));
 
             // Student ID format
             if (!preg_match('/^JUMU-\d{4}-\d{3}$/', $data['student_id'])) {
@@ -311,16 +321,6 @@ class StudentController extends Controller
                 'must_change_password' => true,
             ]);
             $created++;
-
-            // Pairing request
-            $hasPair = strtolower(trim($data['has_pair_request'] ?? '')) === 'yes';
-            if ($hasPair && !empty($data['requested_partner_name'])) {
-                \App\Models\PairingRequest::create([
-                    'student_id'              => $student->id,
-                    'requested_partner_name'  => $data['requested_partner_name'],
-                    'requested_partner_phone' => $data['requested_partner_phone'] ?? '',
-                ]);
-            }
         }
 
         fclose($handle);
@@ -426,11 +426,70 @@ class StudentController extends Controller
 
     public function compare(Request $request): Response
     {
-        $ids = array_filter([$request->query('a'), $request->query('b')]);
-        $students = User::whereIn('id', $ids)->where('role', 'student')->get();
+        $ids = array_values(array_filter([$request->query('a'), $request->query('b')]));
+
+        $cs = app(\App\Services\ConsistencyService::class);
+        $today = Carbon::today();
+        $programStart = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $days = max(1, $programStart->diffInDays($today) + 1);
+
+        $students = User::whereIn('id', $ids)->where('role', 'student')->with('halqa')->get()
+            ->map(function ($s) use ($cs, $days, $today) {
+                $totalSubs  = PairSubmission::where('subject_student_id', $s->id)->get();
+                $pages      = (int) $totalSubs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
+                $minutes    = (int) $totalSubs->sum('minutes_spent');
+
+                // 30-day heatmap
+                $last30 = collect(range(29, 0))->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
+                $subSet = PairSubmission::where('subject_student_id', $s->id)
+                    ->whereBetween('submission_date', [$last30->first(), $last30->last()])
+                    ->pluck('submission_date')
+                    ->map(fn ($d) => Carbon::parse($d)->toDateString())->toArray();
+                $availDays = $s->available_days ?? [];
+                $heatmap = $last30->map(fn ($d) => [
+                    'date'      => $d,
+                    'submitted' => in_array($d, $subSet),
+                    'scheduled' => empty($availDays) || in_array(strtolower(Carbon::parse($d)->format('l')), $availDays, true),
+                ])->values()->toArray();
+
+                // Weekly submissions for last 8 weeks
+                $weekly = collect(range(7, 0))->map(function ($weeksAgo) use ($s, $today) {
+                    $start = $today->copy()->startOfWeek()->subWeeks($weeksAgo);
+                    $end   = $start->copy()->endOfWeek();
+                    $count = PairSubmission::where('subject_student_id', $s->id)
+                        ->whereBetween('submission_date', [$start->toDateString(), $end->toDateString()])
+                        ->count();
+                    return ['label' => $start->format('d M'), 'value' => $count];
+                })->values()->toArray();
+
+                return [
+                    'id'             => $s->id,
+                    'name'           => $s->name,
+                    'student_id'     => $s->student_id,
+                    'halqa'          => $s->halqa?->name ?? '—',
+                    'consistency'    => $cs->getConsistency($s->id) ?? 0,
+                    'streak'         => $cs->getStreak($s->id),
+                    'longest_streak' => $cs->getLongestStreak($s->id),
+                    'pages'          => $pages,
+                    'minutes'        => $minutes,
+                    'submissions'    => $totalSubs->count(),
+                    'available_days' => $s->available_days ?? [],
+                    'memo_level'     => $s->memo_level ?? '—',
+                    'heatmap'        => $heatmap,
+                    'weekly'         => $weekly,
+                ];
+            })->values()->toArray();
+
+        // All students for selector
+        $all = User::where('role', 'student')->orderBy('name')
+            ->get(['id', 'name', 'student_id'])
+            ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id])
+            ->toArray();
 
         return Inertia::render('Admin/StudentCompare', [
-            'students' => $students->map(fn ($s) => $this->studentDetailData($s)),
+            'students'     => $students,
+            'all_students' => $all,
+            'selected_ids' => $ids,
         ]);
     }
 

@@ -43,18 +43,24 @@ class MeetingController extends Controller
                 'overdue'     => $a->due_date && $a->due_date->isPast(),
             ])->toArray();
 
-        // Students for agenda suggestions (at-risk / with follow-up)
+        // Students for agenda suggestions: at-risk OR have open follow-up action items
         $atRiskStudentIds = collect();
         foreach ($halqa->pairs()->with(['studentA', 'studentB'])->get() as $pair) {
-            // Simple heuristic: no submission in last 3 days
             $ids = array_filter([$pair->student_a_id, $pair->student_b_id]);
             foreach ($ids as $id) {
-                $last = \App\Models\PairSubmission::where('subject_student_id', $id)->orderByDesc('submission_date')->value('submission_date');
+                $last = \App\Models\PairSubmission::where('subject_student_id', $id)
+                    ->orderByDesc('submission_date')->value('submission_date');
                 if (!$last || Carbon::parse($last)->diffInDays(Carbon::today()) >= 3) {
                     $atRiskStudentIds->push($id);
                 }
             }
         }
+
+        // Also include students with open, unresolved action items
+        $withOpenActions = MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))
+            ->where('status', 'open')
+            ->pluck('student_id');
+        $atRiskStudentIds = $atRiskStudentIds->merge($withOpenActions)->unique()->values();
         $suggestedStudents = User::whereIn('id', $atRiskStudentIds->unique()->values())
             ->get(['id', 'name'])
             ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])
@@ -173,6 +179,41 @@ class MeetingController extends Controller
 
     private function formatMeeting(MeetingLog $m): array
     {
+        $actionItems = MeetingActionItem::where('meeting_id', $m->id)
+            ->with('student:id,name')
+            ->get()
+            ->map(fn ($a) => [
+                'id'          => $a->id,
+                'student'     => $a->student->name,
+                'description' => $a->description,
+                'due_date'    => $a->due_date?->toDateString(),
+                'status'      => $a->status,
+            ])->toArray();
+
+        $attendance = $m->attendance ?? [];
+        $presentCount = count(array_filter($attendance, fn ($v) => $v === 'present'));
+        $absentCount  = count(array_filter($attendance, fn ($v) => $v === 'absent'));
+        $excusedCount = count(array_filter($attendance, fn ($v) => $v === 'excused'));
+
+        // Auto-generate read-only summary for finalised meetings
+        $summary = null;
+        if ($m->state === 'final') {
+            $parts = [];
+            $total = count($attendance);
+            if ($total > 0) {
+                $parts[] = "{$presentCount} of {$total} students attended";
+                if ($absentCount > 0) $parts[] = "{$absentCount} absent";
+                if ($excusedCount > 0) $parts[] = "{$excusedCount} excused";
+            }
+            if (!empty($actionItems)) {
+                $parts[] = count($actionItems) . ' action item(s) created';
+            }
+            if (!empty($m->agenda_items)) {
+                $parts[] = count($m->agenda_items) . ' agenda item(s) discussed';
+            }
+            $summary = implode('. ', $parts) . ($parts ? '.' : '');
+        }
+
         return [
             'id'               => $m->id,
             'meeting_date'     => Carbon::parse($m->meeting_date)->toDateString(),
@@ -182,8 +223,10 @@ class MeetingController extends Controller
             'highlights'       => $m->highlights,
             'concerns'         => $m->concerns,
             'agenda_items'     => $m->agenda_items ?? [],
-            'attendance'       => $m->attendance ?? [],
+            'attendance'       => $attendance,
+            'action_items'     => $actionItems,
             'state'            => $m->state,
+            'summary'          => $summary,
             'created_at'       => Carbon::parse($m->created_at)->format('Y-m-d H:i'),
         ];
     }

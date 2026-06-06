@@ -250,7 +250,7 @@
 <div class="page">
     <div class="geo-header"></div>
     <div class="cover-content" style="margin-top: 40px;">
-        <img src="{{ public_path('images/logo.png') }}" alt="Logo" class="cover-logo" />
+        <p style="font-size:24px;font-weight:bold;color:#1a3a2a;letter-spacing:0.05em;margin-bottom:4px;">Muraja'a Monitor</p>
         <p class="cover-org">Jimma University Muslim Students Union</p>
         <h1 class="cover-title">Muraja'a Monitor</h1>
         <p class="cover-subtitle">Summer Program 1446H — Halqa Progress Report</p>
