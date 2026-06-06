@@ -10,6 +10,8 @@ use App\Http\Controllers\Student\HistoryController;
 use App\Http\Controllers\Student\JournalController;
 use App\Http\Controllers\Student\NotificationController as StudentNotification;
 use App\Http\Controllers\Student\PairController as StudentPair;
+use App\Http\Controllers\Student\PairRequestController as StudentPairRequest;
+use App\Http\Controllers\Admin\PairingController as AdminPairing;
 use App\Http\Controllers\Student\ProfileController as StudentProfile;
 use App\Http\Controllers\Leader\AnnouncementController as LeaderAnnouncements;
 use App\Http\Controllers\Leader\HalqaDashboardController as LeaderDashboard;
@@ -70,6 +72,8 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
 
         Route::get('/history', [HistoryController::class, 'index'])->name('history');
         Route::get('/pair', [StudentPair::class, 'show'])->name('pair');
+        Route::post('/pair-request', [StudentPairRequest::class, 'store'])->name('pair-request.store');
+        Route::delete('/pair-request', [StudentPairRequest::class, 'destroy'])->name('pair-request.destroy');
         Route::get('/halqa', [StudentHalqa::class, 'show'])->name('halqa');
 
         Route::get('/badges', [StudentBadge::class, 'index'])->name('badges');
@@ -128,6 +132,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Students
     Route::get('/students',                                  [AdminStudent::class, 'index'])->name('students');
+    Route::get('/students/credentials-pdf',                  [AdminStudent::class, 'credentialsPdf'])->name('students.credentialsPdf');
     Route::get('/students/compare',                          [AdminStudent::class, 'compare'])->name('students.compare');
     Route::get('/students/{student}',                        [AdminStudent::class, 'show'])->name('students.show');
     Route::post('/students',                                 [AdminStudent::class, 'store'])->name('students.store');
@@ -171,8 +176,17 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/outreach/bulk-notify',                     [AdminOutreach::class, 'bulkNotify'])->name('outreach.bulkNotify');
     Route::post('/outreach/bulk-watchlist',                  [AdminOutreach::class, 'bulkWatchlist'])->name('outreach.bulkWatchlist');
 
+    // Pairing management
+    Route::get('/pairing',                    [AdminPairing::class, 'index'])->name('pairing');
+    Route::post('/pairing/window',            [AdminPairing::class, 'setWindow'])->name('pairing.window');
+    Route::post('/pairing/run',               [AdminPairing::class, 'run'])->name('pairing.run');
+
     // Leaders
     Route::get('/leaders',                                   [AdminLeaders::class, 'index'])->name('leaders');
+    Route::get('/leaders/{leader}',                          [AdminLeaders::class, 'show'])->name('leaders.show');
+    Route::put('/leaders/{leader}',                          [AdminLeaders::class, 'update'])->name('leaders.update');
+    Route::post('/leaders/{leader}/reset-password',          [AdminLeaders::class, 'resetPassword'])->name('leaders.resetPassword');
+    Route::post('/leaders/{leader}/toggle-active',           [AdminLeaders::class, 'toggleActive'])->name('leaders.toggleActive');
 
     // Integrity
     Route::get('/integrity',                                 [AdminIntegrity::class, 'index'])->name('integrity');

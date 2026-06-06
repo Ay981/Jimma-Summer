@@ -30,7 +30,7 @@ class DashboardController extends Controller
         $totalStudents  = User::where('role', 'student')->count();
         $activeStudents = User::where('role', 'student')->where('is_active', true)->count();
         $totalPairs     = Pair::count();
-        $pendingRequests= PairingRequest::where('status', 'pending')->count();
+        $pendingRequests= PairingRequest::count();
 
         $todaySubs = PairSubmission::where('submission_date', $today->toDateString())
             ->distinct('subject_student_id')->count('subject_student_id');

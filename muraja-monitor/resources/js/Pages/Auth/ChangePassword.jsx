@@ -1,8 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
+import PasswordInput from '@/Components/UI/PasswordInput';
 
-export default function ChangePassword() {
+export default function ChangePassword({ role, current_name }) {
+    const isLeader = role === 'leader';
+
     const { data, setData, post, processing, errors } = useForm({
-        password: '',
+        name:                  current_name ?? '',
+        password:              '',
         password_confirmation: '',
     });
 
@@ -11,141 +15,100 @@ export default function ChangePassword() {
         post('/change-password');
     }
 
+    const inputStyle = (hasError) => ({
+        width: '100%',
+        padding: '0.625rem 0.75rem',
+        background: 'var(--background)',
+        border: `1px solid ${hasError ? 'var(--destructive)' : 'var(--border)'}`,
+        borderRadius: 'var(--radius-md)',
+        color: 'var(--foreground)',
+        fontSize: '0.9375rem',
+        outline: 'none',
+        boxSizing: 'border-box',
+    });
+
     return (
         <>
             <Head title="Set New Password" />
 
-            <div
-                style={{
-                    minHeight: '100vh',
-                    background: 'var(--background)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '1.5rem',
-                }}
-            >
-                {/* Logo */}
-                <img
-                    src="/images/logo.png"
-                    alt="Union Logo"
-                    style={{
-                        width: '80px',
-                        height: '80px',
-                        objectFit: 'contain',
-                        marginBottom: '1.5rem',
-                    }}
-                />
+            <div style={{
+                minHeight: '100vh',
+                background: 'var(--background)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1.5rem',
+            }}>
+                <img src="/images/logo.png" alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '1.5rem' }} />
 
-                <div
-                    style={{
-                        width: '100%',
-                        maxWidth: '400px',
-                        background: 'var(--card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '2rem',
-                    }}
-                >
-                    <h1
-                        style={{
-                            color: 'var(--foreground)',
-                            fontSize: '1.125rem',
-                            fontWeight: 700,
-                            textAlign: 'center',
-                            marginBottom: '0.5rem',
-                        }}
-                    >
+                <div style={{
+                    width: '100%',
+                    maxWidth: '400px',
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '2rem',
+                }}>
+                    <h1 style={{ color: 'var(--foreground)', fontSize: '1.125rem', fontWeight: 700, textAlign: 'center', marginBottom: '0.5rem' }}>
                         Set Your Password
                     </h1>
-                    <p
-                        style={{
-                            color: 'var(--muted-foreground)',
-                            fontSize: '0.875rem',
-                            textAlign: 'center',
-                            marginBottom: '1.75rem',
-                        }}
-                    >
-                        You must set a personal password before continuing.
+                    <p style={{ color: 'var(--muted-foreground)', fontSize: '0.875rem', textAlign: 'center', marginBottom: '1.75rem' }}>
+                        {isLeader
+                            ? 'Enter your real name and set a personal password before continuing.'
+                            : 'You must set a personal password before continuing.'}
                     </p>
 
                     <form onSubmit={handleSubmit}>
+
+                        {/* Name — leaders only */}
+                        {isLeader && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="name" style={{ display: 'block', color: 'var(--foreground)', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.375rem' }}>
+                                    Full Name
+                                </label>
+                                <input
+                                    id="name"
+                                    type="text"
+                                    value={data.name}
+                                    onChange={e => setData('name', e.target.value)}
+                                    placeholder="Your full name"
+                                    autoFocus
+                                    style={inputStyle(!!errors.name)}
+                                />
+                                {errors.name && <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>{errors.name}</p>}
+                            </div>
+                        )}
+
+                        {/* New password */}
                         <div style={{ marginBottom: '1rem' }}>
-                            <label
-                                htmlFor="password"
-                                style={{
-                                    display: 'block',
-                                    color: 'var(--foreground)',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500,
-                                    marginBottom: '0.375rem',
-                                }}
-                            >
+                            <label htmlFor="password" style={{ display: 'block', color: 'var(--foreground)', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.375rem' }}>
                                 New Password
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password"
-                                type="password"
                                 value={data.password}
                                 onChange={e => setData('password', e.target.value)}
                                 placeholder="At least 8 characters"
-                                autoFocus
-                                style={{
-                                    width: '100%',
-                                    padding: '0.625rem 0.75rem',
-                                    background: 'var(--background)',
-                                    border: `1px solid ${errors.password ? 'var(--destructive)' : 'var(--border)'}`,
-                                    borderRadius: 'var(--radius-md)',
-                                    color: 'var(--foreground)',
-                                    fontSize: '0.9375rem',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                }}
+                                hasError={!!errors.password}
+                                autoFocus={!isLeader}
                             />
-                            {errors.password && (
-                                <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                                    {errors.password}
-                                </p>
-                            )}
+                            {errors.password && <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>{errors.password}</p>}
                         </div>
 
+                        {/* Confirm password */}
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label
-                                htmlFor="password_confirmation"
-                                style={{
-                                    display: 'block',
-                                    color: 'var(--foreground)',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500,
-                                    marginBottom: '0.375rem',
-                                }}
-                            >
+                            <label htmlFor="password_confirmation" style={{ display: 'block', color: 'var(--foreground)', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.375rem' }}>
                                 Confirm Password
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password_confirmation"
-                                type="password"
                                 value={data.password_confirmation}
                                 onChange={e => setData('password_confirmation', e.target.value)}
                                 placeholder="Re-enter your password"
-                                style={{
-                                    width: '100%',
-                                    padding: '0.625rem 0.75rem',
-                                    background: 'var(--background)',
-                                    border: `1px solid ${errors.password_confirmation ? 'var(--destructive)' : 'var(--border)'}`,
-                                    borderRadius: 'var(--radius-md)',
-                                    color: 'var(--foreground)',
-                                    fontSize: '0.9375rem',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                }}
+                                hasError={!!errors.password_confirmation}
                             />
-                            {errors.password_confirmation && (
-                                <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                                    {errors.password_confirmation}
-                                </p>
-                            )}
+                            {errors.password_confirmation && <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>{errors.password_confirmation}</p>}
                         </div>
 
                         <button
@@ -165,7 +128,7 @@ export default function ChangePassword() {
                                 transition: 'opacity 0.15s',
                             }}
                         >
-                            {processing ? 'Saving…' : 'Save Password'}
+                            {processing ? 'Saving…' : 'Save & Continue'}
                         </button>
                     </form>
                 </div>

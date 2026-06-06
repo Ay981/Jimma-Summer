@@ -159,12 +159,10 @@ function ImportModal({ onClose }) {
                     <>
                         <div style={{ background: 'var(--muted)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: '12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
                             <strong style={{ color: 'var(--foreground)' }}>Required columns:</strong>{' '}
-                            <code>name</code> · <code>student_id</code> · <code>phone</code> · <code>current_juz</code> · <code>available_times</code>
+                            <code>name</code> · <code>phone</code>
                             <br /><br />
-                            <strong style={{ color: 'var(--foreground)' }}>available_times:</strong> comma or semicolon-separated —
-                            <code> subhi</code>, <code>zuhr</code>, <code>asr</code>, <code>maghrib</code>, <code>isha</code>
-                            <br />
-                            <strong style={{ color: 'var(--foreground)' }}>student_id format:</strong> <code>JUMU-1446-001</code>
+                            Student IDs are auto-generated (<code>JUMU-{new Date().getFullYear()}-001</code>, <code>002</code>…).
+                            Everything else (juz, times, notes) is collected from students on first login.
                         </div>
 
                         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -251,6 +249,8 @@ function StudentRow({ student }) {
                     {student.name}
                     {!student.is_active && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 400 }}>inactive</span>}
                     {student.is_monitored && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'oklch(60% 0.12 50)', fontWeight: 600 }}>⚑</span>}
+                    {student.must_change_password && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'oklch(93% 0.06 50)', color: 'oklch(40% 0.12 50)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No login</span>}
+                    {!student.must_change_password && !student.profile_completed && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'oklch(93% 0.06 84)', color: 'oklch(40% 0.12 84)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No profile</span>}
                 </p>
                 <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {student.halqa} {student.partner ? `· ↔ ${student.partner}` : '· no pair'}
@@ -299,6 +299,7 @@ export default function Students({ students, halqas }) {
 
         if (tab === 'At Risk')   list = list.filter((s) => s.status === 'at_risk' || s.status === 'inactive');
         if (tab === 'Watchlist') list = list.filter((s) => s.on_watchlist);
+        if (tab === 'Not Set Up') list = list.filter((s) => s.must_change_password || !s.profile_completed);
 
         if (filterStatus) list = list.filter((s) => s.status === filterStatus);
         if (filterHalqa)  list = list.filter((s) => s.halqa === filterHalqa || String(s.halqa_id) === filterHalqa);
@@ -321,10 +322,11 @@ export default function Students({ students, halqas }) {
     }, [students, tab, search, filterStatus, filterHalqa, sortBy]);
 
     const summary = useMemo(() => ({
-        total:    (students ?? []).length,
-        active:   (students ?? []).filter((s) => s.is_active).length,
-        at_risk:  (students ?? []).filter((s) => s.status === 'at_risk' || s.status === 'inactive').length,
-        watchlist:(students ?? []).filter((s) => s.on_watchlist).length,
+        total:      (students ?? []).length,
+        active:     (students ?? []).filter((s) => s.is_active).length,
+        at_risk:    (students ?? []).filter((s) => s.status === 'at_risk' || s.status === 'inactive').length,
+        watchlist:  (students ?? []).filter((s) => s.on_watchlist).length,
+        not_set_up: (students ?? []).filter((s) => s.must_change_password || !s.profile_completed).length,
     }), [students]);
 
     return (
@@ -338,6 +340,7 @@ export default function Students({ students, halqas }) {
                     { label: 'Active', value: summary.active },
                     { label: 'At Risk / Inactive', value: summary.at_risk, warn: summary.at_risk > 0 },
                     { label: 'Watchlist', value: summary.watchlist },
+                    { label: 'Not Set Up', value: summary.not_set_up, warn: summary.not_set_up > 0 },
                 ].map(({ label, value, warn }) => (
                     <div key={label} style={{ padding: '10px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', gap: '8px', alignItems: 'baseline' }}>
                         <span style={{ fontSize: '1.25rem', fontWeight: 700, color: warn ? 'var(--destructive)' : 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
@@ -345,6 +348,7 @@ export default function Students({ students, halqas }) {
                     </div>
                 ))}
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                    <a href="/admin/students/credentials-pdf" target="_blank" style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', fontSize: '0.8125rem', cursor: 'pointer', textDecoration: 'none', color: 'var(--foreground)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>⬇ Credentials PDF</a>
                     <button onClick={() => setShowImport(true)} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', fontSize: '0.8125rem', cursor: 'pointer' }}>Import CSV</button>
                     <button onClick={() => setShowAdd(true)} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>+ Add Student</button>
                 </div>
@@ -353,7 +357,7 @@ export default function Students({ students, halqas }) {
             {/* Tabs + Filters */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                    {['All', 'At Risk', 'Watchlist'].map((t) => (
+                    {['All', 'At Risk', 'Watchlist', 'Not Set Up'].map((t) => (
                         <button key={t} onClick={() => setTab(t)} style={{
                             padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
                             background: tab === t ? 'var(--primary)' : 'var(--card)',

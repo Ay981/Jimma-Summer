@@ -1,0 +1,21 @@
+name,student_id,phone,current_juz,available_times
+Fatima Ahmed,JUMU-1446-001,0911234567,5,subhi;zuhr
+Mariam Hassan,JUMU-1446-002,0922345678,3,zuhr;asr
+Zainab Omar,JUMU-1446-003,0933456789,7,asr;maghrib
+Khadija Yusuf,JUMU-1446-004,0944567890,7,asr;maghrib
+Aisha Ibrahim,JUMU-1446-005,0955678901,10,maghrib;isha
+Hafsa Abdi,JUMU-1446-006,0966789012,2,subhi;isha
+Ruqayyah Mussa,JUMU-1446-007,0977890123,15,zuhr;asr
+Sumaya Ali,JUMU-1446-008,0988901234,1,subhi;zuhr
+Nour Abdullahi,JUMU-1446-009,0999012345,20,asr;maghrib
+Safiya Hasan,JUMU-1446-010,0911123456,8,maghrib;isha
+Halima Osman,JUMU-1446-011,0922234567,4,subhi;asr
+Rahma Idris,JUMU-1446-012,0933345678,6,zuhr;maghrib
+Najma Farah,JUMU-1446-013,0944456789,12,isha;subhi
+Asma Warsame,JUMU-1446-014,0955567890,9,zuhr;asr
+Hodan Jama,JUMU-1446-015,0966678901,3,asr;isha
+Farhiya Ahmed,JUMU-1446-016,0977789012,16,subhi;maghrib
+Ubah Hassan,JUMU-1446-017,0988890123,11,zuhr;isha
+Ikram Omar,JUMU-1446-018,0999901234,5,asr;maghrib
+Sagal Ibrahim,JUMU-1446-019,0911234568,2,maghrib;isha
+Filsan Abdi,JUMU-1446-020,0922345679,18,subhi;zuhr

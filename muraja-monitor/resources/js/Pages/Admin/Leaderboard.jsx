@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
@@ -248,7 +248,7 @@ function LeaderTable({ leaders }) {
                 <div key={l.id} className="lb-leader-row" style={{ background: l.rank <= 3 ? 'oklch(98% 0.02 84)' : 'transparent' }}>
                     <RankBadge rank={l.rank} />
                     <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</p>
+                        <Link href={`/admin/leaders/${l.id}`} style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</Link>
                         <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.halqa}</p>
                     </div>
                     <span className="lb-leader-hide" style={{ ...NUM, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{l.halqa}</span>

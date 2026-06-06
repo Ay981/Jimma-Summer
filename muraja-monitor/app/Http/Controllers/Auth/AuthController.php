@@ -74,22 +74,38 @@ class AuthController extends Controller
 
     public function showChangePassword(): Response
     {
-        return Inertia::render('Auth/ChangePassword');
+        $user = auth()->user();
+        return Inertia::render('Auth/ChangePassword', [
+            'role'         => $user->role,
+            'current_name' => $user->name,
+        ]);
     }
 
     public function changePassword(Request $request): RedirectResponse
     {
-        $request->validate([
+        $user = $request->user();
+
+        $rules = [
             'password'              => ['required', 'string', 'min:8', 'confirmed'],
             'password_confirmation' => ['required', 'string'],
-        ]);
+        ];
 
-        /** @var User $user */
-        $user = $request->user();
-        $user->update([
+        if ($user->role === 'leader') {
+            $rules['name'] = ['required', 'string', 'max:255'];
+        }
+
+        $request->validate($rules);
+
+        $updates = [
             'password'             => Hash::make($request->password),
             'must_change_password' => false,
-        ]);
+        ];
+
+        if ($user->role === 'leader' && $request->filled('name')) {
+            $updates['name'] = $request->name;
+        }
+
+        $user->update($updates);
 
         AuditLog::create([
             'user_id' => $user->id,

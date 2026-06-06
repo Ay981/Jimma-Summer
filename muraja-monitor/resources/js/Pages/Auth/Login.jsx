@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import PasswordInput from '@/Components/UI/PasswordInput';
 
 export default function Login() {
     const { data, setData, post, processing, errors } = useForm({
@@ -127,23 +128,12 @@ export default function Login() {
                             >
                                 Password
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password"
-                                type="password"
                                 value={data.password}
                                 onChange={e => setData('password', e.target.value)}
                                 placeholder="Enter your password"
-                                style={{
-                                    width: '100%',
-                                    padding: '0.625rem 0.75rem',
-                                    background: 'var(--background)',
-                                    border: `1px solid ${errors.password ? 'var(--destructive)' : 'var(--border)'}`,
-                                    borderRadius: 'var(--radius-md)',
-                                    color: 'var(--foreground)',
-                                    fontSize: '0.9375rem',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                }}
+                                hasError={!!errors.password}
                             />
                             {errors.password && (
                                 <p style={{ color: 'var(--destructive)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>
