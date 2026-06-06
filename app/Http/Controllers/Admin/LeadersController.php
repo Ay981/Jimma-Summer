@@ -8,6 +8,9 @@ use App\Models\ContactLog;
 use App\Models\MeetingLog;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -75,5 +78,143 @@ class LeadersController extends Controller
         })->values()->toArray();
 
         return Inertia::render('Admin/Leaders', ['leaders' => $data]);
+    }
+
+    // ── Detail ────────────────────────────────────────────────────────────────
+
+    public function show(User $leader): Response
+    {
+        abort_if($leader->role !== 'leader', 404);
+
+        $halqa   = $leader->ledHalqa()->with('members', 'pairs.studentA', 'pairs.studentB')->first();
+        $today   = Carbon::today();
+
+        // Login history (last 30 days)
+        $logins = AuditLog::where('user_id', $leader->id)
+            ->where('action', 'login')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(fn ($l) => [
+                'date' => Carbon::parse($l->created_at)->toDateTimeString(),
+                'ago'  => Carbon::parse($l->created_at)->diffForHumans(),
+            ]);
+
+        // Meetings
+        $meetings = $halqa
+            ? MeetingLog::where('halqa_id', $halqa->id)
+                ->orderByDesc('meeting_date')
+                ->get()
+                ->map(fn ($m) => [
+                    'id'               => $m->id,
+                    'date'             => $m->meeting_date->toDateString(),
+                    'attendance_count' => $m->attendance_count,
+                    'notes'            => $m->notes,
+                    'highlights'       => $m->highlights,
+                    'concerns'         => $m->concerns,
+                ])
+            : collect();
+
+        // Contact notes filed by this leader
+        $contacts = ContactLog::where('contacted_by', $leader->id)
+            ->with('student:id,name,student_id')
+            ->orderByDesc('contacted_at')
+            ->limit(50)
+            ->get()
+            ->map(fn ($c) => [
+                'id'            => $c->id,
+                'student_db_id' => $c->student?->id,
+                'student_name'  => $c->student?->name ?? '—',
+                'student_id'    => $c->student?->student_id ?? '—',
+                'method'        => $c->method,
+                'note'          => $c->note,
+                'date'          => Carbon::parse($c->contacted_at)->toDateString(),
+            ]);
+
+        // Members
+        $members = $halqa
+            ? $halqa->members->where('role', 'student')->values()->map(fn ($s) => [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'student_id' => $s->student_id,
+                'is_active'  => $s->is_active,
+            ])
+            : collect();
+
+        $lastLogin = AuditLog::where('user_id', $leader->id)
+            ->where('action', 'login')
+            ->orderByDesc('created_at')
+            ->value('created_at');
+
+        return Inertia::render('Admin/LeaderDetail', [
+            'leader' => [
+                'id'           => $leader->id,
+                'name'         => $leader->name,
+                'student_id'   => $leader->student_id,
+                'phone'        => $leader->phone,
+                'is_active'    => $leader->is_active,
+                'halqa'        => $halqa?->name ?? '— unassigned —',
+                'halqa_id'     => $halqa?->id,
+                'member_count' => $members->count(),
+                'logins_30d'   => AuditLog::where('user_id', $leader->id)->where('action', 'login')->where('created_at', '>=', $today->copy()->subDays(29))->count(),
+                'last_login'   => $lastLogin ? Carbon::parse($lastLogin)->diffForHumans() : 'Never',
+                'never_logged_in' => $lastLogin === null,
+            ],
+            'members'  => $members,
+            'meetings' => $meetings,
+            'contacts' => $contacts,
+            'logins'   => $logins,
+        ]);
+    }
+
+    // ── Update name ───────────────────────────────────────────────────────────
+
+    public function update(Request $request, User $leader): RedirectResponse
+    {
+        abort_if($leader->role !== 'leader', 404);
+
+        $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $leader->update($request->only('name', 'phone'));
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action'  => 'leader_updated',
+            'meta'    => ['target_id' => $leader->id],
+        ]);
+
+        return back()->with('success', 'Leader updated.');
+    }
+
+    // ── Toggle active ─────────────────────────────────────────────────────────
+
+    public function toggleActive(User $leader): RedirectResponse
+    {
+        abort_if($leader->role !== 'leader', 404);
+        $leader->update(['is_active' => !$leader->is_active]);
+        return back()->with('success', $leader->is_active ? 'Leader reactivated.' : 'Leader deactivated.');
+    }
+
+    // ── Reset leader password ─────────────────────────────────────────────────
+
+    public function resetPassword(User $leader): RedirectResponse
+    {
+        abort_if($leader->role !== 'leader', 403);
+
+        $leader->update([
+            'password'             => Hash::make('Muraja@1446'),
+            'must_change_password' => true,
+        ]);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action'  => 'leader_password_reset',
+            'meta'    => ['target_id' => $leader->id, 'target_name' => $leader->name],
+        ]);
+
+        return back()->with('success', "Password reset for {$leader->name}. They must change it on next login.");
     }
 }

@@ -150,6 +150,7 @@ export default function AdminLayout({ children, title }) {
         { href: '/admin/students',      icon: UsersThree,      label: 'Students' },
         { href: '/admin/halqas',        icon: ChartBar,        label: 'Halqas' },
         { href: '/admin/pairs',         icon: GitBranch,       label: 'Pairs' },
+        { href: '/admin/pairing',       icon: ClipboardText,   label: 'Pairing' },
         { href: '/admin/leaderboard',   icon: Medal,           label: 'Leaderboard' },
         { href: '/admin/outreach',      icon: Broadcast,       label: 'Outreach' },
         { href: '/admin/leaders',       icon: UserCircle,      label: 'Leaders' },

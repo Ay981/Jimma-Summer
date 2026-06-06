@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import PasswordInput from '@/Components/UI/PasswordInput';
 
 export default function LeaderSetup() {
     const { data, setData, post, processing, errors } = useForm({
@@ -175,13 +176,12 @@ export default function LeaderSetup() {
                             <label htmlFor="password" style={labelStyle}>
                                 Password
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password"
-                                type="password"
                                 value={data.password}
                                 onChange={e => setData('password', e.target.value)}
                                 placeholder="At least 8 characters"
-                                style={fieldStyle(!!errors.password)}
+                                hasError={!!errors.password}
                             />
                             {errors.password && <p style={errorStyle}>{errors.password}</p>}
                         </div>
@@ -191,13 +191,12 @@ export default function LeaderSetup() {
                             <label htmlFor="password_confirmation" style={labelStyle}>
                                 Confirm Password
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password_confirmation"
-                                type="password"
                                 value={data.password_confirmation}
                                 onChange={e => setData('password_confirmation', e.target.value)}
                                 placeholder="Re-enter your password"
-                                style={fieldStyle(!!errors.password_confirmation)}
+                                hasError={!!errors.password_confirmation}
                             />
                             {errors.password_confirmation && (
                                 <p style={errorStyle}>{errors.password_confirmation}</p>

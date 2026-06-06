@@ -17,6 +17,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -114,10 +115,11 @@ class StudentController extends Controller
                 'pages_total'       => (int) ($totalPages[$student->id] ?? 0),
                 'status'            => $status,
                 'last_sub'          => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
-                'on_watchlist'      => $student->watchlistEntries->count() > 0,
-                'is_active'         => $student->is_active,
-                'is_monitored'      => $student->is_monitored,
-                'profile_completed' => $student->profile_completed,
+                'on_watchlist'         => $student->watchlistEntries->count() > 0,
+                'is_active'            => $student->is_active,
+                'is_monitored'         => $student->is_monitored,
+                'profile_completed'    => $student->profile_completed,
+                'must_change_password' => $student->must_change_password,
             ];
         });
 
@@ -264,6 +266,13 @@ class StudentController extends Controller
         $SLOTS = ['subhi' => 'after_subhi', 'zuhr' => 'after_zuhr', 'asr' => 'after_asr',
                   'maghrib' => 'after_maghrib', 'isha' => 'after_isha'];
 
+        $year    = now()->year;
+        // Find the highest existing sequence number for this year so we never collide
+        $lastSeq = User::where('student_id', 'like', "JUMU-{$year}-%")
+            ->orderByDesc('student_id')
+            ->value('student_id');
+        $seq = $lastSeq ? ((int) substr($lastSeq, -3)) : 0;
+
         $created = 0;
         $failed  = [];
         $line    = 1;
@@ -274,49 +283,27 @@ class StudentController extends Controller
 
             $data = array_combine($header, array_map('trim', $row));
 
-            // Validate required fields
-            foreach (['name', 'student_id', 'phone', 'current_juz'] as $field) {
+            // Only name and phone required — student_id auto-generated
+            foreach (['name', 'phone'] as $field) {
                 if (empty($data[$field] ?? '')) {
-                    $failed[] = ['line' => $line, 'reason' => "Missing: {$field}", 'data' => $data['student_id'] ?? ''];
+                    $failed[] = ['line' => $line, 'reason' => "Missing: {$field}", 'data' => $data['name'] ?? "line {$line}"];
                     continue 2;
                 }
             }
 
-            // Parse available_times — FIX 11: strip stray quotes first, then validate
-            $ALLOWED_KEYS = array_keys($SLOTS);
-            $rawSlots     = array_filter(array_map('trim', preg_split('/[,;]+/', str_replace('"', '', $data['available_times'] ?? ''))));
-            if (empty($rawSlots)) {
-                $failed[] = ['line' => $line, 'reason' => 'available_times is empty', 'data' => $data['student_id']];
-                continue;
-            }
-            $invalidSlots = array_filter($rawSlots, fn ($s) => !array_key_exists(strtolower($s), $SLOTS));
-            if (!empty($invalidSlots)) {
-                $failed[] = ['line' => $line, 'reason' => 'Invalid available_times values: ' . implode(', ', $invalidSlots) . '. Allowed: ' . implode(', ', $ALLOWED_KEYS), 'data' => $data['student_id']];
-                continue;
-            }
-            $slots = array_values(array_map(fn ($s) => $SLOTS[strtolower($s)], $rawSlots));
-
-            // Student ID format
-            if (!preg_match('/^JUMU-\d{4}-\d{3}$/', $data['student_id'])) {
-                $failed[] = ['line' => $line, 'reason' => 'Invalid student_id format (expected JUMU-YYYY-NNN)', 'data' => $data['student_id']];
-                continue;
-            }
-
-            // Duplicate check
-            if (User::where('student_id', $data['student_id'])->exists()) {
-                $failed[] = ['line' => $line, 'reason' => 'student_id already exists', 'data' => $data['student_id']];
-                continue;
-            }
+            // Auto-generate student ID
+            $seq++;
+            $studentId = sprintf('JUMU-%d-%03d', $year, $seq);
 
             // Create student
             $student = User::create([
                 'name'                 => $data['name'],
-                'student_id'           => $data['student_id'],
+                'student_id'           => $studentId,
                 'phone'                => $data['phone'],
                 'password'             => Hash::make('Muraja@1446'),
                 'role'                 => 'student',
-                'current_juz'          => (int) $data['current_juz'],
-                'available_times'      => $slots,
+                'current_juz'          => 1,
+                'available_times'      => [],
                 'is_active'            => true,
                 'must_change_password' => true,
             ]);
@@ -563,6 +550,23 @@ class StudentController extends Controller
             'heatmap'=> $last30->map(fn ($d) => ['date' => $d, 'submitted' => in_array($d, $subDates),
                 'scheduled' => empty($avail) || in_array(strtolower(Carbon::parse($d)->format('l')), $avail, true)])->values()->toArray(),
         ];
+    }
+
+    // ── Student credentials PDF ───────────────────────────────────────────────
+
+    public function credentialsPdf()
+    {
+        $students = User::where('role', 'student')
+            ->where('is_active', true)
+            ->with('halqa')
+            ->orderBy('halqa_id')
+            ->orderBy('name')
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.student-credentials', compact('students'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download('student-credentials.pdf');
     }
 
     private function status(array $sparkline, float $cons, ?string $lastSub, int $effDays): string

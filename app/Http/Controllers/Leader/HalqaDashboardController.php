@@ -207,7 +207,11 @@ class HalqaDashboardController extends Controller
 
     private function buildStudentRows(\App\Models\Halqa $halqa, Carbon $today, Carbon $programStart): array
     {
-        $memberIds = $halqa->pairs->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
+        // Include every student whose halqa_id points here, not just paired ones
+        $memberIds = \App\Models\User::where('halqa_id', $halqa->id)
+            ->where('role', 'student')
+            ->where('is_active', true)
+            ->pluck('id');
         if ($memberIds->isEmpty()) return [];
 
         $window14      = $today->copy()->subDays(13);
@@ -231,7 +235,7 @@ class HalqaDashboardController extends Controller
             if ($p->student_b_id) $pairMap[$p->student_b_id] = $p->id;
         }
 
-        return \App\Models\User::whereIn('id', $memberIds)->where('role', 'student')->get()
+        return \App\Models\User::whereIn('id', $memberIds)->get()
             ->map(function ($student) use ($subs14, $lastSubs, $last14, $effectiveDays, $effectiveStart, $today, $pairMap) {
                 $studentSubs = ($subs14[$student->id] ?? collect())->keyBy(
                     fn ($s) => Carbon::parse($s->submission_date)->toDateString()
