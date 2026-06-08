@@ -100,7 +100,11 @@ class PairingController extends Controller
 
     public function run(): RedirectResponse
     {
-        $alreadyPairedIds = Pair::get()->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
+        $alreadyPairedIds = DB::table('pairs')
+            ->select('student_a_id', 'student_b_id')
+            ->get()
+            ->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))
+            ->unique();
 
         $students = User::where('role', 'student')
             ->where('is_active', true)
@@ -116,17 +120,20 @@ class PairingController extends Controller
         $requestMap = $requests->pluck('requested_partner_id', 'student_id');
 
         $memoOrder = ['less_than_1'=>0,'1_5'=>1,'6_10'=>2,'11_20'=>3,'21_29'=>4,'full_hifz'=>5];
-        $scoreOf = function (int $aId, int $bId) use ($students, $memoOrder): int {
+        $scoreCache = [];
+        $scoreOf = function (int $aId, int $bId) use ($students, $memoOrder, &$scoreCache): int {
+            $key = $aId < $bId ? "{$aId}-{$bId}" : "{$bId}-{$aId}";
+            if (isset($scoreCache[$key])) return $scoreCache[$key];
             $a = $students[$aId];
             $b = $students[$bId];
             $times = count(array_intersect($a->available_times ?? [], $b->available_times ?? []));
             $days  = count(array_intersect($a->available_days  ?? [], $b->available_days  ?? []));
             $levelDiff = abs(($memoOrder[$a->memo_level ?? ''] ?? 0) - ($memoOrder[$b->memo_level ?? ''] ?? 0));
             $juzDiff   = abs(($a->current_juz ?? 1) - ($b->current_juz ?? 1));
-            return $times + $days + max(0, 3 - $levelDiff) + max(0, 3 - intdiv($juzDiff, 4));
+            return $scoreCache[$key] = $times + $days + max(0, 3 - $levelDiff) + max(0, 3 - intdiv($juzDiff, 4));
         };
 
-        $paired        = collect();
+        $paired        = []; // set: studentId => true (O(1) membership)
         $newPairs      = []; // [aId, bId, halqaId, score]
         $soloCount     = 0;
         $incompatibles = []; // students with no viable partner (all scores = 0)
@@ -143,26 +150,28 @@ class PairingController extends Controller
 
             // Pass 1: mutual requests — always honour regardless of score
             foreach ($groupRequestMap as $studentId => $partnerId) {
-                if ($paired->contains($studentId) || $paired->contains($partnerId)) continue;
+                if (isset($paired[$studentId]) || isset($paired[$partnerId])) continue;
                 if ((int)($requestMap[$partnerId] ?? 0) === (int)$studentId) {
                     $score      = $scoreOf($studentId, $partnerId);
                     $newPairs[] = [min($studentId, $partnerId), max($studentId, $partnerId), $halqaId, $score];
-                    $paired->push($studentId)->push($partnerId);
+                    $paired[$studentId] = true;
+                    $paired[$partnerId] = true;
                 }
             }
 
             // Pass 2: one-sided — honour regardless of score
             foreach ($groupRequestMap as $studentId => $partnerId) {
-                if ($paired->contains($studentId) || $paired->contains($partnerId)) continue;
+                if (isset($paired[$studentId]) || isset($paired[$partnerId])) continue;
                 if (!$requestMap->has($partnerId)) {
                     $score      = $scoreOf($studentId, $partnerId);
                     $newPairs[] = [min($studentId, $partnerId), max($studentId, $partnerId), $halqaId, $score];
-                    $paired->push($studentId)->push($partnerId);
+                    $paired[$studentId] = true;
+                    $paired[$partnerId] = true;
                 }
             }
 
             // Pass 3: greedy — only pair if score >= MIN_SCORE
-            $remaining = $groupIds->keys()->reject(fn ($id) => $paired->contains($id))->values()->toArray();
+            $remaining = $groupIds->keys()->reject(fn ($id) => isset($paired[$id]))->values()->toArray();
 
             if (count($remaining) >= 2) {
                 // Pre-check: students with NO viable partner at all (max possible score = 0)
@@ -285,7 +294,11 @@ class PairingController extends Controller
 
         if (empty($incompatibles)) {
             // Rebuild from currently unpaired, profile-complete students
-            $pairedIds = Pair::get()->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
+            $pairedIds = DB::table('pairs')
+                ->select('student_a_id', 'student_b_id')
+                ->get()
+                ->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))
+                ->unique();
             $students  = User::where('role', 'student')
                 ->where('is_active', true)
                 ->whereNotIn('id', $pairedIds)
