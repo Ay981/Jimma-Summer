@@ -10,14 +10,77 @@ use Carbon\Carbon;
 
 class ConsistencyService
 {
+    // ── Request-scoped caches ─────────────────────────────────────────────────
+    // The service is bound as `scoped`, so these live for one request only (and
+    // are reset per request under Octane). Within a request the underlying data
+    // is immutable except where a write occurs, in which case callers invoke
+    // forget() to drop stale entries (see CheckinController).
+    private ?Carbon $programStartCache = null;
+    private ?bool   $programNotStartedCache = null;
+    /** @var array<int, ?User> */
+    private array $userCache = [];
+    /** @var array<int, int> */
+    private array $streakCache = [];
+    /** @var array<int, int> */
+    private array $longestCache = [];
+    /** @var array<int, ?float> */
+    private array $consistencyCache = [];
+    /** @var array<int, int> */
+    private array $mostPagesCache = [];
+    /** @var array<int, float> */
+    private array $groupCache = [];
+
+    /**
+     * Drop cached results so subsequent reads recompute from fresh data.
+     * Call after writing submissions/excuses within the same request.
+     */
+    public function forget(?int $userId = null): void
+    {
+        if ($userId === null) {
+            $this->userCache = [];
+            $this->streakCache = [];
+            $this->longestCache = [];
+            $this->consistencyCache = [];
+            $this->mostPagesCache = [];
+            $this->groupCache = [];
+            return;
+        }
+
+        unset(
+            $this->userCache[$userId],
+            $this->streakCache[$userId],
+            $this->longestCache[$userId],
+            $this->consistencyCache[$userId],
+            $this->mostPagesCache[$userId],
+        );
+        // A user's submission affects their halqa's group consistency too.
+        $this->groupCache = [];
+    }
+
+    private function user(int $userId): ?User
+    {
+        if (! array_key_exists($userId, $this->userCache)) {
+            $this->userCache[$userId] = User::find($userId);
+        }
+        return $this->userCache[$userId];
+    }
+
     private function programStart(): Carbon
     {
-        return Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
+        if ($this->programStartCache === null) {
+            $this->programStartCache = Carbon::parse(
+                ProgramSetting::get('program_start_date', now()->toDateString())
+            );
+        }
+        return $this->programStartCache->copy();
     }
 
     private function programNotStarted(): bool
     {
-        return Carbon::today()->lt($this->programStart());
+        if ($this->programNotStartedCache === null) {
+            $this->programNotStartedCache = Carbon::today()->lt($this->programStart());
+        }
+        return $this->programNotStartedCache;
     }
 
     /**
@@ -31,14 +94,47 @@ class ConsistencyService
     }
 
     /**
+     * Count days in [$start, $end] (inclusive) whose weekday is in $availableDays.
+     * Arithmetic equivalent of walking the calendar day-by-day: each full week
+     * contributes the number of matching weekdays, then the leftover (< 7 days,
+     * whose weekday pattern is identical to the first days from $start) is counted.
+     */
+    private function countScheduledDays(Carbon $start, Carbon $end, array $availableDays): int
+    {
+        if ($start->gt($end)) return 0;
+
+        $set = array_flip(array_map('strtolower', $availableDays));
+
+        $perWeek = 0;
+        foreach (['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as $d) {
+            if (isset($set[$d])) $perWeek++;
+        }
+
+        $totalDays = $start->diffInDays($end) + 1; // inclusive
+        $fullWeeks = intdiv($totalDays, 7);
+        $remainder = $totalDays % 7;
+
+        $count = $fullWeeks * $perWeek;
+
+        $cursor = $start->copy();
+        for ($i = 0; $i < $remainder; $i++) {
+            if (isset($set[strtolower($cursor->format('l'))])) $count++;
+            $cursor->addDay();
+        }
+
+        return $count;
+    }
+
+    /**
      * Current streak counting only the student's scheduled days.
      * Returns 0 if the program hasn't started.
      */
     public function getStreak(int $userId): int
     {
-        if ($this->programNotStarted()) return 0;
+        if (isset($this->streakCache[$userId])) return $this->streakCache[$userId];
+        if ($this->programNotStarted()) return $this->streakCache[$userId] = 0;
 
-        $user          = User::find($userId);
+        $user          = $this->user($userId);
         $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
 
@@ -49,7 +145,7 @@ class ConsistencyService
             ->flip()
             ->toArray();
 
-        if (empty($submittedSet)) return 0;
+        if (empty($submittedSet)) return $this->streakCache[$userId] = 0;
 
         // Excuses with a makeup still pending (makeup_date not yet passed, not yet fulfilled)
         // treat the missed day as "protected" — don't break the streak for it
@@ -89,7 +185,7 @@ class ConsistencyService
             $current->subDay();
         }
 
-        return $streak;
+        return $this->streakCache[$userId] = $streak;
     }
 
     /**
@@ -97,9 +193,10 @@ class ConsistencyService
      */
     public function getLongestStreak(int $userId): int
     {
-        if ($this->programNotStarted()) return 0;
+        if (isset($this->longestCache[$userId])) return $this->longestCache[$userId];
+        if ($this->programNotStarted()) return $this->longestCache[$userId] = 0;
 
-        $user          = User::find($userId);
+        $user          = $this->user($userId);
         $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
 
@@ -110,7 +207,7 @@ class ConsistencyService
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->toArray();
 
-        if (empty($dates)) return 0;
+        if (empty($dates)) return $this->longestCache[$userId] = 0;
 
         if (empty($availableDays)) {
             $max = $current = 1;
@@ -119,7 +216,7 @@ class ConsistencyService
                 if ($diff === 1) { $current++; $max = max($max, $current); }
                 else { $current = 1; }
             }
-            return $max;
+            return $this->longestCache[$userId] = $max;
         }
 
         $submittedSet = array_flip($dates);
@@ -141,7 +238,7 @@ class ConsistencyService
             $cursor->addDay();
         }
 
-        return $max;
+        return $this->longestCache[$userId] = $max;
     }
 
     /**
@@ -150,14 +247,15 @@ class ConsistencyService
      */
     public function getConsistency(int $userId): ?float
     {
-        if ($this->programNotStarted()) return null;
+        if (array_key_exists($userId, $this->consistencyCache)) return $this->consistencyCache[$userId];
+        if ($this->programNotStarted()) return $this->consistencyCache[$userId] = null;
 
-        $user          = User::find($userId);
+        $user          = $this->user($userId);
         $availableDays = $user?->available_days ?? [];
         $effStart      = $this->effectiveStart($user);
         $today         = Carbon::today();
 
-        if ($effStart->gt($today)) return null;
+        if ($effStart->gt($today)) return $this->consistencyCache[$userId] = null;
 
         $total = PairSubmission::where('subject_student_id', $userId)
             ->where('submission_date', '>=', $effStart->toDateString())
@@ -165,42 +263,38 @@ class ConsistencyService
 
         if (empty($availableDays)) {
             $programDays = max(1, $effStart->diffInDays($today) + 1);
-            return min(100, round(($total / $programDays) * 100, 1));
+            return $this->consistencyCache[$userId] = min(100, round(($total / $programDays) * 100, 1));
         }
 
-        $expectedDays = 0;
-        $cursor = $effStart->copy();
-        while ($cursor->lte($today)) {
-            if (in_array(strtolower($cursor->format('l')), $availableDays, true)) {
-                $expectedDays++;
-            }
-            $cursor->addDay();
-        }
+        $expectedDays = $this->countScheduledDays($effStart, $today, $availableDays);
 
-        if ($expectedDays === 0) return null;
-        return min(100, round(($total / $expectedDays) * 100, 1));
+        if ($expectedDays === 0) return $this->consistencyCache[$userId] = null;
+        return $this->consistencyCache[$userId] = min(100, round(($total / $expectedDays) * 100, 1));
     }
 
     public function getMostPagesInWeek(int $userId): int
     {
+        if (isset($this->mostPagesCache[$userId])) return $this->mostPagesCache[$userId];
+
         $result = PairSubmission::where('subject_student_id', $userId)
             ->selectRaw("DATE_TRUNC('week', submission_date::date) as week, SUM(page_to - page_from + 1) as pages")
             ->groupBy('week')
             ->orderByDesc('pages')
             ->first();
 
-        return $result ? (int) $result->pages : 0;
+        return $this->mostPagesCache[$userId] = $result ? (int) $result->pages : 0;
     }
 
     public function getGroupConsistency(int $halqaId): float
     {
-        if ($this->programNotStarted()) return 0;
+        if (isset($this->groupCache[$halqaId])) return $this->groupCache[$halqaId];
+        if ($this->programNotStarted()) return $this->groupCache[$halqaId] = 0;
 
         $members   = \App\Models\User::where('halqa_id', $halqaId)->where('role', 'student')->get();
         $today     = Carbon::today();
         $progStart = $this->programStart();
 
-        if ($members->isEmpty()) return 0;
+        if ($members->isEmpty()) return $this->groupCache[$halqaId] = 0;
 
         $total = 0;
         $denom = 0;
@@ -218,17 +312,11 @@ class ConsistencyService
             if (empty($availableDays)) {
                 $denom += max(1, $lower->diffInDays($today) + 1);
             } else {
-                $cursor = $lower->copy();
-                while ($cursor->lte($today)) {
-                    if (in_array(strtolower($cursor->format('l')), $availableDays, true)) {
-                        $denom++;
-                    }
-                    $cursor->addDay();
-                }
+                $denom += $this->countScheduledDays($lower, $today, $availableDays);
             }
         }
 
-        if ($denom === 0) return 0;
-        return min(100, round(($total / $denom) * 100, 1));
+        if ($denom === 0) return $this->groupCache[$halqaId] = 0;
+        return $this->groupCache[$halqaId] = min(100, round(($total / $denom) * 100, 1));
     }
 }

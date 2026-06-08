@@ -9,12 +9,16 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Notifications\PartnerSubmitted;
 use App\Services\BadgeService;
+use App\Services\ConsistencyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class CheckinController extends Controller
 {
-    public function __construct(private readonly BadgeService $badges) {}
+    public function __construct(
+        private readonly BadgeService $badges,
+        private readonly ConsistencyService $consistency,
+    ) {}
 
     public function store(Request $request): RedirectResponse
     {
@@ -55,7 +59,8 @@ class CheckinController extends Controller
             'target_id'   => $submission->id,
         ]);
 
-        // Check and award badges
+        // Check and award badges (recomputes streaks — drop any cached values first)
+        $this->consistency->forget($user->id);
         $this->badges->checkAndAward($user);
 
         // Mark any unfulfilled excuse whose makeup_date is today as fulfilled
