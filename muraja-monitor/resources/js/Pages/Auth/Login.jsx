@@ -32,10 +32,10 @@ export default function Login() {
                     src="/images/logo.png"
                     alt="Union Logo"
                     style={{
-                        width: '96px',
-                        height: '96px',
+                        width: '160px',
+                        height: '160px',
                         objectFit: 'contain',
-                        marginBottom: '1.5rem',
+                        marginBottom: '1rem',
                     }}
                 />
 

@@ -4,7 +4,6 @@ import AyatBox from '@/Components/UI/AyatBox';
 import Heatmap from '@/Components/UI/Heatmap';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
 import StudentLayout from '@/Layouts/StudentLayout';
-
 const JUZ_LABELS = {
     1:'Al-Fātiḥah',2:'Al-Baqarah 142',3:'Al-Baqarah 253',4:"Āl ʿImrān 92",
     5:'An-Nisāʾ 24',6:'An-Nisāʾ 148',7:"Al-Māʾidah 82",8:"Al-Anʿām 111",
@@ -112,11 +111,102 @@ function WeeklyTargetEditor({ currentTarget }) {
     );
 }
 
+// ── Excuse / makeup card ──────────────────────────────────────────────────────
+
+function ExcuseCard({ missed }) {
+    const [open, setOpen] = useState(null); // missed_date string of the open form
+    const { data, setData, post, processing, errors, reset } = useForm({
+        missed_date: '',
+        reason:      '',
+        makeup_date: '',
+    });
+
+    function openForm(date, weekEnd) {
+        setOpen(date);
+        setData({ missed_date: date, reason: '', makeup_date: weekEnd });
+    }
+
+    function submit(e) {
+        e.preventDefault();
+        post('/student/excuse', { preserveScroll: true, onSuccess: () => { setOpen(null); reset(); } });
+    }
+
+    const inp = { padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem', width: '100%', boxSizing: 'border-box' };
+
+    return (
+        <div style={{ background: 'oklch(97% 0.03 50)', border: '1px solid oklch(85% 0.08 50)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid oklch(85% 0.08 50)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.875rem' }}>⏳</span>
+                <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(45% 0.12 50)' }}>
+                    Missed Day — Excuse Window Open
+                </p>
+            </div>
+            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--foreground)' }}>
+                    You missed a scheduled day. File an excuse within 48 hours and propose a makeup date <strong>in the same week</strong> to protect your streak.
+                </p>
+                {missed.map((m) => (
+                    <div key={m.date}>
+                        {open === m.date ? (
+                            <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px', background: 'var(--card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                                <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600 }}>{m.label}</p>
+                                <div>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', display: 'block', marginBottom: '3px' }}>Reason</label>
+                                    <textarea value={data.reason} onChange={e => setData('reason', e.target.value)} rows={2} required
+                                        style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} placeholder="Brief reason for missing…" />
+                                    {errors.reason && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.reason}</p>}
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', display: 'block', marginBottom: '3px' }}>Makeup date (within this week)</label>
+                                    <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)}
+                                        min={new Date().toISOString().slice(0,10)} max={m.week_end} required style={inp} />
+                                    {errors.makeup_date && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.makeup_date}</p>}
+                                </div>
+                                {errors.error && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.error}</p>}
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button type="submit" disabled={processing} style={{ padding: '6px 14px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+                                        {processing ? 'Filing…' : 'File Excuse'}
+                                    </button>
+                                    <button type="button" onClick={() => setOpen(null)} style={{ padding: '6px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', gap: '8px' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{m.label}</span>
+                                <button onClick={() => openForm(m.date, m.week_end)} style={{ padding: '4px 12px', border: 'none', background: 'oklch(55% 0.15 50)', color: '#fff', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    File Excuse
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function PendingExcusesBanner({ excuses }) {
+    return (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted-foreground)' }}>Pending Makeups</p>
+            {excuses.map((e) => (
+                <div key={e.missed_date} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', gap: '8px' }}>
+                    <span>Missed <strong>{new Date(e.missed_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}</strong> — makeup due <strong>{new Date(e.makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}</strong></span>
+                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'oklch(93% 0.06 84)', color: 'oklch(40% 0.12 84)', borderRadius: '99px', fontWeight: 600, whiteSpace: 'nowrap' }}>pending</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export default function Dashboard({
     name, streak, consistency, pages_total, minutes_total,
     weekly_target, week_pages, today_submitted, today_submission,
     pair_id, partner, halqa, ayat, checkins_30_days,
     earned_badges, locked_badges, weekly_summary, personal_best,
+    excusable_missed, pending_excuses,
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
@@ -136,13 +226,20 @@ export default function Dashboard({
                         <p style={{margin:'2px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{today}</p>
                     </div>
                     {streak > 0 && (
-                        <div style={{
-                            display:'flex',alignItems:'center',gap:'6px',
-                            padding:'6px 12px',borderRadius:'var(--radius-md)',
-                            background:'var(--success)',color:'var(--success-foreground)',
-                            fontSize:'0.875rem',fontWeight:600,
-                        }}>
-                            🔥 {streak}-day streak
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            <div style={{
+                                display:'flex',alignItems:'center',gap:'6px',
+                                padding:'6px 12px',borderRadius:'var(--radius-md)',
+                                background:'var(--success)',color:'var(--success-foreground)',
+                                fontSize:'0.875rem',fontWeight:600,
+                            }}>
+                                🔥 {streak}-day streak
+                            </div>
+                            {pending_excuses?.length > 0 && (
+                                <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
+                                    Protected — makeup due {new Date(pending_excuses[0].makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -288,6 +385,10 @@ export default function Dashboard({
                     </h2>
                     <Heatmap data={checkins_30_days} />
                 </div>
+
+                {/* ── Excuse / makeup window ─────────────────────────────── */}
+                {excusable_missed?.length > 0 && <ExcuseCard missed={excusable_missed} />}
+                {pending_excuses?.length > 0 && <PendingExcusesBanner excuses={pending_excuses} />}
 
                 {/* ── Personal Best ─────────────────────────────────────── */}
                 <div className="grid-2col" style={{gap:'12px'}}>

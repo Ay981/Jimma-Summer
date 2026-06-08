@@ -36,8 +36,6 @@ export default function Settings({ settings, ayat, prayer_today }) {
                     <h2 style={{ margin: '0 0 16px', fontSize: '1rem', fontWeight: 700 }}>Program Settings</h2>
                     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column' }}>
                         <Row label="Program Name"><input style={inp} value={data.program_name} onChange={(e) => setData('program_name', e.target.value)} /></Row>
-                        <Row label="Start Date"><input type="date" style={inp} value={data.program_start_date} onChange={(e) => setData('program_start_date', e.target.value)} /></Row>
-                        <Row label="End Date"><input type="date" style={inp} value={data.program_end_date} onChange={(e) => setData('program_end_date', e.target.value)} /></Row>
                         <Row label="Default Password"><input style={inp} value={data.default_password} onChange={(e) => setData('default_password', e.target.value)} /></Row>
                         <Row label="Certificate Threshold (%)"><input type="number" style={inp} value={data.certificate_threshold} onChange={(e) => setData('certificate_threshold', e.target.value)} min={0} max={100} /></Row>
 

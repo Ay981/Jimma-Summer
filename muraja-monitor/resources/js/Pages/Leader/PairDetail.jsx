@@ -386,6 +386,7 @@ function StudentPanel({ student, pairId }) {
     const sections = [
         { key: 'history',  label: 'History' },
         { key: 'contact',  label: 'Contact Log' },
+        { key: 'excuses',  label: `Excuses${student.excuses?.length ? ` (${student.excuses.length})` : ''}` },
         { key: 'notes',    label: 'Private Notes' },
         { key: 'info',     label: 'Info' },
     ];
@@ -501,6 +502,39 @@ function StudentPanel({ student, pairId }) {
                             ))
                         )}
                     </div>
+                </div>
+            )}
+
+            {section === 'excuses' && (
+                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(student.excuses ?? []).length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px 0' }}>No excuses filed.</p>
+                    ) : (student.excuses ?? []).map((e, i) => (
+                        <div key={i} style={{
+                            padding: '10px 12px', borderRadius: 'var(--radius-md)',
+                            background: e.fulfilled ? 'var(--muted)' : 'oklch(96% 0.05 50)',
+                            border: `1px solid ${e.fulfilled ? 'var(--border)' : 'oklch(82% 0.1 50)'}`,
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+                                    Missed {new Date(e.missed_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </span>
+                                <span style={{
+                                    fontSize: '0.6875rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                                    background: e.fulfilled ? 'var(--success)' : 'oklch(88% 0.1 50)',
+                                    color: e.fulfilled ? 'var(--success-foreground)' : 'oklch(40% 0.12 50)',
+                                }}>
+                                    {e.fulfilled ? '✓ Made up' : 'Pending'}
+                                </span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                                Reason: {e.reason}
+                            </p>
+                            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
+                                Makeup due: {new Date(e.makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </p>
+                        </div>
+                    ))}
                 </div>
             )}
 

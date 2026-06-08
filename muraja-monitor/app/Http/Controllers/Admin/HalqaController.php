@@ -59,9 +59,15 @@ class HalqaController extends Controller
                     'student_id' => $halqa->leader->student_id,
                 ] : null,
                 'student_count'    => $halqa->members->count(),
-                'pair_count'       => $halqa->pairs->count(),
+                'pair_count'       => $memberIds->isEmpty() ? 0 : Pair::where(function ($q) use ($memberIds) {
+                    $q->whereIn('student_a_id', $memberIds)->orWhereIn('student_b_id', $memberIds);
+                })->count(),
                 'group_consistency'=> $groupCons,
                 'meetings'         => $meetings,
+                'members'          => $halqa->members
+                    ->sortBy('name')
+                    ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'student_id' => $u->student_id])
+                    ->values(),
             ];
         });
 
@@ -177,7 +183,6 @@ class HalqaController extends Controller
 
     public function randomAssign(Request $request): RedirectResponse
     {
-        // FIX 8: Guard
         $halqas = Halqa::all();
         if ($halqas->isEmpty()) {
             return back()->with('error', 'Create halqas first before assigning students.');
@@ -186,59 +191,98 @@ class HalqaController extends Controller
         $students = User::where('role', 'student')
             ->where('is_active', true)
             ->whereNull('halqa_id')
-            ->get();
+            ->get()
+            ->keyBy('id');
 
         if ($students->isEmpty()) {
             return back()->with('error', 'No unassigned students to distribute.');
         }
 
-        $n     = $halqas->count();
-        $total = $students->count();
+        // Build pair groups: paired students must land in the same halqa
+        $pairs = Pair::whereIn('student_a_id', $students->keys())
+            ->orWhereIn('student_b_id', $students->keys())
+            ->get();
 
-        // Sort students by available_times so compatible ones cluster
-        $sorted = $students->sortBy(fn ($s) => implode(',', $s->available_times ?? []));
-        $chunks = $sorted->chunk((int) ceil($total / $n));
+        // Build units: each unit is a list of student IDs that must go together
+        $assigned = [];
+        $units    = [];
+        foreach ($pairs as $pair) {
+            $aIn = $students->has($pair->student_a_id);
+            $bIn = $pair->student_b_id && $students->has($pair->student_b_id);
+            if (!$aIn && !$bIn) continue;
 
-        $halqaList = $halqas->values();
-        DB::transaction(function () use ($chunks, $halqaList) {
-            foreach ($chunks as $i => $chunk) {
-                $halqa = $halqaList[$i % $halqaList->count()];
-                foreach ($chunk as $student) {
-                    $student->update(['halqa_id' => $halqa->id]);
-                }
-            }
+            $ids = array_filter([$aIn ? $pair->student_a_id : null, $bIn ? $pair->student_b_id : null]);
+            $units[] = array_values($ids);
+            foreach ($ids as $id) $assigned[$id] = true;
+        }
+
+        // Add solo (unpaired) students as single-member units
+        foreach ($students->keys() as $id) {
+            if (!isset($assigned[$id])) $units[] = [$id];
+        }
+
+        // Sort units by combined available_times fingerprint so compatible ones still cluster
+        usort($units, function ($a, $b) use ($students) {
+            $sigA = implode(',', $students[$a[0]]->available_times ?? []);
+            $sigB = implode(',', $students[$b[0]]->available_times ?? []);
+            return strcmp($sigA, $sigB);
         });
 
-        return back()->with('success', "{$total} students randomly assigned to {$n} halqa(s).");
+        $n         = $halqas->count();
+        $halqaList = $halqas->values();
+
+        DB::transaction(function () use ($units, $halqaList, $n, $students) {
+            foreach ($units as $i => $unit) {
+                $halqa = $halqaList[$i % $n];
+                foreach ($unit as $studentId) {
+                    $students[$studentId]->update(['halqa_id' => $halqa->id]);
+                }
+            }
+
+            // Backfill halqa_id on any null-halqa pairs whose both students are now assigned
+            Pair::whereNull('halqa_id')->each(function ($pair) {
+                $a = User::find($pair->student_a_id);
+                $b = $pair->student_b_id ? User::find($pair->student_b_id) : null;
+                if ($a?->halqa_id && (!$b || $a->halqa_id === $b->halqa_id)) {
+                    $pair->update(['halqa_id' => $a->halqa_id]);
+                }
+            });
+        });
+
+        return back()->with('success', count(array_merge(...$units)) . " students assigned to {$n} halqa(s). Pair groupings preserved.");
     }
 
     // ── Random pair within halqa ──────────────────────────────────────────────
 
     public function randomPair(Request $request, Halqa $halqa): RedirectResponse
     {
+        // Only unpaired active students in this halqa
+        $alreadyPairedIds = Pair::get()
+            ->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))
+            ->unique();
+
         $students = User::where('halqa_id', $halqa->id)
             ->where('role', 'student')
             ->where('is_active', true)
+            ->whereNotIn('id', $alreadyPairedIds)
             ->get();
 
         if ($students->count() < 2) {
-            return back()->with('error', 'Not enough students in this halqa to form pairs.');
+            return back()->with('error', 'Not enough unpaired students in this halqa to form pairs.');
         }
 
-        $result    = $this->doRandomPairing($students->toArray());
+        $result         = $this->doRandomPairing($students->toArray());
         $unmatchedCount = count($result['no_match']);
 
         DB::transaction(function () use ($result, $halqa) {
             foreach ($result['matched'] as $p) {
-                Pair::firstOrCreate(
-                    [
-                        'student_a_id' => min($p['a'], $p['b']),
-                        'student_b_id' => max($p['a'], $p['b']),
-                    ],
-                    ['halqa_id' => $halqa->id, 'status' => 'active']
-                );
+                Pair::create([
+                    'student_a_id' => min($p['a'], $p['b']),
+                    'student_b_id' => max($p['a'], $p['b']),
+                    'halqa_id'     => $halqa->id,
+                    'status'       => 'active',
+                ]);
             }
-            // Solo student
             foreach ($result['no_match'] as $s) {
                 User::find($s['id'])?->update(['is_solo' => true]);
             }
@@ -309,41 +353,51 @@ class HalqaController extends Controller
             return ['matched' => [], 'no_match' => $students];
         }
 
-        $pool    = collect($students)->keyBy('id');
-        $matched = [];
-        $result  = [];
+        $memoOrder = ['less_than_1'=>0,'1_5'=>1,'6_10'=>2,'11_20'=>3,'21_29'=>4,'full_hifz'=>5];
+        $scoreOf = function (array $a, array $b) use ($memoOrder): int {
+            $times = count(array_intersect($a['available_times'] ?? [], $b['available_times'] ?? []));
+            $days  = count(array_intersect($a['available_days']  ?? [], $b['available_days']  ?? []));
+            $levelDiff = abs(($memoOrder[$a['memo_level'] ?? ''] ?? 0) - ($memoOrder[$b['memo_level'] ?? ''] ?? 0));
+            $juzDiff   = abs(($a['current_juz'] ?? 1) - ($b['current_juz'] ?? 1));
+            return $times + $days + max(0, 3 - $levelDiff) + max(0, 3 - intdiv($juzDiff, 4));
+        };
 
-        $sorted = $pool->map(function ($s) use ($pool) {
-            $slots   = $s['available_times'] ?? [];
-            $options = $pool->filter(fn ($o) => $o['id'] !== $s['id'] && count(array_intersect($slots, $o['available_times'] ?? [])) > 0)->count();
-            return array_merge((array) $s, ['_options' => $options]);
-        })->sortBy('_options');
+        $pool = collect($students)->keyBy('id')->toArray();
 
-        foreach ($sorted as $sid => $student) {
-            if (in_array($sid, $matched)) continue;
-
-            $bestId    = null;
-            $bestScore = -1;
-
-            foreach ($pool as $oid => $other) {
-                if ($oid === $sid || in_array($oid, $matched)) continue;
-                $shared = count(array_intersect($student['available_times'] ?? [], $other['available_times'] ?? []));
-                if ($shared > $bestScore) {
-                    $bestScore = $shared;
-                    $bestId    = $oid;
-                }
+        // If odd, remove student with highest total score sum (they fit best elsewhere)
+        if (count($pool) % 2 !== 0) {
+            $sums = [];
+            foreach ($pool as $id => $s) {
+                $sums[$id] = array_sum(array_map(fn ($o) => $scoreOf((array)$s, (array)$o), $pool));
             }
-
-            if ($bestId !== null) {
-                $result[]  = ['a' => (int) $sid, 'b' => (int) $bestId];
-                $matched[] = $sid;
-                $matched[] = $bestId;
-            }
+            arsort($sums);
+            $soloId = array_key_first($sums);
+            $noMatch = [['id' => $pool[$soloId]['id'], 'name' => $pool[$soloId]['name']]];
+            unset($pool[$soloId]);
+        } else {
+            $noMatch = [];
         }
 
-        $noMatch = $pool->filter(fn ($s) => !in_array($s['id'], $matched))
-            ->map(fn ($s) => ['id' => $s['id'], 'name' => $s['name']])
-            ->values()->toArray();
+        // Build all candidate pairs, sort by score descending (global greedy)
+        $ids = array_keys($pool);
+        $candidates = [];
+        for ($i = 0; $i < count($ids); $i++) {
+            for ($j = $i + 1; $j < count($ids); $j++) {
+                $a = (array) $pool[$ids[$i]];
+                $b = (array) $pool[$ids[$j]];
+                $candidates[] = ['a' => (int)$ids[$i], 'b' => (int)$ids[$j], 'score' => $scoreOf($a, $b)];
+            }
+        }
+        usort($candidates, fn ($x, $y) => $y['score'] <=> $x['score']);
+
+        $matched = [];
+        $result  = [];
+        foreach ($candidates as $c) {
+            if (in_array($c['a'], $matched) || in_array($c['b'], $matched)) continue;
+            $result[]  = ['a' => $c['a'], 'b' => $c['b']];
+            $matched[] = $c['a'];
+            $matched[] = $c['b'];
+        }
 
         return ['matched' => $result, 'no_match' => $noMatch];
     }

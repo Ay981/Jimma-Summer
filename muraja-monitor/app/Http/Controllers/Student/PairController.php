@@ -27,7 +27,7 @@ class PairController extends Controller
 
         $pair = Pair::where(function ($q) use ($user) {
             $q->where('student_a_id', $user->id)->orWhere('student_b_id', $user->id);
-        })->with(['studentA:id,name,phone', 'studentB:id,name,phone'])->first();
+        })->with(['studentA:id,name,phone,telegram_username', 'studentB:id,name,phone,telegram_username'])->first();
 
         $pairingInfo = [
             'window_open'     => $windowOpen,
@@ -62,10 +62,11 @@ class PairController extends Controller
 
         return Inertia::render('Student/Pair', [
             'pair' => [
-                'status'          => $pair->status,
-                'partner_name'    => $partner?->name ?? '—',
-                'partner_phone'   => $partner?->phone ?? '—',
-                'today_submitted' => $partner
+                'status'              => $pair->status,
+                'partner_name'        => $partner?->name ?? '—',
+                'partner_phone'       => $partner?->phone ?? '—',
+                'partner_telegram'    => $partner?->telegram_username ?? null,
+                'today_submitted'     => $partner
                     ? PairSubmission::where('subject_student_id', $partner->id)
                         ->where('submission_date', $today)->exists()
                     : false,

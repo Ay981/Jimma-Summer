@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AyatRotation;
 use App\Models\Badge;
 use App\Models\Halqa;
+use App\Models\MissedSubmissionExcuse;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
@@ -57,8 +58,54 @@ class DashboardController extends Controller
             ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as total')
             ->value('total') ?? 0;
 
+        // ── Missed days eligible for excuse (scheduled, no submission, within 48h, no excuse yet) ──
+        $availableDays   = $user->available_days ?? [];
+        $programStart    = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
+        $excusableMissed = [];
+        if (!empty($availableDays)) {
+            $existingExcuses = MissedSubmissionExcuse::where('student_id', $user->id)
+                ->pluck('missed_date')
+                ->map(fn ($d) => Carbon::parse($d)->toDateString())
+                ->flip()->toArray();
+
+            $submittedDays = PairSubmission::where('subject_student_id', $user->id)
+                ->where('submission_date', '>=', Carbon::today()->subDays(2)->toDateString())
+                ->pluck('submission_date')
+                ->map(fn ($d) => Carbon::parse($d)->toDateString())
+                ->flip()->toArray();
+
+            // Check up to last 2 days (48-hour window)
+            for ($dAgo = 1; $dAgo <= 2; $dAgo++) {
+                $d = Carbon::today()->subDays($dAgo);
+                if ($d->lt($programStart)) continue;
+                $dayName = strtolower($d->format('l'));
+                if (!in_array($dayName, $availableDays, true)) continue;
+                $ds = $d->toDateString();
+                if (isset($submittedDays[$ds])) continue;
+                if (isset($existingExcuses[$ds])) continue;
+                $weekEnd = $d->copy()->endOfWeek(Carbon::SATURDAY);
+                if ($weekEnd->lt(Carbon::today())) continue; // same-week makeup no longer possible
+                $excusableMissed[] = [
+                    'date'         => $ds,
+                    'label'        => $d->format('l, M d'),
+                    'deadline'     => $d->copy()->addHours(48)->toIso8601String(),
+                    'week_end'     => $weekEnd->toDateString(),
+                ];
+            }
+        }
+
+        // ── Pending excuses (filed, makeup not yet fulfilled) ────────────────
+        $pendingExcuses = MissedSubmissionExcuse::where('student_id', $user->id)
+            ->where('fulfilled', false)
+            ->where('makeup_date', '>=', $today)
+            ->get()
+            ->map(fn ($e) => [
+                'missed_date' => $e->missed_date->toDateString(),
+                'makeup_date' => $e->makeup_date->toDateString(),
+                'reason'      => $e->reason,
+            ])->values()->toArray();
+
         // ── 30-day heatmap (bounded by program start + user created_at) ─────────
-        $programStart   = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
         $userJoined     = Carbon::parse($user->created_at)->startOfDay();
         $heatmapLower   = $programStart->gt($userJoined) ? $programStart->copy() : $userJoined->copy();
         $heatmapStart   = now()->subDays(29)->startOfDay();
@@ -72,13 +119,22 @@ class DashboardController extends Controller
             ->flip()
             ->toArray();
 
-        $checkins30Days = collect(range(29, 0))->map(function ($daysAgo) use ($visibleStart, $submittedDates) {
+        // Dates that were makeup submissions (excuse fulfilled on that date)
+        $makeupDates = MissedSubmissionExcuse::where('student_id', $user->id)
+            ->where('fulfilled', true)
+            ->pluck('makeup_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip()
+            ->toArray();
+
+        $checkins30Days = collect(range(29, 0))->map(function ($daysAgo) use ($visibleStart, $submittedDates, $makeupDates) {
             $date = now()->subDays($daysAgo)->toDateString();
             $inProgram = Carbon::parse($date)->gte($visibleStart);
             return [
                 'date'       => $date,
                 'submitted'  => isset($submittedDates[$date]),
-                'scheduled'  => $inProgram, // false = pre-program, render as out-of-program
+                'is_makeup'  => isset($makeupDates[$date]),
+                'scheduled'  => $inProgram,
             ];
         })->values()->toArray();
 
@@ -156,6 +212,8 @@ class DashboardController extends Controller
                 'longest_streak'  => $this->consistency->getLongestStreak($user->id),
                 'most_pages_week' => $this->consistency->getMostPagesInWeek($user->id),
             ],
+            'excusable_missed'  => $excusableMissed,
+            'pending_excuses'   => $pendingExcuses,
         ]);
     }
 

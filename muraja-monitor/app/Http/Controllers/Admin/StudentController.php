@@ -10,6 +10,7 @@ use App\Models\ContactLog;
 use App\Models\Halqa;
 use App\Models\Pair;
 use App\Models\PairSubmission;
+use App\Models\MissedSubmissionExcuse;
 use App\Models\ProgramSetting;
 use App\Models\User;
 use App\Models\Watchlist;
@@ -209,7 +210,6 @@ class StudentController extends Controller
                 'current_juz'       => $student->current_juz,
                 'memo_level'        => $student->memo_level,
                 'available_times'   => $student->available_times ?? [],
-                'health_notes'      => $student->health_notes ?? '',
                 'partner'           => $partner ? ['id' => $partner->id, 'name' => $partner->name] : null,
                 'on_watchlist'      => $onWatchlist,
                 'pages_total'       => (int) $totalPages,
@@ -220,6 +220,16 @@ class StudentController extends Controller
             'submissions' => $submissions,
             'timeline'    => $timeline,
             'halqas'      => Halqa::select('id', 'name')->orderBy('name')->get(),
+            'excuses'     => MissedSubmissionExcuse::where('student_id', $student->id)
+                ->orderByDesc('missed_date')
+                ->take(10)
+                ->get()
+                ->map(fn ($e) => [
+                    'missed_date' => $e->missed_date->toDateString(),
+                    'makeup_date' => $e->makeup_date->toDateString(),
+                    'reason'      => $e->reason,
+                    'fulfilled'   => $e->fulfilled,
+                ])->toArray(),
         ]);
     }
 

@@ -24,7 +24,7 @@ class PairRequestController extends Controller
         $student = auth()->user();
 
         // Look up partner by their student_id code
-        $partner = User::where('student_id', $request->partner_student_id)
+        $partner = User::where('student_id', trim(strtoupper($request->partner_student_id)))
             ->where('role', 'student')
             ->where('is_active', true)
             ->first();

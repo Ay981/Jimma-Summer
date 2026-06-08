@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Student\ExcuseController as StudentExcuse;
 use App\Http\Controllers\Student\AnnouncementController as StudentAnnouncements;
 use App\Http\Controllers\Student\BadgeController as StudentBadge;
 use App\Http\Controllers\Student\CheckinController;
@@ -69,6 +70,7 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
 
         Route::post('/checkin', [CheckinController::class, 'store'])->name('checkin.store');
         Route::put('/checkin/{submission}', [CheckinController::class, 'update'])->name('checkin.update');
+        Route::post('/excuse', [StudentExcuse::class, 'store'])->name('excuse.store');
 
         Route::get('/history', [HistoryController::class, 'index'])->name('history');
         Route::get('/pair', [StudentPair::class, 'show'])->name('pair');
@@ -122,13 +124,19 @@ Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->g
     Route::post('/students/{student}/pw-reset',      [LeaderBroadcast::class, 'resetPassword'])->name('students.pwReset');
 
     // PDF export
-    Route::get('/export/pdf', [LeaderPdfExport::class, 'export'])->name('export.pdf');
+    Route::get('/export/pdf',          [LeaderPdfExport::class, 'export'])->name('export.pdf');
+    // Weekly report
+    Route::get('/weekly-report',       [App\Http\Controllers\Leader\WeeklyReportController::class, 'index'])->name('weekly-report');
+    Route::get('/weekly-report/pdf',   [App\Http\Controllers\Leader\WeeklyReportController::class, 'pdf'])->name('weekly-report.pdf');
 });
 
 // ── Admin Routes ───────────────────────────────────────────────────────────────
 
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
+    Route::get('/dashboard',        [AdminDashboard::class, 'index'])->name('dashboard');
+    Route::post('/program/start',   [AdminDashboard::class, 'startProgram'])->name('program.start');
+    Route::post('/program/end',     [AdminDashboard::class, 'endProgram'])->name('program.end');
+    Route::post('/program/new',     [AdminDashboard::class, 'newProgram'])->name('program.new');
 
     // Students
     Route::get('/students',                                  [AdminStudent::class, 'index'])->name('students');
@@ -157,6 +165,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Pairs
     Route::get('/pairs',                                     [AdminPair::class, 'index'])->name('pairs');
+    Route::post('/pairs',                                    [AdminPair::class, 'store'])->name('pairs.store');
     Route::post('/pairs/confirm-assignment',                 [AdminPair::class, 'confirmAssignment'])->name('pairs.confirmAssignment');
     Route::post('/pairs/swap-students',                      [AdminPair::class, 'swapPairStudents'])->name('pairs.swapStudents');
     Route::post('/pairs/cross-halqa',                        [AdminPair::class, 'crossHalqaPair'])->name('pairs.crossHalqa');
@@ -168,6 +177,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/leaderboard/lock',                         [AdminLeaderboard::class, 'lock'])->name('leaderboard.lock');
     Route::post('/leaderboard/unlock',                       [AdminLeaderboard::class, 'unlock'])->name('leaderboard.unlock');
     Route::get('/leaderboard/certificate/{student}',         [AdminLeaderboard::class, 'certificate'])->name('leaderboard.certificate');
+    Route::get('/leaderboard/snapshots/compare',             [AdminLeaderboard::class, 'compare'])->name('leaderboard.compare');
+    Route::get('/leaderboard/snapshots/{snapshot}/pdf',      [AdminLeaderboard::class, 'snapshotPdf'])->name('leaderboard.snapshot.pdf');
     Route::get('/leaderboard/pdf',                           [AdminReports::class, 'exportProgramReport'])->name('leaderboard.pdf');
 
     // Outreach
@@ -180,6 +191,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/pairing',                    [AdminPairing::class, 'index'])->name('pairing');
     Route::post('/pairing/window',            [AdminPairing::class, 'setWindow'])->name('pairing.window');
     Route::post('/pairing/run',               [AdminPairing::class, 'run'])->name('pairing.run');
+    Route::get('/pairing/incompatible-pdf',   [AdminPairing::class, 'incompatiblePdf'])->name('pairing.incompatiblePdf');
 
     // Leaders
     Route::get('/leaders',                                   [AdminLeaders::class, 'index'])->name('leaders');
@@ -201,6 +213,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Reports
     Route::get('/reports',                                   [AdminReports::class, 'index'])->name('reports');
+    Route::get('/reports/weekly',                            [AdminReports::class, 'weeklyReport'])->name('reports.weekly');
+    Route::get('/reports/weekly/pdf',                        [AdminReports::class, 'weeklyReportPdf'])->name('reports.weekly.pdf');
     Route::get('/reports/submissions',                       [AdminReports::class, 'exportSubmissions'])->name('reports.submissions');
     Route::get('/reports/student-summary',                   [AdminReports::class, 'exportStudentSummary'])->name('reports.studentSummary');
     Route::get('/reports/contact-log',                       [AdminReports::class, 'exportContactLog'])->name('reports.contactLog');

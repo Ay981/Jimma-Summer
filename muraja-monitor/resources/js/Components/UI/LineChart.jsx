@@ -23,9 +23,12 @@ export default function LineChart({
     const nPoints = series[0].data.length;
     // Per-point spacing — wide enough that labels like "Wk 18/04" (~44px) don't collide
     const PX_PER_PT = 56;
-    const width  = Math.max(260, nPoints * PX_PER_PT + PAD_L + PAD_R);
+    const width  = Math.max(320, nPoints * PX_PER_PT + PAD_L + PAD_R);
     const chartH = height - PAD_T - PAD_B;
     const chartW = width  - PAD_L - PAD_R;
+
+    // Font size scales with viewBox so it looks consistent regardless of point count
+    const FS = Math.round(Math.max(7, Math.min(10, width / 40)));
 
     const allVals = series.flatMap((s) => s.data);
     const maxY    = yMax ?? Math.max(...allVals, 1);
@@ -55,7 +58,7 @@ export default function LineChart({
                     <line x1={PAD_L} x2={width - PAD_R} y1={y} y2={y}
                         stroke="var(--border)" strokeWidth={0.5} strokeDasharray="3 3" />
                     <text x={PAD_L - 4} y={y + 4} textAnchor="end"
-                        fontSize={9} fill="var(--muted-foreground)">{label}</text>
+                        fontSize={FS} fill="var(--muted-foreground)">{label}</text>
                 </g>
             ))}
 
@@ -90,7 +93,7 @@ export default function LineChart({
                 return (
                     <text key={i} x={px(i)} y={height - 8}
                         textAnchor={rotate ? 'end' : 'middle'}
-                        fontSize={9} fill="var(--muted-foreground)"
+                        fontSize={FS} fill="var(--muted-foreground)"
                         transform={rotate ? `rotate(-40,${px(i)},${height - 8})` : undefined}>
                         {lbl}
                     </text>
@@ -103,7 +106,7 @@ export default function LineChart({
                     {series.map((s, i) => (
                         <g key={i} transform={`translate(${i * 120},0)`}>
                             <line x1={0} x2={14} y1={0} y2={0} stroke={s.color} strokeWidth={2} />
-                            <text x={17} y={3} fontSize={9} fill="var(--muted-foreground)">{s.label}</text>
+                            <text x={17} y={3} fontSize={FS} fill="var(--muted-foreground)">{s.label}</text>
                         </g>
                     ))}
                 </g>

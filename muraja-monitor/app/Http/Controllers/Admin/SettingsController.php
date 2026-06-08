@@ -17,8 +17,7 @@ class SettingsController extends Controller
     public function index(): Response
     {
         $keys = [
-            'program_name', 'program_start_date', 'program_end_date',
-            'default_password', 'certificate_threshold',
+            'program_name', 'default_password', 'certificate_threshold',
             'badge_streak_bronze', 'badge_streak_silver', 'badge_streak_gold',
             'badge_pages_bronze',  'badge_pages_silver',  'badge_pages_gold',
             'exam_mode', 'ramadan_mode', 'date_override',
@@ -41,8 +40,6 @@ class SettingsController extends Controller
     {
         $request->validate([
             'program_name'          => ['required', 'string', 'max:255'],
-            'program_start_date'    => ['required', 'date'],
-            'program_end_date'      => ['required', 'date', 'after:program_start_date'],
             'default_password'      => ['required', 'string', 'min:8'],
             'certificate_threshold' => ['required', 'integer', 'min:0', 'max:100'],
             'badge_streak_bronze'   => ['required', 'integer', 'min:1'],
@@ -56,7 +53,7 @@ class SettingsController extends Controller
             'date_override'         => ['nullable', 'date'],
         ]);
 
-        $fields = ['program_name', 'program_start_date', 'program_end_date', 'default_password',
+        $fields = ['program_name', 'default_password',
                    'certificate_threshold', 'badge_streak_bronze', 'badge_streak_silver', 'badge_streak_gold',
                    'badge_pages_bronze', 'badge_pages_silver', 'badge_pages_gold', 'date_override'];
 

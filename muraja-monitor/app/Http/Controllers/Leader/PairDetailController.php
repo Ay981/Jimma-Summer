@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Leader;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContactLog;
+use App\Models\MissedSubmissionExcuse;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\PrivateNote;
@@ -116,6 +117,16 @@ class PairDetailController extends Controller
                 'on_watchlist' => $onWatchlist,
                 'last_login'   => $lastLogin ? Carbon::parse($lastLogin)->diffForHumans() : 'Never',
                 'notif_log'    => $notifLog,
+                'excuses'      => MissedSubmissionExcuse::where('student_id', $student->id)
+                    ->orderByDesc('missed_date')
+                    ->take(10)
+                    ->get()
+                    ->map(fn ($e) => [
+                        'missed_date' => $e->missed_date->toDateString(),
+                        'makeup_date' => $e->makeup_date->toDateString(),
+                        'reason'      => $e->reason,
+                        'fulfilled'   => $e->fulfilled,
+                    ])->toArray(),
             ];
         })->values()->toArray();
 

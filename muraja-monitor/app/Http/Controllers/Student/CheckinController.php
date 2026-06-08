@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\MissedSubmissionExcuse;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Notifications\PartnerSubmitted;
@@ -56,6 +57,12 @@ class CheckinController extends Controller
 
         // Check and award badges
         $this->badges->checkAndAward($user);
+
+        // Mark any unfulfilled excuse whose makeup_date is today as fulfilled
+        MissedSubmissionExcuse::where('student_id', $user->id)
+            ->where('makeup_date', $today)
+            ->where('fulfilled', false)
+            ->update(['fulfilled' => true]);
 
         // Notify partner
         if ($pair) {
