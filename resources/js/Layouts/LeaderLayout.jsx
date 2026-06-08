@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
-    ClipboardText, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
+    ClipboardText, CalendarBlank, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
 } from '@phosphor-icons/react';
 
 function Toast() {
@@ -93,6 +93,7 @@ export default function LeaderLayout({ children, title }) {
         { href: '/leader/dashboard?view=students', icon: UsersThree,    label: 'Students',      viewKey: 'students' },
         { href: '/leader/announcements',           icon: Megaphone,     label: 'Announcements' },
         { href: '/leader/meetings',                icon: ClipboardText, label: 'Meetings' },
+        { href: '/leader/weekly-report',           icon: CalendarBlank, label: 'Weekly Report' },
         { href: '/leader/export/pdf',              icon: FilePdf,       label: 'Export PDF',    external: true },
     ];
 

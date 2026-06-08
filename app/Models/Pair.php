@@ -8,7 +8,7 @@ class Pair extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['student_a_id', 'student_b_id', 'halqa_id', 'status'];
+    protected $fillable = ['student_a_id', 'student_b_id', 'halqa_id', 'status', 'compatibility_score', 'needs_review'];
 
     public function studentA()
     {

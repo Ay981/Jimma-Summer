@@ -8,7 +8,7 @@ class ProgramSnapshot extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['program_name', 'ended_at', 'snapshot_data'];
+    protected $fillable = ['program_name', 'ended_at', 'snapshot_data', 'report_pdf_path'];
 
     protected function casts(): array
     {

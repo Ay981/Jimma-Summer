@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MissedSubmissionExcuse;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
@@ -50,7 +51,17 @@ class ConsistencyService
 
         if (empty($submittedSet)) return 0;
 
-        $today   = Carbon::today();
+        // Excuses with a makeup still pending (makeup_date not yet passed, not yet fulfilled)
+        // treat the missed day as "protected" — don't break the streak for it
+        $today = Carbon::today();
+        $protectedDates = MissedSubmissionExcuse::where('student_id', $userId)
+            ->where('fulfilled', false)
+            ->where('makeup_date', '>=', $today->toDateString()) // makeup still in the future / today
+            ->pluck('missed_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip()
+            ->toArray();
+
         $current = $today->copy();
         $streak  = 0;
 
@@ -67,6 +78,9 @@ class ConsistencyService
                     $streak++;
                 } elseif ($dateStr === $today->toDateString()) {
                     // Today hasn't ended yet — skip without breaking
+                } elseif (isset($protectedDates[$dateStr])) {
+                    // Excuse filed, makeup still pending — protect this day
+                    $streak++;
                 } else {
                     break;
                 }
@@ -182,8 +196,8 @@ class ConsistencyService
     {
         if ($this->programNotStarted()) return 0;
 
-        $members  = \App\Models\User::where('halqa_id', $halqaId)->where('role', 'student')->get();
-        $today    = Carbon::today();
+        $members   = \App\Models\User::where('halqa_id', $halqaId)->where('role', 'student')->get();
+        $today     = Carbon::today();
         $progStart = $this->programStart();
 
         if ($members->isEmpty()) return 0;
@@ -194,12 +208,24 @@ class ConsistencyService
             $effStart = Carbon::parse($member->created_at)->startOfDay();
             $lower    = $progStart->gt($effStart) ? $progStart->copy() : $effStart->copy();
             if ($lower->gt($today)) continue;
-            $days  = max(1, $lower->diffInDays($today) + 1);
-            $subs  = PairSubmission::where('subject_student_id', $member->id)
+
+            $availableDays = $member->available_days ?? [];
+            $subs = PairSubmission::where('subject_student_id', $member->id)
                 ->where('submission_date', '>=', $lower->toDateString())
                 ->count();
             $total += $subs;
-            $denom += $days;
+
+            if (empty($availableDays)) {
+                $denom += max(1, $lower->diffInDays($today) + 1);
+            } else {
+                $cursor = $lower->copy();
+                while ($cursor->lte($today)) {
+                    if (in_array(strtolower($cursor->format('l')), $availableDays, true)) {
+                        $denom++;
+                    }
+                    $cursor->addDay();
+                }
+            }
         }
 
         if ($denom === 0) return 0;

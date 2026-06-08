@@ -71,9 +71,10 @@ class OutreachController extends Controller
     {
         $request->validate(['student_ids' => ['required', 'array'], 'student_ids.*' => ['exists:users,id']]);
 
+        $students = User::whereIn('id', $request->student_ids)->get()->keyBy('id');
         $notified = 0;
         foreach ($request->student_ids as $sid) {
-            $student = User::find($sid);
+            $student = $students->get($sid);
             if (!$student) continue;
             $student->notifications()->create([
                 'id'              => Str::uuid(),

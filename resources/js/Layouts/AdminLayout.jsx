@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
-    Broadcast, ChartBar, ChartLine, ClipboardText, Gear,
+    Broadcast, ChartBar, ChartLine, ClipboardText, CalendarBlank, Gear,
     GitBranch, House, List, MagnifyingGlass, Medal, Megaphone,
     ShieldCheck, SignOut, X, UserCircle, UsersThree,
 } from '@phosphor-icons/react';
@@ -157,6 +157,7 @@ export default function AdminLayout({ children, title }) {
         { href: '/admin/announcements', icon: Megaphone,       label: 'Announcements' },
         { href: '/admin/integrity',     icon: ShieldCheck,     label: 'Integrity' },
         { href: '/admin/reports',       icon: ChartLine,       label: 'Reports' },
+        { href: '/admin/reports/weekly',icon: CalendarBlank,   label: 'Weekly Report' },
         { href: '/admin/settings',      icon: Gear,            label: 'Settings' },
         { href: '/admin/audit',         icon: MagnifyingGlass, label: 'Audit' },
     ];

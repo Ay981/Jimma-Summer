@@ -65,11 +65,11 @@ function PillToggle({ items, selected, onToggle, cols }) {
 
 export default function ProfileComplete({ user }) {
     const { data, setData, post, processing, errors } = useForm({
-        memo_level:      user.memo_level      ?? '',
-        current_juz:     user.current_juz     ?? 1,
-        available_days:  user.available_days  ?? [],
-        available_times: user.available_times ?? [],
-        health_notes:    user.health_notes    ?? '',
+        memo_level:        user.memo_level        ?? '',
+        current_juz:       user.current_juz       ?? 1,
+        available_days:    user.available_days     ?? [],
+        available_times:   user.available_times    ?? [],
+        telegram_username: user.telegram_username  ?? '',
     });
 
     function toggle(field, value) {
@@ -98,7 +98,7 @@ export default function ProfileComplete({ user }) {
     const hint  = { margin: '0 0 8px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' };
     const err   = { margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' };
 
-    const canSubmit = data.memo_level && data.available_days.length > 0 && data.available_times.length > 0;
+    const canSubmit = data.memo_level && data.available_days.length > 0 && data.available_times.length > 0 && data.telegram_username.trim();
 
     return (
         <StudentLayout title="Complete Your Profile">
@@ -168,20 +168,47 @@ export default function ProfileComplete({ user }) {
                         {errors.available_times && <p style={err}>{errors.available_times}</p>}
                     </div>
 
-                    {/* Health / schedule notes */}
+                    {/* Telegram username */}
                     <div>
                         <label style={lbl}>
-                            Health or schedule notes{' '}
-                            <span style={{ fontWeight: 400, color: 'var(--muted-foreground)' }}>(optional)</span>
+                            Telegram username <span style={{ color: 'var(--destructive)' }}>*</span>
                         </label>
-                        <textarea
-                            value={data.health_notes}
-                            onChange={(e) => setData('health_notes', e.target.value)}
-                            placeholder="Any health conditions, travel plans, or constraints your leader should know about…"
-                            rows={3}
-                            style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
-                        />
-                        {errors.health_notes && <p style={err}>{errors.health_notes}</p>}
+                        <p style={hint}>Your partner will use this to contact you. Enter without the @.</p>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{
+                                position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+                                color: 'var(--muted-foreground)', fontSize: '0.9rem', pointerEvents: 'none',
+                            }}>@</span>
+                            <input
+                                value={data.telegram_username}
+                                onChange={(e) => setData('telegram_username', e.target.value.replace(/^@/, ''))}
+                                placeholder="yourhandle"
+                                style={{ ...inp, paddingLeft: '24px' }}
+                            />
+                        </div>
+                        {errors.telegram_username && <p style={err}>{errors.telegram_username}</p>}
+                    </div>
+
+                    {/* Amharic pledge */}
+                    <div style={{
+                        border: '1px solid oklch(80% 0.08 150)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '16px',
+                        background: 'oklch(97% 0.02 150)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                    }}>
+                        <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(40% 0.1 150)' }}>
+                            የቅን ልቦና ቃል ኪዳን
+                        </p>
+                        <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.75, color: 'var(--foreground)', fontWeight: 500 }}>
+                            ዋላሂ፣ ዛሬ ያቀረብኩት ሙራጃዓ ውሂብ እውነተኛ ነው። ያልሠራሁትን ሙራጃዓ ወደ ሥርዓቱ አልልክም።
+                            ሐሰት ከሆነ ሒሳቤ በአላህ ዘንድ ነው።
+                        </p>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(45% 0.08 150)', fontStyle: 'italic' }}>
+                            Wallahi, I will not submit forged muraja'a data.
+                        </p>
                     </div>
 
                     <button

@@ -233,4 +233,166 @@ class ReportsController extends Controller
 
         return $pdf->download('program-report-' . $today->toDateString() . '.pdf');
     }
+
+    // ── Weekly report ─────────────────────────────────��───────────────────────
+
+    public function weeklyReport(): \Inertia\Response
+    {
+        $today      = Carbon::today();
+        $weekStart  = $today->copy()->startOfWeek(Carbon::SUNDAY);
+        $weekEnd    = $today->copy()->endOfWeek(Carbon::SATURDAY);
+        $prevStart  = $weekStart->copy()->subWeek();
+        $prevEnd    = $weekEnd->copy()->subWeek();
+
+        $ids = User::where('role', 'student')->where('is_active', true)->pluck('id');
+
+        // This week vs last week submission totals
+        $thisWeekTotal = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->count();
+        $lastWeekTotal = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$prevStart->toDateString(), $prevEnd->toDateString()])
+            ->count();
+
+        // Per-student this week
+        $studentSubs = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt, SUM(page_to - page_from + 1) as pages')
+            ->groupBy('subject_student_id')
+            ->get()->keyBy('subject_student_id');
+
+        $prevStudentSubs = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$prevStart->toDateString(), $prevEnd->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt')
+            ->groupBy('subject_student_id')
+            ->get()->keyBy('subject_student_id');
+
+        $students = User::whereIn('id', $ids)->with('halqa:id,name')->get();
+
+        $studentRows = $students->map(function ($s) use ($studentSubs, $prevStudentSubs) {
+            $thisCnt  = (int) ($studentSubs[$s->id]->cnt   ?? 0);
+            $prevCnt  = (int) ($prevStudentSubs[$s->id]->cnt ?? 0);
+            $pages    = (int) ($studentSubs[$s->id]->pages  ?? 0);
+            $streak   = $this->consistency->getStreak($s->id);
+            return [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'student_id' => $s->student_id,
+                'halqa'      => $s->halqa?->name ?? '—',
+                'this_week'  => $thisCnt,
+                'last_week'  => $prevCnt,
+                'delta'      => $thisCnt - $prevCnt,
+                'pages'      => $pages,
+                'streak'     => $streak,
+            ];
+        });
+
+        // Zero submissions this week
+        $zeroThisWeek = $studentRows->where('this_week', 0)->values();
+
+        // Most improved (biggest positive delta)
+        $improved = $studentRows->where('delta', '>', 0)->sortByDesc('delta')->take(5)->values();
+
+        // Per-halqa summary
+        $halqas = Halqa::with(['members' => fn ($q) => $q->where('role', 'student')->where('is_active', true)])->get();
+        $halqaRows = $halqas->map(function ($h) use ($weekStart, $weekEnd, $prevStart, $prevEnd) {
+            $memberIds = $h->members->pluck('id');
+            if ($memberIds->isEmpty()) return null;
+            $thisCount = PairSubmission::whereIn('subject_student_id', $memberIds)
+                ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                ->distinct('subject_student_id')->count('subject_student_id');
+            $prevCount = PairSubmission::whereIn('subject_student_id', $memberIds)
+                ->whereBetween('submission_date', [$prevStart->toDateString(), $prevEnd->toDateString()])
+                ->distinct('subject_student_id')->count('subject_student_id');
+            $cons = round($thisCount / $memberIds->count() * 100, 1);
+            return [
+                'name'       => $h->name,
+                'members'    => $memberIds->count(),
+                'submitted'  => $thisCount,
+                'consistency'=> $cons,
+                'delta'      => $thisCount - $prevCount,
+            ];
+        })->filter()->sortByDesc('consistency')->values();
+
+        // Pairs with zero joint submissions this week
+        $pairs = \App\Models\Pair::with(['studentA:id,name', 'studentB:id,name', 'halqa:id,name'])->get();
+        $zeroPairs = $pairs->filter(function ($pair) use ($weekStart, $weekEnd) {
+            $ids = array_filter([$pair->student_a_id, $pair->student_b_id]);
+            $cnt = PairSubmission::whereIn('subject_student_id', $ids)
+                ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                ->count();
+            return $cnt === 0;
+        })->map(fn ($p) => [
+            'student_a' => $p->studentA?->name ?? '—',
+            'student_b' => $p->studentB?->name ?? '—',
+            'halqa'     => $p->halqa?->name ?? '—',
+        ])->values();
+
+        return Inertia::render('Admin/WeeklyReport', [
+            'week_start'      => $weekStart->toDateString(),
+            'week_end'        => $weekEnd->toDateString(),
+            'this_week_total' => $thisWeekTotal,
+            'last_week_total' => $lastWeekTotal,
+            'delta'           => $thisWeekTotal - $lastWeekTotal,
+            'total_students'  => $ids->count(),
+            'zero_this_week'  => $zeroThisWeek,
+            'improved'        => $improved,
+            'halqa_rows'      => $halqaRows,
+            'zero_pairs'      => $zeroPairs,
+            'student_rows'    => $studentRows->sortBy('name')->values(),
+            'pdf_url'         => '/admin/reports/weekly/pdf',
+        ]);
+    }
+
+    public function weeklyReportPdf(): Response
+    {
+        $today      = Carbon::today();
+        $weekStart  = $today->copy()->startOfWeek(Carbon::SUNDAY);
+        $weekEnd    = $today->copy()->endOfWeek(Carbon::SATURDAY);
+        $prevStart  = $weekStart->copy()->subWeek();
+        $prevEnd    = $weekEnd->copy()->subWeek();
+
+        $ids = User::where('role', 'student')->where('is_active', true)->pluck('id');
+
+        $studentSubs = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt, SUM(page_to - page_from + 1) as pages')
+            ->groupBy('subject_student_id')->get()->keyBy('subject_student_id');
+
+        $prevStudentSubs = PairSubmission::whereIn('subject_student_id', $ids)
+            ->whereBetween('submission_date', [$prevStart->toDateString(), $prevEnd->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt')
+            ->groupBy('subject_student_id')->get()->keyBy('subject_student_id');
+
+        $students = User::whereIn('id', $ids)->with('halqa:id,name')->orderBy('name')->get()
+            ->map(fn ($s) => [
+                'name'       => $s->name,
+                'student_id' => $s->student_id,
+                'halqa'      => $s->halqa?->name ?? '—',
+                'this_week'  => (int) ($studentSubs[$s->id]->cnt  ?? 0),
+                'last_week'  => (int) ($prevStudentSubs[$s->id]->cnt ?? 0),
+                'pages'      => (int) ($studentSubs[$s->id]->pages ?? 0),
+                'streak'     => $this->consistency->getStreak($s->id),
+            ]);
+
+        $halqas = Halqa::with(['members' => fn ($q) => $q->where('role','student')->where('is_active',true)])->get()
+            ->map(function ($h) use ($weekStart, $weekEnd) {
+                $memberIds = $h->members->pluck('id');
+                if ($memberIds->isEmpty()) return null;
+                $cnt  = PairSubmission::whereIn('subject_student_id', $memberIds)
+                    ->whereBetween('submission_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+                    ->distinct('subject_student_id')->count('subject_student_id');
+                return ['name' => $h->name, 'members' => $memberIds->count(), 'submitted' => $cnt, 'consistency' => round($cnt / $memberIds->count() * 100, 1)];
+            })->filter()->sortByDesc('consistency')->values();
+
+        $pdf = Pdf::loadView('pdf.weekly-report-admin', [
+            'week_start' => $weekStart->format('d M Y'),
+            'week_end'   => $weekEnd->format('d M Y'),
+            'students'   => $students,
+            'halqas'     => $halqas,
+            'program_name' => ProgramSetting::get('program_name', "Muraja'a Monitor"),
+        ]);
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->download('weekly-report-' . $weekStart->toDateString() . '.pdf');
+    }
 }

@@ -17,6 +17,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,7 +52,7 @@ class LeaderboardController extends Controller
     {
         $request->validate(['program_name' => ['required', 'string', 'max:255']]);
 
-        ProgramSnapshot::create([
+        $snapshot = ProgramSnapshot::create([
             'program_name'  => $request->program_name,
             'ended_at'      => now(),
             'snapshot_data' => [
@@ -62,7 +64,87 @@ class LeaderboardController extends Controller
             ],
         ]);
 
-        return back()->with('success', 'Leaderboard locked and archived.');
+        $this->generateAndStorePdf($snapshot);
+
+        return back()->with('success', 'Leaderboard locked, archived, and PDF saved.');
+    }
+
+    public function snapshotPdf(ProgramSnapshot $snapshot)
+    {
+        // Serve stored file if it exists, otherwise generate on the fly
+        if ($snapshot->report_pdf_path && \Storage::exists($snapshot->report_pdf_path)) {
+            return \Storage::download($snapshot->report_pdf_path, \Str::slug($snapshot->program_name) . '-report.pdf');
+        }
+
+        $pdf = Pdf::loadView('pdf.program-snapshot', ['snapshot' => $snapshot]);
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->download(\Str::slug($snapshot->program_name) . '-report.pdf');
+    }
+
+    public function compare(Request $request): Response
+    {
+        $snapshots = ProgramSnapshot::orderByDesc('ended_at')->get();
+
+        $aId = $request->query('a');
+        $bId = $request->query('b');
+
+        $snapA = $aId ? $snapshots->firstWhere('id', $aId) : $snapshots->get(0);
+        $snapB = $bId ? $snapshots->firstWhere('id', $bId) : $snapshots->get(1);
+
+        $comparison = null;
+        if ($snapA && $snapB) {
+            $comparison = $this->buildComparison($snapA, $snapB);
+        }
+
+        return Inertia::render('Admin/SnapshotCompare', [
+            'snapshots'  => $snapshots->map(fn ($s) => ['id' => $s->id, 'name' => $s->program_name, 'ended_at' => $s->ended_at->toDateString()])->values(),
+            'snap_a'     => $snapA ? ['id' => $snapA->id, 'name' => $snapA->program_name] : null,
+            'snap_b'     => $snapB ? ['id' => $snapB->id, 'name' => $snapB->program_name] : null,
+            'comparison' => $comparison,
+        ]);
+    }
+
+    private function buildComparison(ProgramSnapshot $a, ProgramSnapshot $b): array
+    {
+        $studA = collect($a->snapshot_data['students'] ?? [])->keyBy('student_id');
+        $studB = collect($b->snapshot_data['students'] ?? [])->keyBy('student_id');
+
+        // Students who appear in both
+        $both = $studA->intersectByKeys($studB)->map(function ($sa, $sid) use ($studB) {
+            $sb = $studB[$sid];
+            return [
+                'name'             => $sa['name'],
+                'student_id'       => $sid,
+                'consistency_a'    => $sa['consistency'],
+                'consistency_b'    => $sb['consistency'],
+                'consistency_delta'=> round($sb['consistency'] - $sa['consistency'], 1),
+                'pages_a'          => $sa['pages'],
+                'pages_b'          => $sb['pages'],
+                'pages_delta'      => $sb['pages'] - $sa['pages'],
+                'streak_a'         => $sa['streak'],
+                'streak_b'         => $sb['streak'],
+            ];
+        })->values()->sortByDesc('consistency_delta')->values()->toArray();
+
+        return [
+            'total_students_a'   => $studA->count(),
+            'total_students_b'   => $studB->count(),
+            'avg_consistency_a'  => $studA->count() ? round($studA->avg('consistency'), 1) : 0,
+            'avg_consistency_b'  => $studB->count() ? round($studB->avg('consistency'), 1) : 0,
+            'avg_pages_a'        => $studA->count() ? round($studA->avg('pages')) : 0,
+            'avg_pages_b'        => $studB->count() ? round($studB->avg('pages')) : 0,
+            'returning_students' => count($both),
+            'students'           => $both,
+        ];
+    }
+
+    public function generateAndStorePdf(ProgramSnapshot $snapshot): void
+    {
+        $pdf  = Pdf::loadView('pdf.program-snapshot', ['snapshot' => $snapshot]);
+        $pdf->setPaper('A4', 'portrait');
+        $path = 'snapshots/' . $snapshot->id . '-' . \Str::slug($snapshot->program_name) . '.pdf';
+        \Storage::put($path, $pdf->output());
+        $snapshot->update(['report_pdf_path' => $path]);
     }
 
     public function unlock(Request $request): RedirectResponse

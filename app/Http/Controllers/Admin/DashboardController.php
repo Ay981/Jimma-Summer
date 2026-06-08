@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\LeaderboardController;
 use App\Models\Halqa;
 use App\Models\Pair;
 use App\Models\PairingRequest;
@@ -11,6 +12,8 @@ use App\Models\ProgramSetting;
 use App\Models\User;
 use App\Models\Watchlist;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -137,12 +140,97 @@ class DashboardController extends Controller
             ->orderByDesc('submitted_at')->take(8)->get()
             ->map(fn ($s) => ['name' => $s->subject?->name ?? '—', 'juz' => $s->juz, 'pages' => $s->page_to - $s->page_from + 1, 'time' => Carbon::parse($s->submitted_at)->diffForHumans()])->toArray();
 
+        $programEnd = ProgramSetting::get('program_end_date');
+        $programStatus = !ProgramSetting::get('program_start_date') ? 'not_started'
+            : ($programEnd && Carbon::today()->gte(Carbon::parse($programEnd)) ? 'ended' : 'running');
+
         return Inertia::render('Admin/Dashboard', compact(
             'pulse', 'todaySubs', 'activeStudents', 'totalStudents',
             'statusCounts', 'dropOff', 'weeklyTrend', 'hourBars',
             'neverList', 'retentionCurve', 'earlyWarning', 'halqaEngagement',
             'sankeyData', 'calendar', 'actions', 'recentSubs',
-        ) + ['program_start' => $programStart->toDateString()]);
+        ) + [
+            'program_start'  => $programStart->toDateString(),
+            'program_end'    => $programEnd ?: null,
+            'program_status' => $programStatus,
+        ]);
+    }
+
+    // ── Program lifecycle ─────────────────────────────────────────────────────
+
+    public function startProgram(Request $request): RedirectResponse
+    {
+        $today = Carbon::today()->toDateString();
+        // Clear end date so the program is running again, set new start
+        ProgramSetting::set('program_start_date', $today);
+        ProgramSetting::set('program_end_date', '');
+        return back()->with('success', "Program started on {$today}.");
+    }
+
+    public function endProgram(Request $request): RedirectResponse
+    {
+        if (!ProgramSetting::get('program_start_date')) {
+            return back()->with('error', 'Program has not been started yet.');
+        }
+        $today = Carbon::today()->toDateString();
+        ProgramSetting::set('program_end_date', $today);
+        return back()->with('success', "Program ended on {$today}.");
+    }
+
+    public function newProgram(Request $request): RedirectResponse
+    {
+        $request->validate(['confirm' => ['required', 'in:NEW_PROGRAM']]);
+
+        // Archive final standings + generate stored PDF before any data is wiped
+        $leaderboard = app(LeaderboardController::class);
+        $snapshotData = [
+            'students' => $leaderboard->studentBoard(),
+            'pairs'    => $leaderboard->pairBoard(),
+            'awards'   => $leaderboard->awards(),
+        ];
+        $snapshot = \App\Models\ProgramSnapshot::create([
+            'program_name'  => ProgramSetting::get('program_name', "Muraja'a Program") . ' — ' . ProgramSetting::get('program_end_date', now()->toDateString()),
+            'ended_at'      => now(),
+            'snapshot_data' => $snapshotData,
+        ]);
+        $leaderboard->generateAndStorePdf($snapshot);
+
+        DB::transaction(function () {
+            // Clear all cycle data (CASCADE handles FK dependencies)
+            DB::statement('TRUNCATE TABLE
+                meeting_action_items,
+                journal_entries,
+                pair_submissions,
+                missed_submission_excuses,
+                pairing_requests,
+                pairs,
+                badges,
+                contact_logs,
+                watchlist,
+                notifications,
+                meeting_logs,
+                private_notes,
+                admin_notes,
+                audit_logs,
+                leader_escalations,
+                leader_codes,
+                pdf_exports,
+                announcements
+                CASCADE
+            ');
+
+            // Delete students and leaders (halqas will be cleared after)
+            User::whereIn('role', ['student', 'leader'])->delete();
+
+            // Delete halqas entirely
+            DB::table('halqas')->delete();
+
+            // Clear program dates
+            ProgramSetting::set('program_start_date', '');
+            ProgramSetting::set('program_end_date', '');
+        });
+
+        return back()->with('success', 'New program year started. All cycle data cleared and archived.');
     }
 
     // ── Analytics helpers ─────────────────────────────────────────────────────

@@ -108,8 +108,8 @@ export default function Pair({ pair, pairing }) {
             <div className="page-content">
                 <h1 style={{ margin: '0 0 20px', fontSize: '1.25rem', fontWeight: 700, color: 'var(--foreground)' }}>My Partner</h1>
 
-                {/* Pairing request card — only visible when window is open */}
-                {pairing && <PairingRequestCard pairing={pairing} />}
+                {/* Pairing request card — only shown when student has no pair yet */}
+                {!pair && pairing && <PairingRequestCard pairing={pairing} />}
 
                 {!pair ? (
                     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center' }}>
@@ -135,7 +135,20 @@ export default function Pair({ pair, pairing }) {
                                 </div>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 700, color: 'var(--foreground)' }}>{pair.partner_name}</p>
-                                    <p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>📞 {pair.partner_phone !== '—' ? pair.partner_phone : 'No phone on file'}</p>
+                                    <p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
+                                        📞 {pair.partner_phone !== '—' ? pair.partner_phone : 'No phone on file'}
+                                    </p>
+                                    {pair.partner_telegram && (
+                                        <a
+                                            href={`https://t.me/${pair.partner_telegram}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '0.875rem', color: 'oklch(55% 0.18 230)', textDecoration: 'none', fontWeight: 500 }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 13.5l-2.964-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.982.059z"/></svg>
+                                            @{pair.partner_telegram}
+                                        </a>
+                                    )}
                                 </div>
                                 <div style={{ marginLeft: 'auto' }}>
                                     <div style={{

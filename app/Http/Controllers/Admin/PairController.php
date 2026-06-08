@@ -56,14 +56,16 @@ class PairController extends Controller
             $cons = round(($bothDays->count() / $effDays) * 100, 1);
 
             return [
-                'id'          => $pair->id,
-                'halqa'       => $pair->halqa?->name ?? '—',
-                'student_a'   => ['id' => $pair->student_a_id, 'name' => $pair->studentA?->name ?? '—'],
-                'student_b'   => $pair->student_b_id ? ['id' => $pair->student_b_id, 'name' => $pair->studentB?->name] : null,
-                'status'      => $pair->status,
-                'consistency' => $cons,
-                'last_sub'    => $lastSubsByPair[$pair->id] ?? null,
-                'created_at'  => Carbon::parse($pair->created_at)->toDateString(),
+                'id'                  => $pair->id,
+                'halqa'               => $pair->halqa?->name ?? '—',
+                'student_a'           => ['id' => $pair->student_a_id, 'name' => $pair->studentA?->name ?? '—'],
+                'student_b'           => $pair->student_b_id ? ['id' => $pair->student_b_id, 'name' => $pair->studentB?->name] : null,
+                'status'              => $pair->status,
+                'consistency'         => $cons,
+                'last_sub'            => $lastSubsByPair[$pair->id] ?? null,
+                'created_at'          => Carbon::parse($pair->created_at)->toDateString(),
+                'compatibility_score' => $pair->compatibility_score,
+                'needs_review'        => (bool) $pair->needs_review,
             ];
         });
 
@@ -79,15 +81,25 @@ class PairController extends Controller
         $unassigned = User::where('role', 'student')
             ->where('is_active', true)
             ->whereNotIn('id', array_merge($assignedIds, $soloA))
-            ->get(['id', 'name', 'available_times'])
+            ->get(['id', 'name', 'halqa_id', 'available_times', 'available_days', 'memo_level', 'current_juz'])
             ->map(fn ($s) => [
                 'id'             => $s->id,
                 'name'           => $s->name,
+                'halqa_id'       => $s->halqa_id,
                 'available_times'=> $s->available_times ?? [],
+                'available_days' => $s->available_days  ?? [],
+                'memo_level'     => $s->memo_level      ?? '',
+                'current_juz'    => $s->current_juz     ?? 1,
             ])->toArray();
 
-        // Suggested pairs (greedy shared-slot matching)
+        // Suggested pairs (greedy shared-slot matching, grouped by halqa)
         $suggested = $this->suggestPairs($unassigned);
+
+        $allStudents = User::where('role', 'student')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'halqa_id'])
+            ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'halqa_id' => $s->halqa_id]);
 
         return Inertia::render('Admin/Pairs', [
             'pairs'     => $pairRows->values(),
@@ -99,7 +111,48 @@ class PairController extends Controller
             'suggested' => $suggested['matched'],
             'no_match'  => $suggested['no_match'],
             'halqas'    => Halqa::select('id', 'name')->orderBy('name')->get(),
+            'students'  => $allStudents,
         ]);
+    }
+
+    // ── Manually create a pair ────────────────────────────────────────────────
+
+    public function store(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'student_a_id' => ['required', 'exists:users,id'],
+            'student_b_id' => ['required', 'exists:users,id', 'different:student_a_id'],
+        ]);
+
+        $studentA = User::findOrFail($request->student_a_id);
+        $studentB = User::findOrFail($request->student_b_id);
+
+        if (!$studentA->halqa_id || !$studentB->halqa_id) {
+            return back()->with('error', 'Both students must be assigned to a halqa before being paired.');
+        }
+        if ($studentA->halqa_id !== $studentB->halqa_id) {
+            return back()->with('error', 'Students must be in the same halqa to be paired.');
+        }
+
+        $alreadyPaired = Pair::where(function ($q) use ($studentA, $studentB) {
+            $q->where('student_a_id', $studentA->id)
+              ->orWhere('student_b_id', $studentA->id)
+              ->orWhere('student_a_id', $studentB->id)
+              ->orWhere('student_b_id', $studentB->id);
+        })->exists();
+
+        if ($alreadyPaired) {
+            return back()->with('error', 'One or both students are already in a pair.');
+        }
+
+        Pair::create([
+            'student_a_id' => $studentA->id,
+            'student_b_id' => $studentB->id,
+            'halqa_id'     => $studentA->halqa_id,
+            'status'       => 'active',
+        ]);
+
+        return back()->with('success', 'Pair created.');
     }
 
     // ── Swap students between pairs (same halqa) ──────────────────────────────
@@ -201,7 +254,7 @@ class PairController extends Controller
             }
         });
 
-        return back()->with('success', 'Cross-halqa pairing complete. Affected students notified.');
+        return back()->with('error', 'Cross-halqa pairing is disabled. Pairs must be within the same halqa.');
     }
 
     // ── Confirm bulk assignment ───────────────────────────────────────────────
@@ -220,9 +273,17 @@ class PairController extends Controller
             'pairs.*.halqa_id'=> ['nullable', 'exists:halqas,id'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $students = User::whereIn('id', collect($request->pairs)->flatMap(fn ($p) => [$p['a'], $p['b']])->unique()->toArray())
+            ->get(['id', 'halqa_id'])->keyBy('id');
+
+        DB::transaction(function () use ($request, $students) {
             foreach ($request->pairs as $p) {
-                // Skip if either student already has a pair
+                $sA = $students[$p['a']] ?? null;
+                $sB = $students[$p['b']] ?? null;
+
+                // Enforce same halqa
+                if (!$sA || !$sB || !$sA->halqa_id || $sA->halqa_id !== $sB->halqa_id) continue;
+
                 $exists = Pair::where(fn ($q) => $q->where('student_a_id', $p['a'])->orWhere('student_b_id', $p['a']))
                     ->orWhere(fn ($q) => $q->where('student_a_id', $p['b'])->orWhere('student_b_id', $p['b']))
                     ->exists();
@@ -231,7 +292,7 @@ class PairController extends Controller
                 Pair::create([
                     'student_a_id' => $p['a'],
                     'student_b_id' => $p['b'],
-                    'halqa_id'     => $p['halqa_id'] ?? null,
+                    'halqa_id'     => $sA->halqa_id,
                     'status'       => 'active',
                 ]);
             }
@@ -257,54 +318,91 @@ class PairController extends Controller
         return back()->with('success', 'Halqa assigned.');
     }
 
-    // ── Greedy pairing by shared time slots ───────────────────────────────────
+    // ── Pairing score ─────────────────────────────────────────────────────────
+
+    private function pairScore(array $a, array $b): int
+    {
+        $memoOrder = ['less_than_1'=>0,'1_5'=>1,'6_10'=>2,'11_20'=>3,'21_29'=>4,'full_hifz'=>5];
+
+        $times = count(array_intersect($a['available_times'] ?? [], $b['available_times'] ?? []));
+        $days  = count(array_intersect($a['available_days']  ?? [], $b['available_days']  ?? []));
+
+        $levelDiff  = abs(($memoOrder[$a['memo_level'] ?? ''] ?? 0) - ($memoOrder[$b['memo_level'] ?? ''] ?? 0));
+        $levelBonus = max(0, 3 - $levelDiff);
+
+        $juzDiff   = abs(($a['current_juz'] ?? 1) - ($b['current_juz'] ?? 1));
+        $juzBonus  = max(0, 3 - intdiv($juzDiff, 4));
+
+        return $times + $days + $levelBonus + $juzBonus;
+    }
+
+    // ── Greedy pairing by compatibility score ─────────────────────────────────
 
     private function suggestPairs(array $students): array
     {
-        if (count($students) < 2) return ['matched' => [], 'no_match' => $students];
+        $allResult = [];
+        $noMatch   = [];
 
-        // Build compatibility score map
-        $pool    = collect($students)->keyBy('id');
-        $matched = [];
-        $result  = [];
+        // Group by halqa — pairs strictly within each group
+        $groups = collect($students)->groupBy(fn ($s) => $s['halqa_id'] ?? '__none__');
 
-        // Sort: students with fewer compatible partners first (hardest to match)
-        $sorted = $pool->map(function ($s) use ($pool) {
-            $slots    = $s['available_times'];
-            $options  = $pool->filter(fn ($o) => $o['id'] !== $s['id'] && count(array_intersect($slots, $o['available_times'])) > 0)->count();
-            return array_merge($s, ['_options' => $options]);
-        })->sortBy('_options');
+        foreach ($groups as $group) {
+            $pool = $group->keyBy('id')->toArray();
 
-        foreach ($sorted as $sid => $student) {
-            if (in_array($sid, $matched)) continue;
-
-            $bestId    = null;
-            $bestScore = -1;
-            $bestSlots = [];
-
-            foreach ($pool as $oid => $other) {
-                if ($oid === $sid || in_array($oid, $matched)) continue;
-                $shared = array_values(array_intersect($student['available_times'], $other['available_times']));
-                if (count($shared) > $bestScore) {
-                    $bestScore = count($shared);
-                    $bestId    = $oid;
-                    $bestSlots = $shared;
-                }
+            if (count($pool) < 2) {
+                $noMatch = array_merge($noMatch, array_values($pool));
+                continue;
             }
 
-            if ($bestId !== null) {
-                $result[]  = [
-                    'student_a'   => ['id' => $student['id'], 'name' => $student['name'], 'available_times' => $student['available_times']],
-                    'student_b'   => ['id' => $pool[$bestId]['id'], 'name' => $pool[$bestId]['name'], 'available_times' => $pool[$bestId]['available_times']],
-                    'shared_slots'=> $bestSlots,
+            // Remove the best-connected student when odd (they lose least)
+            if (count($pool) % 2 !== 0) {
+                $sums = [];
+                foreach ($pool as $id => $s) {
+                    $sums[$id] = array_sum(array_map(
+                        fn ($o) => $this->pairScore($s, $o),
+                        array_filter($pool, fn ($o) => $o['id'] !== $id)
+                    ));
+                }
+                arsort($sums);
+                $soloId = array_key_first($sums);
+                $noMatch[] = ['id' => $pool[$soloId]['id'], 'name' => $pool[$soloId]['name'], 'available_times' => $pool[$soloId]['available_times'] ?? []];
+                unset($pool[$soloId]);
+            }
+
+            // Build all candidate pairs, score them, sort descending (global greedy)
+            $candidates = [];
+            $ids = array_keys($pool);
+            for ($i = 0; $i < count($ids); $i++) {
+                for ($j = $i + 1; $j < count($ids); $j++) {
+                    $a = $pool[$ids[$i]];
+                    $b = $pool[$ids[$j]];
+                    $candidates[] = ['a' => $a, 'b' => $b, 'score' => $this->pairScore($a, $b)];
+                }
+            }
+            usort($candidates, fn ($x, $y) => $y['score'] <=> $x['score']);
+
+            $matched = [];
+            foreach ($candidates as $c) {
+                if (in_array($c['a']['id'], $matched) || in_array($c['b']['id'], $matched)) continue;
+                $sharedTimes = array_values(array_intersect($c['a']['available_times'] ?? [], $c['b']['available_times'] ?? []));
+                $allResult[] = [
+                    'halqa_id'     => $c['a']['halqa_id'] ?? null,
+                    'student_a'    => ['id' => $c['a']['id'], 'name' => $c['a']['name'], 'available_times' => $c['a']['available_times'] ?? []],
+                    'student_b'    => ['id' => $c['b']['id'], 'name' => $c['b']['name'], 'available_times' => $c['b']['available_times'] ?? []],
+                    'shared_slots' => $sharedTimes,
                 ];
-                $matched[] = $sid;
-                $matched[] = $bestId;
+                $matched[] = $c['a']['id'];
+                $matched[] = $c['b']['id'];
+            }
+
+            // Anyone left unpaired (shouldn't happen after odd removal, but guard it)
+            foreach ($pool as $id => $s) {
+                if (!in_array($id, $matched)) {
+                    $noMatch[] = ['id' => $s['id'], 'name' => $s['name'], 'available_times' => $s['available_times'] ?? []];
+                }
             }
         }
 
-        $noMatch = $pool->filter(fn ($s) => !in_array($s['id'], $matched))->map(fn ($s) => ['id' => $s['id'], 'name' => $s['name'], 'available_times' => $s['available_times']])->values()->toArray();
-
-        return ['matched' => $result, 'no_match' => $noMatch];
+        return ['matched' => $allResult, 'no_match' => $noMatch];
     }
 }

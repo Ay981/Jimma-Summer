@@ -321,11 +321,28 @@ export default function Leaderboard({ students, pairs, halqas, leaders, awards, 
 
             {/* Past snapshots */}
             {(snapshots ?? []).length > 0 && (
-                <div style={{ marginBottom: '14px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', fontWeight: 600 }}>Past archives:</span>
-                    {snapshots.map((s) => (
-                        <span key={s.id} style={{ fontSize: '0.8125rem', padding: '3px 8px', background: 'var(--secondary)', borderRadius: 'var(--radius-sm)', color: 'var(--secondary-foreground)' }}>{s.name} · {s.ended_at}</span>
-                    ))}
+                <div style={{ marginBottom: '14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--foreground)' }}>Archived Programs</span>
+                        {snapshots.length >= 2 && (
+                            <a href="/admin/leaderboard/snapshots/compare" style={{ fontSize: '0.8125rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>
+                                Compare years →
+                            </a>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {snapshots.map((s) => (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '6px 10px', background: 'var(--muted)', borderRadius: 'var(--radius-sm)' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{s.name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{s.ended_at}</span>
+                                    <a href={`/admin/leaderboard/snapshots/${s.id}/pdf`} target="_blank" style={{ fontSize: '0.75rem', padding: '3px 10px', background: 'var(--secondary)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', color: 'var(--foreground)', fontWeight: 600 }}>
+                                        ↓ PDF
+                                    </a>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

@@ -110,19 +110,52 @@ function HalqaCard({ halqa }) {
                 )}
             </div>
 
-            {expanded && halqa.meetings.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px' }}>
-                    <p style={{ margin: '0 0 8px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Meetings</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {halqa.meetings.map((m) => (
-                            <div key={m.id} style={{ padding: '6px 10px', background: 'var(--muted)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                                    {new Date(m.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </span>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{m.attendance_count} attended</span>
+            {expanded && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                    {/* Students */}
+                    <div>
+                        <p style={{ margin: '0 0 6px', fontSize: '0.6875rem', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Students ({halqa.members.length})
+                        </p>
+                        {halqa.members.length === 0 ? (
+                            <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>No students assigned yet.</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {halqa.members.map((s) => (
+                                    <span key={s.id} style={{
+                                        fontSize: '0.8125rem', padding: '3px 10px',
+                                        background: 'var(--secondary)', borderRadius: '99px',
+                                        color: 'var(--foreground)',
+                                    }}>
+                                        {s.name}
+                                    </span>
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
+
+                    {/* Meetings */}
+                    <div>
+                        <p style={{ margin: '0 0 6px', fontSize: '0.6875rem', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Recent Meetings
+                        </p>
+                        {halqa.meetings.length === 0 ? (
+                            <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>No meetings logged yet.</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {halqa.meetings.map((m) => (
+                                    <div key={m.id} style={{ padding: '6px 10px', background: 'var(--muted)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>
+                                            {new Date(m.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{m.attendance_count} attended</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             )}
         </div>
