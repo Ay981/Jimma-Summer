@@ -210,6 +210,7 @@ class StudentController extends Controller
                 'current_juz'       => $student->current_juz,
                 'memo_level'        => $student->memo_level,
                 'available_times'   => $student->available_times ?? [],
+                'available_days'    => $student->available_days  ?? [],
                 'partner'           => $partner ? ['id' => $partner->id, 'name' => $partner->name] : null,
                 'on_watchlist'      => $onWatchlist,
                 'pages_total'       => (int) $totalPages,
@@ -338,10 +339,12 @@ class StudentController extends Controller
             'current_juz'     => ['required', 'integer', 'min:1', 'max:30'],
             'available_times' => ['required', 'array', 'min:1'],
             'available_times.*' => ['in:after_subhi,after_zuhr,after_asr,after_maghrib,after_isha'],
+            'available_days'  => ['nullable', 'array'],
+            'available_days.*'=> ['in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
             'halqa_id'        => ['nullable', 'exists:halqas,id'],
         ]);
 
-        $student->update($request->only('name', 'phone', 'current_juz', 'available_times', 'halqa_id'));
+        $student->update($request->only('name', 'phone', 'current_juz', 'available_times', 'available_days', 'halqa_id'));
         return back()->with('success', 'Student updated.');
     }
 

@@ -6,6 +6,8 @@ import StatusTag from '@/Components/UI/StatusTag';
 
 const SLOTS = { after_subhi: 'Fajr', after_zuhr: 'Dhuhr', after_asr: 'Asr', after_maghrib: 'Maghrib', after_isha: 'Isha' };
 const SLOT_KEYS = Object.keys(SLOTS);
+const DAYS = { sunday: 'Sun', monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat' };
+const DAY_KEYS = Object.keys(DAYS);
 
 // ── Timeline event ────────────────────────────────────────────────────────────
 
@@ -77,6 +79,7 @@ function EditForm({ student, halqas, onClose }) {
         phone: student.phone ?? '',
         current_juz: student.current_juz,
         available_times: student.available_times ?? [],
+        available_days: student.available_days ?? [],
         halqa_id: student.halqa_id ?? '',
     });
 
@@ -84,6 +87,12 @@ function EditForm({ student, halqas, onClose }) {
         setData('available_times', data.available_times.includes(slot)
             ? data.available_times.filter((s) => s !== slot)
             : [...data.available_times, slot]);
+    }
+
+    function toggleDay(day) {
+        setData('available_days', data.available_days.includes(day)
+            ? data.available_days.filter((d) => d !== day)
+            : [...data.available_days, day]);
     }
 
     return (
@@ -104,6 +113,16 @@ function EditForm({ student, halqas, onClose }) {
                             {SLOT_KEYS.map((slot) => (
                                 <button key={slot} type="button" onClick={() => toggleSlot(slot)} style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer', border: '1px solid var(--border)', background: data.available_times.includes(slot) ? 'var(--primary)' : 'var(--card)', color: data.available_times.includes(slot) ? 'var(--primary-foreground)' : 'var(--foreground)' }}>
                                     {SLOTS[slot]}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Available Days</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {DAY_KEYS.map((day) => (
+                                <button key={day} type="button" onClick={() => toggleDay(day)} style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer', border: '1px solid var(--border)', background: data.available_days.includes(day) ? 'var(--primary)' : 'var(--card)', color: data.available_days.includes(day) ? 'var(--primary-foreground)' : 'var(--foreground)' }}>
+                                    {DAYS[day]}
                                 </button>
                             ))}
                         </div>
@@ -178,6 +197,7 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
     ];
 
     const availSlotLabels = (student.available_times ?? []).map((s) => SLOTS[s] ?? s).join(', ') || '—';
+    const availDayLabels  = (student.available_days  ?? []).map((d) => DAYS[d]  ?? d).join(', ') || '—';
 
     return (
         <AdminLayout title={student.name}>
@@ -218,6 +238,7 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
                             ['Phone',       student.phone ?? '—'],
                             ['Juz',         `Juz ${student.current_juz}`],
                             ['Times',       availSlotLabels],
+                            ['Days',        availDayLabels],
                             ['Pages total', student.pages_total],
                         ].map(([label, value]) => (
                             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: '0.8125rem' }}>
