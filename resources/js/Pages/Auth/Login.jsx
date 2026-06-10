@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import PasswordInput from '@/Components/UI/PasswordInput';
+import Logo from '@/Components/UI/Logo';
 
 export default function Login() {
     const { data, setData, post, processing, errors } = useForm({
@@ -28,15 +29,9 @@ export default function Login() {
                 }}
             >
                 {/* Logo */}
-                <img
-                    src="/images/logo.png"
-                    alt="Union Logo"
-                    style={{
-                        width: '160px',
-                        height: '160px',
-                        objectFit: 'contain',
-                        marginBottom: '1rem',
-                    }}
+                <Logo
+                    height={210}
+                    style={{ marginBottom: '1.75rem' }}
                 />
 
                 {/* Card */}

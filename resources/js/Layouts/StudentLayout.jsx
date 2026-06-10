@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
+import Logo from '@/Components/UI/Logo';
 import {
     Bell, BookOpen, ClockCounterClockwise, House,
     Medal, Megaphone, Mosque, SignOut, UsersThree,
@@ -241,7 +242,7 @@ export default function StudentLayout({ children, title }) {
             >
                 {/* Logo */}
                 <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--sidebar-border)' }}>
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
+                    <Logo height={36} />
                 </div>
 
                 {/* Nav links */}
@@ -282,9 +283,7 @@ export default function StudentLayout({ children, title }) {
                     padding: '0 16px', background: 'var(--card)', position: 'sticky', top: 0, zIndex: 100,
                 }}>
                     {/* Mobile: logo */}
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '28px', objectFit: 'contain' }}
-                        className="mobile-only"
-                    />
+                    <Logo height={28} className="mobile-only" />
                     {/* Desktop: page title */}
                     <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--foreground)' }}
                         className="desktop-only"

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import Logo from '@/Components/UI/Logo';
 import {
     ClipboardText, CalendarBlank, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
 } from '@phosphor-icons/react';
@@ -131,7 +132,7 @@ export default function LeaderLayout({ children, title }) {
             >
                 {/* Logo */}
                 <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--sidebar-border)' }}>
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
+                    <Logo height={36} />
                 </div>
 
                 {/* Nav */}
@@ -172,9 +173,8 @@ export default function LeaderLayout({ children, title }) {
                     padding: '0 16px', background: 'var(--card)',
                     position: 'sticky', top: 0, zIndex: 100,
                 }}>
-                    <img
-                        src="/images/logo.png" alt="Logo"
-                        style={{ height: '28px', objectFit: 'contain' }}
+                    <Logo
+                        height={28}
                         className="mobile-only"
                     />
                     <span

@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import PasswordInput from '@/Components/UI/PasswordInput';
+import Logo from '@/Components/UI/Logo';
 
 export default function LeaderSetup() {
     const { data, setData, post, processing, errors } = useForm({
@@ -58,15 +59,9 @@ export default function LeaderSetup() {
                 }}
             >
                 {/* Logo */}
-                <img
-                    src="/images/logo.png"
-                    alt="Union Logo"
-                    style={{
-                        width: '80px',
-                        height: '80px',
-                        objectFit: 'contain',
-                        marginBottom: '1.5rem',
-                    }}
+                <Logo
+                    height={80}
+                    style={{ marginBottom: '1.5rem' }}
                 />
 
                 <div

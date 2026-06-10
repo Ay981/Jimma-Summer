@@ -102,6 +102,10 @@
 
 	--sidebar-border: var(--light-600);
 	--sidebar-ring: var(--light-900);
+
+	/* Brand logo — green flips per theme so it reads on any background; gold dome stays constant */
+	--logo-green: oklch(0.5 0.13 150);
+	--logo-gold: #f5a623;
 }
 
 .dark {
@@ -150,6 +154,9 @@
 
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.552 0.016 285.938);
+
+	--logo-green: oklch(0.82 0.16 152);
+	--logo-gold: #f7b733;
 }
 
 @theme inline {

@@ -160,21 +160,78 @@ class LeaderboardController extends Controller
 
     public function certificate(User $student)
     {
-        $pages = PairSubmission::where('subject_student_id', $student->id)
-            ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as pages')->value('pages') ?? 0;
-        $consistency = app(\App\Services\ConsistencyService::class)->getConsistency($student->id);
-        $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
-
-        $pdf = Pdf::loadView('pdf.certificate', [
-            'student'     => $student,
-            'pages'       => $pages,
-            'consistency' => $consistency,
-            'program_name'=> $programName,
-            'generated'   => now()->format('d F Y'),
-        ]);
-        $pdf->setPaper('A4', 'landscape');
+        $pdf = Pdf::loadView('pdf.certificate', $this->certificateData($student));
+        $pdf->setPaper('A4', 'portrait');
 
         return $pdf->download("certificate-{$student->student_id}.pdf");
+    }
+
+    /**
+     * Build the full data payload for a completion certificate.
+     * Shared by the single-download (here) and the batch ZIP (ReportsController).
+     * Pass a pre-computed $awardMap to avoid recomputing awards() per student.
+     */
+    public function certificateData(User $student, ?array $awardMap = null): array
+    {
+        $today   = Carbon::today();
+        $start   = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $endRaw  = ProgramSetting::get('program_end_date');
+        $end     = $endRaw ? Carbon::parse($endRaw) : $today;
+
+        $pages = (int) (PairSubmission::where('subject_student_id', $student->id)
+            ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0);
+        $juzCovered  = (int) PairSubmission::where('subject_student_id', $student->id)->distinct('juz')->count('juz');
+        $consistency = app(\App\Services\ConsistencyService::class)->getConsistency($student->id);
+        $streak      = app(\App\Services\ConsistencyService::class)->getStreak($student->id);
+        $badges      = Badge::where('user_id', $student->id)->count();
+
+        // Revision partner — the other member of the student's pair
+        $pair      = Pair::where('student_a_id', $student->id)->orWhere('student_b_id', $student->id)->first();
+        $partnerId = $pair ? ($pair->student_a_id == $student->id ? $pair->student_b_id : $pair->student_a_id) : null;
+        $partner   = $partnerId ? User::find($partnerId)?->name : null;
+
+        $awardMap = $awardMap ?? $this->studentAwardMap();
+
+        return [
+            'student'      => $student,
+            'consistency'  => $consistency,
+            'pages'        => $pages,
+            'streak'       => $streak,
+            'juz_covered'  => $juzCovered,
+            'badges'       => $badges,
+            'halqa'        => $student->halqa?->name,
+            'partner'      => $partner,
+            'start'        => $start->format('d M Y'),
+            'end'          => $end->format('d M Y'),
+            'program_name' => ProgramSetting::get('program_name', "Muraja'a Monitor"),
+            'generated'    => $today->format('d F Y'),
+            'award'        => $awardMap[$student->id] ?? null,
+        ];
+    }
+
+    /**
+     * Map of student_id => award {title, place, place_label} for certificate banners.
+     * A student keeps the first (most prestigious) award matched.
+     */
+    public function studentAwardMap(): array
+    {
+        $a   = $this->awards();
+        $map = [];
+        $placeLabels = [1 => '1st Place', 2 => '2nd Place', 3 => '3rd Place'];
+        $set = function ($id, $title, $place) use (&$map, $placeLabels) {
+            if ($id && !isset($map[$id])) {
+                $map[$id] = ['title' => $title, 'place' => $place, 'place_label' => $placeLabels[$place] ?? ''];
+            }
+        };
+
+        foreach ($a['most_consistent_students'] ?? [] as $i => $s) {
+            $set($s['id'] ?? null, 'Most Consistent Student', $i + 1);
+        }
+        $set($a['longest_streak']['id'] ?? null, 'Longest Streak', 1);
+        $set($a['most_pages']['id'] ?? null, 'Most Pages Reviewed', 1);
+        $set($a['most_improved_student']['id'] ?? null, 'Most Improved', 1);
+
+        return $map;
     }
 
     // ── Computations (public so ReportsController can reuse) ─────────────────
@@ -249,7 +306,7 @@ class LeaderboardController extends Controller
      * Scoring: meetings, attendance rate, contact notes, follow-ups resolved,
      * nudges, login frequency, members moved from at-risk to on-track.
      */
-    private function leaderBoard(): array
+    public function leaderBoard(): array
     {
         $today = Carbon::today();
         $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
@@ -346,18 +403,25 @@ class LeaderboardController extends Controller
         $longestStreak = collect($students)->sortByDesc('streak')->first();
         $mostPages     = collect($students)->sortByDesc('pages')->first();
 
-        // Most Improved: biggest delta last 14 days vs first 14 days
+        // Most Improved: biggest consistency-% gain, last 14 days vs first 14 days
         $today = Carbon::today();
         $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $firstEnd  = $start->copy()->addDays(13)->toDateString();
-        $recentStart = $today->copy()->subDays(13)->toDateString();
+        $firstFrom = $start->copy();
+        $firstTo   = $start->copy()->addDays(13);
+        $lastFrom  = $today->copy()->subDays(13);
 
-        $improvedList = User::where('role', 'student')->where('is_active', true)->get()->map(function ($s) use ($start, $firstEnd, $recentStart, $today) {
-            $firstSubs  = PairSubmission::where('subject_student_id', $s->id)->whereBetween('submission_date', [$start->toDateString(), $firstEnd])->count();
-            $recentSubs = PairSubmission::where('subject_student_id', $s->id)->whereBetween('submission_date', [$recentStart, $today->toDateString()])->count();
-            $delta = $recentSubs - $firstSubs;
-            return ['id' => $s->id, 'name' => $s->name, 'delta' => $delta];
-        })->sortByDesc('delta')->first();
+        $improvedList = User::where('role', 'student')->where('is_active', true)->get()->map(function ($s) use ($firstFrom, $firstTo, $lastFrom, $today) {
+            $from = $this->consistencyInWindow($s->id, $firstFrom, $firstTo);
+            $to   = $this->consistencyInWindow($s->id, $lastFrom, $today);
+            return [
+                'id'          => $s->id,
+                'name'        => $s->name,
+                'from'        => $from,
+                'to'          => $to,
+                'improvement' => round($to - $from, 1),
+                'delta'       => round($to - $from, 1),
+            ];
+        })->sortByDesc('improvement')->first();
 
         return [
             'most_consistent_students' => $mostConsistentStudents,

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import Logo from '@/Components/UI/Logo';
 import {
     Broadcast, ChartBar, ChartLine, ClipboardText, CalendarBlank, Gear,
     GitBranch, House, List, MagnifyingGlass, Medal, Megaphone,
@@ -99,7 +100,8 @@ function Drawer({ open, onClose, navItems, isActive, userName }) {
                     padding: '14px 14px 12px',
                     borderBottom: '1px solid var(--sidebar-border)',
                 }}>
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '32px', objectFit: 'contain' }} />
+                    <Logo height={32} />
+                    {/* drawer-logo */}
                     <button
                         onClick={onClose}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', padding: '4px', display: 'flex' }}
@@ -175,7 +177,7 @@ export default function AdminLayout({ children, title }) {
                 position: 'sticky', top: 0, height: '100vh',
             }}>
                 <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--sidebar-border)' }}>
-                    <img src="/images/logo.png" alt="Logo" style={{ height: '36px', objectFit: 'contain' }} />
+                    <Logo height={36} />
                 </div>
 
                 <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto' }}>
@@ -219,7 +221,7 @@ export default function AdminLayout({ children, title }) {
                         >
                             <List size={22} />
                         </button>
-                        <img src="/images/logo.png" alt="Logo" style={{ height: '26px', objectFit: 'contain' }} />
+                        <Logo height={26} />
                     </div>
 
                     {/* Desktop: page title */}

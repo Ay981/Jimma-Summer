@@ -3,69 +3,141 @@
 <head>
 <meta charset="UTF-8">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: DejaVu Sans, Arial, sans-serif; background: #fff; width: 297mm; height: 210mm; }
+    @page { margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: DejaVu Sans, Arial, sans-serif; }
 
-.border-outer { border: 8px solid #1a3a2a; width: 100%; height: 100%; position: relative; }
-.border-inner  { border: 2px solid #2d6a4f; position: absolute; inset: 10px; }
+    /* ── Full-perimeter decorative frame ───────────────────────────── */
+    .cert {
+        position: absolute; inset: 0;
+        border: 7px solid #1a3a2a;
+        /* geometric lattice band shows through the padding on all four sides */
+        background-color: #1a3a2a;
+        background-image:
+            repeating-linear-gradient(45deg, rgba(201,162,39,0) 0 7px, rgba(201,162,39,0.40) 7px 8px),
+            repeating-linear-gradient(-45deg, rgba(201,162,39,0) 0 7px, rgba(201,162,39,0.40) 7px 8px);
+        padding: 15px;
+    }
+    .inner {
+        position: relative;
+        height: 100%; width: 100%;
+        background: #fff;
+        border: 2px solid #C9A227;
+        outline: 4px solid #fff;        /* small white gutter between gold line and band */
+    }
+    /* gold corner ornaments */
+    .corner { position: absolute; width: 26px; height: 26px; border: 3px solid #C9A227; }
+    .corner.tl { top: 8px;  left: 8px;  border-right: none; border-bottom: none; }
+    .corner.tr { top: 8px;  right: 8px; border-left: none;  border-bottom: none; }
+    .corner.bl { bottom: 8px; left: 8px;  border-right: none; border-top: none; }
+    .corner.br { bottom: 8px; right: 8px; border-left: none;  border-top: none; }
 
-.geo-top {
-    background: #1a3a2a; height: 20px; width: 100%;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 7px, rgba(255,255,255,0.1) 7px, rgba(255,255,255,0.1) 14px);
-}
-.geo-bottom {
-    background: #1a3a2a; height: 20px; width: 100%; position: absolute; bottom: 0;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 7px, rgba(255,255,255,0.1) 7px, rgba(255,255,255,0.1) 14px);
-}
+    .content { padding: 30px 54px 22px; text-align: center; }
 
-.content { padding: 24px 48px; text-align: center; position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .org { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #2d6a4f; font-weight: bold; margin: 10px 0 2px; }
+    .cert-title { font-size: 30px; font-weight: bold; color: #1a3a2a; letter-spacing: 0.05em; margin-bottom: 3px; }
+    .cert-sub { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
 
-.org { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #2d6a4f; font-weight: bold; margin-bottom: 6px; }
-.cert-title { font-size: 28px; font-weight: bold; color: #1a3a2a; margin-bottom: 4px; letter-spacing: 0.04em; }
-.cert-sub    { font-size: 11px; color: #4b5563; margin-bottom: 22px; }
-.presents    { font-size: 10px; color: #6b7280; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
-.student-name { font-size: 34px; font-weight: bold; color: #1a1a1a; border-bottom: 2px solid #2d6a4f; padding-bottom: 6px; margin: 0 auto 16px; display: inline-block; }
+    /* award ribbon */
+    .award { margin: 0 auto 14px; display: inline-block; background: #faf4dd; border: 1.5px solid #C9A227; border-radius: 22px; padding: 6px 18px 6px 10px; }
+    .award table { border-collapse: collapse; }
+    .award td { vertical-align: middle; }
+    .award-text { padding-left: 8px; text-align: left; }
+    .award-cat { font-size: 12px; font-weight: bold; color: #1a3a2a; }
+    .award-place { font-size: 9px; color: #9a7b12; text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold; }
 
-.program-name { font-size: 13px; color: #1a3a2a; font-weight: bold; margin-bottom: 18px; }
+    .presents { font-size: 10px; color: #6b7280; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+    .student-name { font-size: 36px; font-weight: bold; color: #1a1a1a; display: inline-block; border-bottom: 2px solid #C9A227; padding: 0 24px 6px; margin-bottom: 12px; }
+    .for-line { font-size: 12px; color: #374151; margin-bottom: 20px; }
+    .for-line strong { color: #1a3a2a; }
 
-.stats { display: flex; gap: 40px; justify-content: center; margin-bottom: 24px; }
-.stat-box { text-align: center; }
-.stat-val { font-size: 22px; font-weight: bold; color: #1a3a2a; }
-.stat-lbl { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; }
+    /* four stat boxes */
+    .stats { width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 18px; }
+    .stat-box { width: 25%; background: #f0f5f2; border: 1px solid #c6d9cf; border-top: 3px solid #2d6a4f; border-radius: 6px; padding: 12px 6px; text-align: center; }
+    .stat-val { font-size: 24px; font-weight: bold; color: #1a3a2a; }
+    .stat-lbl { font-size: 8.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.07em; margin-top: 3px; }
 
-.logos { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: auto; }
-.footer-text { font-size: 8px; color: #9ca3af; text-align: center; flex: 1; }
-.date-issued { font-size: 9px; color: #6b7280; }
+    /* detail line */
+    .details { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .details td { font-size: 10px; color: #374151; padding: 5px 6px; border-bottom: 1px solid #eef2f0; }
+    .details .k { color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-size: 8px; font-weight: bold; }
+
+    /* signature + seal */
+    .sign-row { width: 100%; border-collapse: collapse; margin-top: 22px; }
+    .sign-cell { width: 45%; vertical-align: bottom; text-align: center; }
+    .seal-cell { width: 10%; }
+    .sign-line { border-top: 1.5px solid #1a3a2a; margin: 0 10px; padding-top: 5px; font-size: 10px; color: #374151; }
+    .sign-sub { font-size: 8px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .seal { width: 86px; height: 86px; margin: 0 auto; border: 2px solid #C9A227; border-radius: 50%; text-align: center; }
+    .seal-inner { width: 72px; height: 72px; margin: 5px auto 0; border: 1px dashed #2d6a4f; border-radius: 50%; padding-top: 16px; }
+    .seal-mark { font-size: 15px; font-weight: bold; color: #1a3a2a; letter-spacing: 0.05em; }
+    .seal-year { font-size: 7px; color: #2d6a4f; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px; }
+
+    .cert-footer { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af; }
 </style>
 </head>
 <body>
-<div class="border-outer">
-    <div class="border-inner">
-        <div class="geo-top"></div>
+<div class="cert">
+    <div class="inner">
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+
         <div class="content">
+            @include('pdf.partials.logo', ['w' => 76])
+
             <p class="org">Jimma University Muslim Students Union</p>
             <h1 class="cert-title">Certificate of Achievement</h1>
-            <p class="cert-sub">Muraja'a Monitor — Summer Program 1446H</p>
+            <p class="cert-sub">{{ $program_name }} · Summer Muraja'ah 1446H</p>
+
+            @if (!empty($award))
+            <div class="award">
+                <table><tr>
+                    <td>@include('pdf.partials.medal', ['place' => $award['place'], 'size' => 34])</td>
+                    <td class="award-text">
+                        <div class="award-cat">{{ $award['title'] }}</div>
+                        <div class="award-place">{{ $award['place_label'] }}</div>
+                    </td>
+                </tr></table>
+            </div>
+            @endif
+
             <p class="presents">This certificate is proudly presented to</p>
             <h2 class="student-name">{{ $student->name }}</h2>
-            <p class="program-name">for successful completion of <strong>{{ $program_name }}</strong></p>
-            <div class="stats">
-                <div class="stat-box">
-                    <p class="stat-val">{{ $consistency }}%</p>
-                    <p class="stat-lbl">Consistency</p>
-                </div>
-                <div class="stat-box">
-                    <p class="stat-val">{{ $pages }}</p>
-                    <p class="stat-lbl">Pages Reviewed</p>
-                </div>
-            </div>
-            <div class="logos">
-                <div style="width: 80px;"></div>
-                <p class="footer-text">Generated {{ $generated }} · Muraja'a Monitor · Jimma University Muslim Students Union</p>
-                <p class="date-issued" style="width:80px;text-align:right;">{{ $generated }}</p>
-            </div>
+            <p class="for-line">for outstanding dedication and successful participation in <strong>{{ $program_name }}</strong></p>
+
+            <table class="stats"><tr>
+                <td class="stat-box"><div class="stat-val">{{ $consistency }}%</div><div class="stat-lbl">Consistency</div></td>
+                <td class="stat-box"><div class="stat-val">{{ $streak }}</div><div class="stat-lbl">Longest Streak (days)</div></td>
+                <td class="stat-box"><div class="stat-val">{{ $pages }}</div><div class="stat-lbl">Pages Reviewed</div></td>
+                <td class="stat-box"><div class="stat-val">{{ $juz_covered }}</div><div class="stat-lbl">Juz Covered</div></td>
+            </tr></table>
+
+            <table class="details"><tr>
+                <td><div class="k">Halqa</div>{{ $halqa ?? '—' }}</td>
+                <td><div class="k">Revision Partner</div>{{ $partner ?? '—' }}</td>
+                <td><div class="k">Program Period</div>{{ $start }} — {{ $end }}</td>
+                <td><div class="k">Badges Earned</div>{{ $badges }}</td>
+            </tr></table>
+
+            <table class="sign-row"><tr>
+                <td class="sign-cell">
+                    <div class="sign-line">Program Coordinator</div>
+                    <div class="sign-sub">Muraja'a Monitor</div>
+                </td>
+                <td class="seal-cell"></td>
+                <td class="sign-cell">
+                    <div class="seal">
+                        <div class="seal-inner">
+                            <div class="seal-mark">JUMSU</div>
+                            <div class="seal-year">Official · 1446H</div>
+                        </div>
+                    </div>
+                </td>
+            </tr></table>
         </div>
-        <div class="geo-bottom"></div>
+
+        <div class="cert-footer">Generated {{ $generated }} · Muraja'a Monitor · Jimma University Muslim Students Union</div>
     </div>
 </div>
 </body>
