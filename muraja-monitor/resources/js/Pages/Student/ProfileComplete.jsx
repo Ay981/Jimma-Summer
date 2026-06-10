@@ -199,16 +199,43 @@ export default function ProfileComplete({ user }) {
                         flexDirection: 'column',
                         gap: '8px',
                     }}>
-                        <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(40% 0.1 150)' }}>
-                            የቅን ልቦና ቃል ኪዳን
-                        </p>
-                        <p style={{ margin: 0, fontSize: '1rem', lineHeight: 1.75, color: 'var(--foreground)', fontWeight: 500 }}>
-                            ዋላሂ፣ ዛሬ ያቀረብኩት ሙራጃዓ ውሂብ እውነተኛ ነው። ያልሠራሁትን ሙራጃዓ ወደ ሥርዓቱ አልልክም።
-                            ሐሰት ከሆነ ሒሳቤ በአላህ ዘንድ ነው።
-                        </p>
-                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(45% 0.08 150)', fontStyle: 'italic' }}>
-                            Wallahi, I will not submit forged muraja'a data.
-                        </p>
+                        <p
+  style={{
+    margin: 0,
+    fontSize: '0.6875rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: 'oklch(40% 0.1 150)',
+  }}
+>
+  የእውነት ቃል ኪዳን
+</p>
+
+<p
+  style={{
+    margin: 0,
+    fontSize: '1rem',
+    lineHeight: 1.75,
+    color: 'var(--foreground)',
+    fontWeight: 500,
+  }}
+>
+  ዋላሂ፣ የሚቀርበው የሙራጃዓ መረጃ እውነተኛ መሆኑን እመሰክራለሁ።
+  ያልሠራሁትን ሙራጃዓ እንደተሠራ አድርጌ አላቀርብም።
+  በዚህ ላይ ሐሰት ካለ ተጠያቂነቴ በአላህ ፊት ነው።
+</p>
+
+<p
+  style={{
+    margin: 0,
+    fontSize: '0.8125rem',
+    color: 'oklch(45% 0.08 150)',
+    fontStyle: 'italic',
+  }}
+>
+  Wallahi, I attest that the submitted muraja'a record is truthful and accurate.
+</p>
                     </div>
 
                     <button

@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import PasswordInput from '@/Components/UI/PasswordInput';
+import Logo from '@/Components/UI/Logo';
 
 export default function ChangePassword({ role, current_name }) {
     const isLeader = role === 'leader';
@@ -40,7 +41,7 @@ export default function ChangePassword({ role, current_name }) {
                 justifyContent: 'center',
                 padding: '1.5rem',
             }}>
-                <img src="/images/logo.png" alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '1.5rem' }} />
+                <Logo height={80} style={{ marginBottom: '1.5rem' }} />
 
                 <div style={{
                     width: '100%',

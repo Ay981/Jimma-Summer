@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ContactLog;
 use App\Models\Halqa;
+use App\Models\MeetingLog;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
@@ -17,6 +18,18 @@ use Inertia\Inertia;
 
 class ReportsController extends Controller
 {
+    /** Principal surah that opens each juz, for the Juz Coverage chart labels (ASCII for SVG safety). */
+    private const JUZ_SURAH = [
+        1 => 'Al-Fatihah', 2 => 'Al-Baqarah', 3 => 'Al-Baqarah', 4 => 'Aal-Imran',
+        5 => 'An-Nisa', 6 => 'An-Nisa', 7 => 'Al-Maidah', 8 => 'Al-Anam',
+        9 => 'Al-Araf', 10 => 'Al-Anfal', 11 => 'At-Tawbah', 12 => 'Hud',
+        13 => 'Yusuf', 14 => 'Al-Hijr', 15 => 'Al-Isra', 16 => 'Al-Kahf',
+        17 => 'Al-Anbiya', 18 => 'Al-Muminun', 19 => 'Al-Furqan', 20 => 'An-Naml',
+        21 => 'Al-Ankabut', 22 => 'Al-Ahzab', 23 => 'Ya-Sin', 24 => 'Az-Zumar',
+        25 => 'Fussilat', 26 => 'Al-Ahqaf', 27 => 'Adh-Dhariyat', 28 => 'Al-Mujadilah',
+        29 => 'Al-Mulk', 30 => 'An-Naba',
+    ];
+
     public function __construct(private readonly ConsistencyService $consistency) {}
 
     public function index(): \Inertia\Response
@@ -158,21 +171,12 @@ class ReportsController extends Controller
             abort(500, "Could not create ZIP archive (ZipArchive error {$opened}).");
         }
 
-        foreach ($students as $s) {
-            $pages = (int) (PairSubmission::where('subject_student_id', $s->id)
-                ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')
-                ->value('p') ?? 0);
-            $total = PairSubmission::where('subject_student_id', $s->id)->count();
-            $cons  = round(($total / $days) * 100, 1);
+        $lb       = new LeaderboardController();
+        $awardMap = $lb->studentAwardMap();
 
-            $pdf = Pdf::loadView('pdf.certificate', [
-                'student'      => $s,
-                'pages'        => $pages,
-                'consistency'  => $cons,
-                'program_name' => $programName,
-                'generated'    => $today->format('d F Y'),
-            ]);
-            $pdf->setPaper('A4', 'landscape');
+        foreach ($students as $s) {
+            $pdf = Pdf::loadView('pdf.certificate', $lb->certificateData($s, $awardMap));
+            $pdf->setPaper('A4', 'portrait');
             $zip->addFromString("certificate-{$s->student_id}.pdf", $pdf->output());
         }
 
@@ -188,46 +192,101 @@ class ReportsController extends Controller
     {
         $today       = Carbon::today();
         $start       = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $endRaw      = ProgramSetting::get('program_end_date');
+        $end         = $endRaw ? Carbon::parse($endRaw) : $today;
         $days        = max(1, $start->diffInDays($today) + 1);
         $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
 
-        // Halqa stats
+        $studentIds    = User::where('role', 'student')->pluck('id');
+        $activeIds     = User::where('role', 'student')->where('is_active', true)->pluck('id');
+        $totalStudents = $studentIds->count();
+        $activeCount   = $activeIds->count();
+        $inactiveCount = $totalStudents - $activeCount;
+
+        // ── Page 2: program-wide overview totals ──
+        $totalSubmissions = PairSubmission::whereIn('subject_student_id', $studentIds)->count();
+        $totalPages       = (int) (PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
+        $totalMinutes     = (int) PairSubmission::whereIn('subject_student_id', $studentIds)->sum('minutes_spent');
+        $progConsistency  = $activeCount > 0 ? round($totalSubmissions / max(1, $activeCount * $days) * 100, 1) : 0;
+
+        $overview = [
+            'total_students'   => $totalStudents,
+            'total_submissions'=> $totalSubmissions,
+            'total_pages'      => $totalPages,
+            'total_minutes'    => $totalMinutes,
+            'consistency'      => $progConsistency,
+            'active'           => $activeCount,
+            'inactive'         => $inactiveCount,
+        ];
+
+        // ── Pages 3 & 6: weekly series (submissions / consistency / minutes / pages) ──
+        $weeks  = [];
+        $cursor = $start->copy();
+        $wi     = 1;
+        while ($cursor->lte($today) && $wi <= 30) {
+            $weekEnd  = $cursor->copy()->addDays(6);
+            $rangeEnd = $weekEnd->gt($today) ? $today : $weekEnd;
+            $base = PairSubmission::whereIn('subject_student_id', $studentIds)
+                ->whereBetween('submission_date', [$cursor->toDateString(), $rangeEnd->toDateString()]);
+            $subs = (clone $base)->count();
+            $mins = (int) (clone $base)->sum('minutes_spent');
+            $pgs  = (int) ((clone $base)->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
+            $daysInWeek = $cursor->diffInDays($rangeEnd) + 1;
+            $cons = $activeCount > 0 ? round($subs / max(1, $activeCount * $daysInWeek) * 100, 1) : 0;
+            $weeks[] = ['label' => 'W' . $wi, 'submissions' => $subs, 'consistency' => $cons, 'minutes' => $mins, 'pages' => $pgs];
+            $cursor->addDays(7);
+            $wi++;
+        }
+
+        // ── Page 5: juz coverage (distinct students who revised each juz) ──
+        $juzRows = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->selectRaw('juz, COUNT(DISTINCT subject_student_id) as cnt')
+            ->groupBy('juz')->pluck('cnt', 'juz');
+        $juzCoverage = [];
+        foreach (range(1, 30) as $j) {
+            $juzCoverage[] = ['juz' => $j, 'surah' => self::JUZ_SURAH[$j] ?? '', 'count' => (int) ($juzRows[$j] ?? 0)];
+        }
+
+        // ── Page 4: halqa performance (with meetings held) ──
         $halqas = Halqa::with(['leader:id,name', 'members' => fn ($q) => $q->where('role', 'student'), 'pairs'])->get();
         $halqaStats = $halqas->map(function ($h) use ($days) {
             $ids   = $h->members->pluck('id');
             $total = $ids->isEmpty() ? 0 : PairSubmission::whereIn('subject_student_id', $ids)->count();
             $pages = $ids->isEmpty() ? 0 : (int) (PairSubmission::whereIn('subject_student_id', $ids)->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
-            $cons  = $ids->isEmpty() ? 0 : round(($total / max(1, $ids->count() * $days)) * 100, 1);
-            return ['name' => $h->name, 'leader' => $h->leader?->name ?? '—', 'pairs' => $h->pairs->count(), 'members' => $ids->count(), 'consistency' => $cons, 'pages' => $pages];
-        })->values()->toArray();
+            $cons  = $ids->isEmpty() ? 0 : round($total / max(1, $ids->count() * $days) * 100, 1);
+            $meetings = MeetingLog::where('halqa_id', $h->id)->where('state', 'final')->count();
+            return ['name' => $h->name, 'leader' => $h->leader?->name ?? '—', 'pairs' => $h->pairs->count(), 'members' => $ids->count(), 'consistency' => $cons, 'pages' => $pages, 'meetings' => $meetings];
+        })->sortByDesc('consistency')->values()->toArray();
 
-        // At-risk students
-        $atRisk = User::where('role', 'student')->where('is_active', true)->get()
-            ->filter(function ($s) use ($days) {
-                $total = PairSubmission::where('subject_student_id', $s->id)->count();
-                $cons  = round(($total / $days) * 100, 1);
-                $last  = PairSubmission::where('subject_student_id', $s->id)->orderByDesc('submission_date')->value('submission_date');
-                return $cons < 40 || ($last && Carbon::parse($last)->diffInDays(Carbon::today()) >= 7) || !$last;
-            })
-            ->map(fn ($s) => ['name' => $s->name, 'halqa' => $s->halqa?->name ?? '—'])
-            ->values()->toArray();
+        // ── Pages 7/8/9: leaderboard-derived data ──
+        $lb       = new LeaderboardController();
+        $students = array_map(function ($s) {
+            $last  = PairSubmission::where('subject_student_id', $s['id'])->max('submission_date');
+            $stale = $last ? Carbon::parse($last)->diffInDays(Carbon::today()) >= 7 : true;
+            if (!$last)                                       $s['status'] = 'inactive';
+            elseif ($s['consistency'] >= 70 && !$stale)       $s['status'] = 'on_track';
+            elseif ($s['consistency'] >= 40)                  $s['status'] = 'slipping';
+            else                                              $s['status'] = 'at_risk';
+            return $s;
+        }, $lb->studentBoard());
 
-        // Leaderboard data via controller methods
-        $lb = new LeaderboardController();
-        $students  = array_slice($lb->studentBoard(), 0, 15);
-        $pairBoard = array_slice($lb->pairBoard(), 0, 10);
-        $awards    = $lb->awards();
+        $leaders = $lb->leaderBoard();
+        $awards  = $lb->awards();
 
         $pdf = Pdf::loadView('pdf.program-report', [
-            'halqaStats'  => $halqaStats,
-            'atRisk'      => $atRisk,
-            'students'    => $students,
-            'pairBoard'   => $pairBoard,
-            'awards'      => $awards,
             'programName' => $programName,
             'today'       => $today,
             'start'       => $start,
+            'end'         => $end,
             'days'        => $days,
+            'overview'    => $overview,
+            'weeks'       => $weeks,
+            'juzCoverage' => $juzCoverage,
+            'halqaStats'  => $halqaStats,
+            'students'    => $students,
+            'leaders'     => $leaders,
+            'awards'      => $awards,
         ]);
         $pdf->setPaper('A4', 'portrait');
 

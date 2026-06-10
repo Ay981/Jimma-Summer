@@ -33,6 +33,13 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'phone',
+        'telegram_username',
+        'memo_level',
+        'current_juz',
+        'available_times',
+        'available_days',
+        'is_monitored',
     ];
 
     protected function casts(): array
