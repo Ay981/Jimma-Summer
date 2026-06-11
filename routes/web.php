@@ -178,6 +178,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/pairs/cross-halqa',                        [AdminPair::class, 'crossHalqaPair'])->name('pairs.crossHalqa');
     Route::delete('/pairs/{pair}',                           [AdminPair::class, 'destroy'])->name('pairs.destroy');
     Route::put('/pairs/{pair}/halqa',                        [AdminPair::class, 'assignHalqa'])->name('pairs.assignHalqa');
+    Route::get('/pairs/{pair}',                              [AdminPair::class, 'show'])->name('pairs.show');
+    Route::post('/pairs/{pair}/clear-review',                [AdminPair::class, 'clearReview'])->name('pairs.clearReview');
 
     // Leaderboard
     Route::get('/leaderboard',                               [AdminLeaderboard::class, 'index'])->name('leaderboard');

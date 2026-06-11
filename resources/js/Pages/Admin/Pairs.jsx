@@ -2,6 +2,18 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
+const PAIRS_CSS = `
+.pairs-row { display:grid; gap:10px; padding:10px 14px; align-items:center; border-bottom:1px solid var(--border); }
+.pairs-row.normal { grid-template-columns: 1fr 1fr 80px 90px auto auto auto; }
+.pairs-row.scored { grid-template-columns: 1fr 1fr 80px 90px 60px auto auto auto; }
+.pairs-col-halqa, .pairs-col-last { display:block; }
+@media (max-width:640px) {
+  .pairs-row.normal { grid-template-columns: 1fr 1fr auto auto; }
+  .pairs-row.scored { grid-template-columns: 1fr 1fr auto auto; }
+  .pairs-col-halqa, .pairs-col-last, .pairs-col-cons { display:none; }
+}
+`;
+
 const SLOT_LABELS = {
     after_subhi: 'Fajr', after_zuhr: 'Dhuhr',
     after_asr: 'Asr', after_maghrib: 'Maghrib', after_isha: 'Isha',
@@ -9,57 +21,35 @@ const SLOT_LABELS = {
 
 // ── All pairs list ────────────────────────────────────────────────────────────
 
-function PairRow({ pair, halqas, showScore = false }) {
-    const [assignHalqa, setAssignHalqa] = useState(false);
-    const [halqaId, setHalqaId] = useState(pair.halqa_id ?? '');
-
+function PairRow({ pair, showScore = false }) {
     function del() {
         if (!confirm('Delete this pair?')) return;
         router.delete(`/admin/pairs/${pair.id}`, { preserveScroll: true });
     }
-    function saveHalqa() {
-        router.put(`/admin/pairs/${pair.id}/halqa`, { halqa_id: halqaId || null }, { preserveScroll: true, onSuccess: () => setAssignHalqa(false) });
-    }
-
-    const cols = showScore
-        ? '1fr 1fr 80px 90px 60px auto auto auto'
-        : '1fr 1fr 80px 90px auto auto auto';
 
     return (
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: cols, gap: '10px', alignItems: 'center', background: pair.needs_review ? 'oklch(98% 0.02 50)' : 'transparent' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{pair.student_a.name}</span>
-            <span style={{ fontSize: '0.875rem', color: pair.student_b ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
+        <div className={`pairs-row ${showScore ? 'scored' : 'normal'}`} style={{ background: pair.needs_review ? 'oklch(98% 0.02 50)' : 'transparent' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pair.student_a.name}</span>
+            <span style={{ fontSize: '0.875rem', color: pair.student_b ? 'var(--foreground)' : 'var(--muted-foreground)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {pair.student_b ? pair.student_b.name : '— solo —'}
             </span>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{pair.halqa}</span>
-            <span style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{pair.consistency}%</span>
+            <span className="pairs-col-halqa" style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{pair.halqa}</span>
+            <span className="pairs-col-cons" style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{pair.consistency}%</span>
             {showScore && (
-                <span style={{
-                    fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: '99px',
-                    background: 'oklch(88% 0.08 50)', color: 'oklch(38% 0.12 50)', textAlign: 'center',
-                }}>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'oklch(88% 0.08 50)', color: 'oklch(38% 0.12 50)', textAlign: 'center' }}>
                     {pair.compatibility_score ?? '—'}
                 </span>
             )}
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
+            <span className="pairs-col-last" style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
                 {pair.last_sub ? new Date(pair.last_sub).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Never'}
             </span>
             <span style={{ fontSize: '0.6875rem', padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: pair.status === 'active' ? 'var(--success)' : 'var(--muted)', color: pair.status === 'active' ? 'var(--success-foreground)' : 'var(--muted-foreground)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {pair.status}
             </span>
             <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={() => setAssignHalqa(!assignHalqa)} style={{ padding: '3px 8px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}>Halqa</button>
+                <button onClick={() => router.get(`/admin/pairs/${pair.id}`)} style={{ padding: '3px 8px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer', fontWeight: 500 }}>Details</button>
                 <button onClick={del} style={{ padding: '3px 8px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}>×</button>
             </div>
-            {assignHalqa && (
-                <div style={{ gridColumn: '1/-1', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <select value={halqaId} onChange={(e) => setHalqaId(e.target.value)} style={{ flex: 1, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
-                        <option value="">— No halqa —</option>
-                        {halqas.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-                    </select>
-                    <button onClick={saveHalqa} style={{ padding: '5px 12px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Save</button>
-                </div>
-            )}
         </div>
     );
 }
@@ -202,11 +192,10 @@ function AssignmentPanel({ suggested: initialSuggested, noMatch, halqas }) {
 
 // ── Create Pair form ─────────────────────────────────────────────────────────
 
-function CreatePairForm({ students, halqas, onClose }) {
+function CreatePairForm({ students, onClose }) {
     const { data, setData, post, processing, errors } = useForm({
         student_a_id: '',
         student_b_id: '',
-        halqa_id:     '',
     });
 
     function submit(e) {
@@ -228,7 +217,7 @@ function CreatePairForm({ students, halqas, onClose }) {
             boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)',
         }}>
             <p style={{ margin: '0 0 12px', fontSize: '0.875rem', fontWeight: 700 }}>Create New Pair</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px', alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', alignItems: 'end' }}>
                 <div>
                     <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Student A</label>
                     <select
@@ -268,13 +257,6 @@ function CreatePairForm({ students, halqas, onClose }) {
                         }
                     </select>
                     {errors.student_b_id && <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.student_b_id}</p>}
-                </div>
-                <div>
-                    <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Halqa (optional)</label>
-                    <select value={data.halqa_id} onChange={e => setData('halqa_id', e.target.value)} style={selectStyle}>
-                        <option value="">— None —</option>
-                        {halqas.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-                    </select>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                     <button type="submit" disabled={processing} style={{
@@ -317,6 +299,7 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
     return (
         <AdminLayout title="Pair Management">
             <Head title="Pairs" />
+            <style>{PAIRS_CSS}</style>
 
             {/* Summary */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -363,18 +346,22 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
                     </div>
                 )}
                 {showCreate && (
-                    <CreatePairForm students={students} halqas={halqas} onClose={() => setShowCreate(false)} />
+                    <CreatePairForm students={students} onClose={() => setShowCreate(false)} />
                 )}
                 <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>
-                    {/* Column headers */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px auto auto auto', gap: '10px', padding: '6px 14px', borderBottom: '1px solid var(--border)' }}>
-                        {['Student A', 'Student B', 'Halqa', 'Consistency', 'Last Sub', 'Status', ''].map((h) => (
-                            <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
-                        ))}
+                    {/* Column headers — same grid class as rows for alignment */}
+                    <div className="pairs-row normal" style={{ padding: '6px 14px', borderBottom: '1px solid var(--border)', background: 'oklch(97% 0.005 0)' }}>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student A</span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student B</span>
+                        <span className="pairs-col-halqa" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Halqa</span>
+                        <span className="pairs-col-cons" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Consistency</span>
+                        <span className="pairs-col-last" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Sub</span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+                        <span />
                     </div>
                     {pairs.length === 0
                         ? <p style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0 }}>No pairs yet.</p>
-                        : pairs.map((p) => <PairRow key={p.id} pair={p} halqas={halqas} />)
+                        : pairs.map((p) => <PairRow key={p.id} pair={p} />)
                     }
                 </div>
                 </>
@@ -391,12 +378,17 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
                             🔶 These pairs were created but have a low compatibility score (≤ 4 out of 18). Consider swapping partners where possible.
                         </div>
                         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px 60px auto auto auto', gap: '10px', padding: '6px 14px', borderBottom: '1px solid var(--border)' }}>
-                                {['Student A', 'Student B', 'Halqa', 'Consistency', 'Score', 'Last Sub', 'Status', ''].map((h) => (
-                                    <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
-                                ))}
+                            <div className="pairs-row scored" style={{ padding: '6px 14px', borderBottom: '1px solid var(--border)', background: 'oklch(97% 0.005 0)' }}>
+                                <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student A</span>
+                                <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student B</span>
+                                <span className="pairs-col-halqa" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Halqa</span>
+                                <span className="pairs-col-cons" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cons.</span>
+                                <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</span>
+                                <span className="pairs-col-last" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Sub</span>
+                                <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+                                <span />
                             </div>
-                            {needsReview.map((p) => <PairRow key={p.id} pair={p} halqas={halqas} showScore />)}
+                            {needsReview.map((p) => <PairRow key={p.id} pair={p} showScore />)}
                         </div>
                         </>
                     )}

@@ -50,6 +50,14 @@ class ExcuseController extends Controller
             return back()->with('error', 'Makeup date must be within the same week (' . $weekStart->format('M d') . '–' . $weekEnd->format('M d') . ').');
         }
 
+        // Makeup must be on a day outside the student's regular schedule
+        $scheduledDays = array_map('strtolower', $user->available_days ?? []);
+        $makeupDay     = strtolower($makeup->format('l'));
+        if (!empty($scheduledDays) && in_array($makeupDay, $scheduledDays, true)) {
+            $names = implode(', ', array_map('ucfirst', $scheduledDays));
+            return back()->with('error', "Makeup must be on a day outside your regular schedule ({$names}). Choose a different day.");
+        }
+
         // Makeup must be today or later
         if ($makeup->lt(Carbon::today())) {
             return back()->with('error', 'Makeup date must be today or a future date.');

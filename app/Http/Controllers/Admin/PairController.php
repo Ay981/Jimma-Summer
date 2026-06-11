@@ -198,6 +198,100 @@ class PairController extends Controller
         return back()->with('success', 'Pair students swapped.');
     }
 
+    // ── Reassign a student to a new partner ──────────────────────────────────
+
+    public function reassign(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'student_id'     => ['required', 'exists:users,id'],
+            'new_partner_id' => ['nullable', 'exists:users,id', 'different:student_id'],
+        ]);
+
+        $student    = User::findOrFail($request->student_id);
+        $newPartner = $request->new_partner_id ? User::findOrFail($request->new_partner_id) : null;
+
+        if ($newPartner && $student->halqa_id !== $newPartner->halqa_id) {
+            return back()->with('error', 'Both students must be in the same halqa.');
+        }
+
+        DB::transaction(function () use ($student, $newPartner) {
+            // ── 1. Remove student from their current pair ─────────────────────
+            $currentPair = Pair::where('student_a_id', $student->id)
+                ->orWhere('student_b_id', $student->id)->first();
+
+            if ($currentPair) {
+                if ($currentPair->student_b_id === null) {
+                    // Solo pair — just delete it
+                    $currentPair->delete();
+                } elseif ($currentPair->student_a_id === $student->id) {
+                    // Student is A — promote B to A, make pair solo
+                    $currentPair->update([
+                        'student_a_id' => $currentPair->student_b_id,
+                        'student_b_id' => null,
+                        'status'       => 'solo',
+                    ]);
+                } else {
+                    // Student is B — just remove B
+                    $currentPair->update(['student_b_id' => null, 'status' => 'solo']);
+                }
+                $this->notifyUsers([$currentPair->student_a_id], 'Your partner has been reassigned. You are now solo.');
+            }
+
+            // ── 2. Remove new partner from their current pair ─────────────────
+            if ($newPartner) {
+                $partnerPair = Pair::where('student_a_id', $newPartner->id)
+                    ->orWhere('student_b_id', $newPartner->id)->first();
+
+                if ($partnerPair) {
+                    if ($partnerPair->student_b_id === null) {
+                        $partnerPair->delete();
+                    } elseif ($partnerPair->student_a_id === $newPartner->id) {
+                        $partnerPair->update([
+                            'student_a_id' => $partnerPair->student_b_id,
+                            'student_b_id' => null,
+                            'status'       => 'solo',
+                        ]);
+                    } else {
+                        $partnerPair->update(['student_b_id' => null, 'status' => 'solo']);
+                    }
+                    $this->notifyUsers([$partnerPair->student_a_id], 'Your partner has been reassigned. You are now solo.');
+                }
+
+                // ── 3. Create new pair ────────────────────────────────────────
+                Pair::create([
+                    'student_a_id' => $student->id,
+                    'student_b_id' => $newPartner->id,
+                    'halqa_id'     => $student->halqa_id,
+                    'status'       => 'active',
+                ]);
+
+                $this->notifyUsers([$student->id, $newPartner->id], 'You have been assigned a new muraja\'ah partner.');
+            }
+            // If no new partner, student stays unassigned (their old pair was dissolved above)
+        });
+
+        $msg = $newPartner
+            ? "{$student->name} has been re-paired with {$newPartner->name}."
+            : "{$student->name} has been removed from their pair.";
+
+        return back()->with('success', $msg);
+    }
+
+    private function notifyUsers(array $userIds, string $message): void
+    {
+        foreach (array_filter($userIds) as $uid) {
+            $u = User::find($uid);
+            $u?->notifications()->create([
+                'id'              => Str::uuid(),
+                'type'            => 'App\Notifications\PairSwap',
+                'notifiable_type' => User::class,
+                'notifiable_id'   => $uid,
+                'data'            => json_encode(['message' => $message]),
+                'created_at'      => now(),
+            ]);
+        }
+    }
+
     // ── Cross-halqa pair merge ────────────────────────────────────────────────
 
     public function crossHalqaPair(Request $request): RedirectResponse
@@ -307,6 +401,90 @@ class PairController extends Controller
     {
         $pair->delete();
         return back()->with('success', 'Pair deleted.');
+    }
+
+    // ── Pair detail ───────────────────────────────────────────────────────────
+
+    public function show(Pair $pair): Response
+    {
+        $pair->load(['studentA', 'studentB', 'halqa']);
+
+        $consistency = app(\App\Services\ConsistencyService::class);
+        $today = Carbon::today();
+        $start = $today->copy()->subDays(29);
+
+        $students = collect(array_filter([$pair->studentA, $pair->studentB]))
+            ->map(function ($s) use ($consistency, $today, $start) {
+                $allSubs = PairSubmission::where('subject_student_id', $s->id)->get();
+                $recent  = PairSubmission::where('subject_student_id', $s->id)
+                    ->where('submission_date', '>=', $start->toDateString())->get();
+
+                $subDates = $recent->pluck('submission_date')
+                    ->map(fn ($d) => Carbon::parse($d)->toDateString())->flip()->toArray();
+
+                $heatmap = collect(range(29, 0))->map(fn ($i) => [
+                    'date'      => $today->copy()->subDays($i)->toDateString(),
+                    'submitted' => isset($subDates[$today->copy()->subDays($i)->toDateString()]),
+                ])->values()->toArray();
+
+                $excuses = \App\Models\MissedSubmissionExcuse::where('student_id', $s->id)
+                    ->orderByDesc('missed_date')->take(10)->get()
+                    ->map(fn ($e) => [
+                        'missed_date' => $e->missed_date->toDateString(),
+                        'makeup_date' => $e->makeup_date->toDateString(),
+                        'reason'      => $e->reason,
+                        'fulfilled'   => $e->fulfilled,
+                    ])->toArray();
+
+                return [
+                    'id'          => $s->id,
+                    'name'        => $s->name,
+                    'student_id'  => $s->student_id,
+                    'memo_level'  => $s->memo_level,
+                    'consistency' => round($consistency->getConsistency($s->id) ?? 0, 1),
+                    'streak'      => $consistency->getStreak($s->id),
+                    'pages'       => (int) $allSubs->sum(fn ($r) => $r->page_to - $r->page_from + 1),
+                    'minutes'     => (int) $allSubs->sum('minutes_spent'),
+                    'sessions'    => $allSubs->count(),
+                    'heatmap'     => $heatmap,
+                    'excuses'     => $excuses,
+                ];
+            })->values()->toArray();
+
+        $subjectIds = array_filter([$pair->student_a_id, $pair->student_b_id]);
+        $history = PairSubmission::whereIn('subject_student_id', $subjectIds)
+            ->orderByDesc('submission_date')->take(50)->get()
+            ->map(fn ($s) => [
+                'date'         => Carbon::parse($s->submission_date)->toDateString(),
+                'subject_id'   => $s->subject_student_id,
+                'submitted_by' => $s->submitted_by,
+                'juz'          => $s->juz,
+                'pages'        => $s->page_to - $s->page_from + 1,
+                'minutes'      => $s->minutes_spent,
+            ])->toArray();
+
+        return Inertia::render('Admin/PairDetail', [
+            'pair' => [
+                'id'                  => $pair->id,
+                'halqa'               => $pair->halqa?->name ?? '—',
+                'halqa_id'            => $pair->halqa_id,
+                'status'              => $pair->status,
+                'compatibility_score' => $pair->compatibility_score,
+                'needs_review'        => (bool) $pair->needs_review,
+                'created_at'          => Carbon::parse($pair->created_at)->toDateString(),
+            ],
+            'students' => $students,
+            'history'  => $history,
+            'halqas'   => Halqa::select('id', 'name')->orderBy('name')->get(),
+        ]);
+    }
+
+    // ── Clear needs-review flag ───────────────────────────────────────────────
+
+    public function clearReview(Pair $pair): RedirectResponse
+    {
+        $pair->update(['needs_review' => false]);
+        return back()->with('success', 'Review flag cleared.');
     }
 
     // ── Assign pair to halqa ──────────────────────────────────────────────────

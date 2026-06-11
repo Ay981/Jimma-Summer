@@ -12,8 +12,139 @@ const TYPE_COLOR = {
     conflict:  { bg: 'oklch(96% 0.05 20)',  color: 'var(--destructive)',   label: '✗ Conflict' },
 };
 
-export default function Pairing({ window_open, window_deadline, requests, stats, incompatibles, flagged }) {
-    const [running, setRunning] = useState(false);
+// ── Edit Pairing Panel ────────────────────────────────────────────────────────
+
+function EditPairingPanel({ pairs, onClose }) {
+    const [selected, setSelected] = useState(null); // { pairId, slot }
+    const [swapA, setSwapA]       = useState('');
+    const [swapB, setSwapB]       = useState('');
+    const [swapSlot, setSwapSlot] = useState('b');
+
+    function breakPair(id) {
+        if (!confirm('Break this pair? Both students will be unassigned.')) return;
+        router.delete(`/admin/pairs/${id}`, { preserveScroll: true });
+    }
+
+    function doSwap() {
+        if (!swapA || !swapB || swapA === swapB) return;
+        router.post('/admin/pairs/swap-students',
+            { pair_a_id: Number(swapA), pair_b_id: Number(swapB), slot: swapSlot },
+            { preserveScroll: true, onSuccess: () => { setSwapA(''); setSwapB(''); } }
+        );
+    }
+
+    const selStyle = {
+        padding: '6px 10px', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)', background: 'var(--background)',
+        color: 'var(--foreground)', fontSize: '0.8125rem', width: '100%',
+    };
+
+    return (
+        <div style={{
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', marginBottom: '16px', overflow: 'hidden',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        }}>
+            {/* Header */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'oklch(98% 0.01 145)' }}>
+                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>✏ Edit Pairing — {pairs.length} pairs</p>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--muted-foreground)', padding: '0 4px' }}>✕</button>
+            </div>
+
+            {/* Pairs list */}
+            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {pairs.length === 0 ? (
+                    <p style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0, fontSize: '0.875rem' }}>No pairs yet.</p>
+                ) : pairs.map((p) => (
+                    <div key={p.id} style={{
+                        padding: '10px 16px', borderBottom: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                    }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', minWidth: '60px' }}>{p.halqa}</span>
+                        <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, minWidth: '160px' }}>
+                            {p.student_a.name}
+                            {p.student_b
+                                ? <> <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>↔</span> {p.student_b.name}</>
+                                : <span style={{ color: 'var(--muted-foreground)', fontWeight: 400, fontSize: '0.8125rem' }}> · solo</span>
+                            }
+                        </span>
+                        <button
+                            onClick={() => router.get(`/admin/pairs/${p.id}`)}
+                            style={{ padding: '3px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}
+                        >
+                            Details
+                        </button>
+                        <button
+                            onClick={() => breakPair(p.id)}
+                            style={{ padding: '3px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}
+                        >
+                            Break
+                        </button>
+                    </div>
+                ))}
+            </div>
+
+            {/* Swap section */}
+            <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'oklch(98.5% 0.005 0)' }}>
+                <p style={{ margin: '0 0 10px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Swap students between pairs
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '8px', alignItems: 'end' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', marginBottom: '3px' }}>Pair A</label>
+                        <select value={swapA} onChange={e => setSwapA(e.target.value)} style={selStyle}>
+                            <option value="">— Select pair —</option>
+                            {pairs.map(p => (
+                                <option key={p.id} value={p.id}>
+                                    {p.student_a.name}{p.student_b ? ` ↔ ${p.student_b.name}` : ' (solo)'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', marginBottom: '3px' }}>Pair B</label>
+                        <select value={swapB} onChange={e => setSwapB(e.target.value)} style={selStyle}>
+                            <option value="">— Select pair —</option>
+                            {pairs.filter(p => String(p.id) !== swapA).map(p => (
+                                <option key={p.id} value={p.id}>
+                                    {p.student_a.name}{p.student_b ? ` ↔ ${p.student_b.name}` : ' (solo)'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', marginBottom: '3px' }}>Swap slot</label>
+                        <select value={swapSlot} onChange={e => setSwapSlot(e.target.value)} style={{ ...selStyle, width: 'auto' }}>
+                            <option value="b">2nd student</option>
+                            <option value="a">1st student</option>
+                        </select>
+                    </div>
+                    <button
+                        onClick={doSwap}
+                        disabled={!swapA || !swapB}
+                        style={{
+                            padding: '6px 16px', border: 'none', background: 'var(--primary)',
+                            color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.875rem', fontWeight: 600, cursor: swapA && swapB ? 'pointer' : 'not-allowed',
+                            opacity: swapA && swapB ? 1 : 0.5,
+                        }}
+                    >
+                        Swap
+                    </button>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
+                    Swapping "2nd student" exchanges the second member between both pairs. "1st student" exchanges the first member.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function Pairing({ window_open, window_deadline, requests, stats, incompatibles, flagged, pairs }) {
+    const [running, setRunning]           = useState(false);
+    const [showEdit, setShowEdit]         = useState(false);
     const { data, setData, post, processing } = useForm({
         open:     window_open,
         deadline: window_deadline ?? '',
@@ -96,6 +227,12 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                         ? <button onClick={() => saveWindow(false)} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>Close Window</button>
                         : <button onClick={() => saveWindow(true)}  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--success)', color: 'var(--success-foreground)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>Open Window</button>
                     }
+                    <button
+                        onClick={() => setShowEdit(v => !v)}
+                        style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: showEdit ? 'var(--primary)' : 'var(--card)', color: showEdit ? 'var(--primary-foreground)' : 'var(--foreground)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}
+                    >
+                        ✏ Edit Pairing
+                    </button>
                 </div>
                 <button
                     onClick={runPairing}
@@ -111,6 +248,11 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                     {running ? 'Running…' : '⚡ Run Pairing'}
                 </button>
             </div>
+
+            {/* Edit pairing panel */}
+            {showEdit && (
+                <EditPairingPanel pairs={pairs ?? []} onClose={() => setShowEdit(false)} />
+            )}
 
             {/* Incompatibles warning */}
             {(incompatibles ?? []).length > 0 && (

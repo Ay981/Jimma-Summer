@@ -232,6 +232,7 @@ class DashboardController extends Controller
             ],
             'excusable_missed'  => $excusableMissed,
             'pending_excuses'   => $pendingExcuses,
+            'scheduled_days'    => array_map('ucfirst', array_map('strtolower', $user->available_days ?? [])),
         ]);
     }
 
