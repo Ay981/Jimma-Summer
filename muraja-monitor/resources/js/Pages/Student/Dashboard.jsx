@@ -113,7 +113,7 @@ function WeeklyTargetEditor({ currentTarget }) {
 
 // ── Excuse / makeup card ──────────────────────────────────────────────────────
 
-function ExcuseCard({ missed }) {
+function ExcuseCard({ missed, scheduledDays = [] }) {
     const [open, setOpen] = useState(null); // missed_date string of the open form
     const { data, setData, post, processing, errors, reset } = useForm({
         missed_date: '',
@@ -145,6 +145,11 @@ function ExcuseCard({ missed }) {
                 <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--foreground)' }}>
                     You missed a scheduled day. File an excuse within 48 hours and propose a makeup date <strong>in the same week</strong> to protect your streak.
                 </p>
+                {scheduledDays.length > 0 && (
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'oklch(50% 0.12 50)', fontWeight: 500 }}>
+                        ⚠ Makeup must be on a day <strong>outside</strong> your regular schedule ({scheduledDays.join(', ')}).
+                    </p>
+                )}
                 {missed.map((m) => (
                     <div key={m.date}>
                         {open === m.date ? (
@@ -157,7 +162,9 @@ function ExcuseCard({ missed }) {
                                     {errors.reason && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.reason}</p>}
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', display: 'block', marginBottom: '3px' }}>Makeup date (within this week)</label>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', display: 'block', marginBottom: '3px' }}>
+                                        Makeup date — must be outside your regular schedule, within this week
+                                    </label>
                                     <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)}
                                         min={new Date().toISOString().slice(0,10)} max={m.week_end} required style={inp} />
                                     {errors.makeup_date && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.makeup_date}</p>}
@@ -207,7 +214,7 @@ export default function Dashboard({
     pair_id, partner, halqa, ayat, checkins_30_days,
     program_started, program_ended, server_date,
     earned_badges, locked_badges, weekly_summary, personal_best,
-    excusable_missed, pending_excuses,
+    excusable_missed, pending_excuses, scheduled_days,
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
@@ -439,7 +446,7 @@ export default function Dashboard({
                 </div>
 
                 {/* ── Excuse / makeup window ─────────────────────────────── */}
-                {excusable_missed?.length > 0 && <ExcuseCard missed={excusable_missed} />}
+                {excusable_missed?.length > 0 && <ExcuseCard missed={excusable_missed} scheduledDays={scheduled_days ?? []} />}
                 {pending_excuses?.length > 0 && <PendingExcusesBanner excuses={pending_excuses} />}
 
                 {/* ── Personal Best ─────────────────────────────────────── */}

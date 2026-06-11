@@ -170,7 +170,7 @@ async function captureStudent(browser) {
         const page = await ctx.newPage();
         await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#student_id', { timeout: 12000 });
-        await page.fill('#student_id', 'JUMU-1446-010');
+        await page.fill('#student_id', 'JUMU-2026-010');
         await page.fill('#password', 'MyPassword@123');
         const rm = await annotate(page, ['#student_id', '#password', 'button[type="submit"]']);
         await shot(page, 'login');
@@ -199,11 +199,11 @@ async function captureStudent(browser) {
         await ctx.close();
     }
 
-    // ── 2 + 4–9 via STU001 ────────────────────────────────────────────────────
+    // ── 2 + 4–9 via JUMU-2026-010 ────────────────────────────────────────────
     {
         const ctx  = await browser.newContext({ viewport: { width: 1280, height: 800 } });
         const page = await ctx.newPage();
-        await login(page, 'STU001', 'Student@123');
+        await login(page, 'JUMU-2026-010', 'Student@123');
 
         // 2. Change password page
         await page.goto(`${BASE_URL}/change-password`, { waitUntil: 'domcontentloaded' });
@@ -254,7 +254,27 @@ async function captureStudent(browser) {
         await shot(page, 'student-journal');
         await rmJournal();
 
-        // 8. History
+        // 8. Excuse card — skip auto-capture if a manual screenshot already exists (jpg or png)
+        const excuseJpg = path.join(OUT_DIR, 'student-excuse.jpg');
+        const excusePng = path.join(OUT_DIR, 'student-excuse.png');
+        if (fs.existsSync(excuseJpg) || fs.existsSync(excusePng)) {
+            console.log('  ✓ student-excuse (kept — manually provided)');
+            written.push('student-excuse');
+        } else {
+            await page.goto(`${BASE_URL}/student/dashboard`, { waitUntil: 'networkidle' });
+            await page.waitForTimeout(600);
+            const hasExcuse = await page.locator('text=Missed Day').count();
+            if (hasExcuse) {
+                await page.locator('text=Missed Day').scrollIntoViewIfNeeded().catch(() => {});
+                await page.waitForTimeout(300);
+            } else {
+                await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+                await page.waitForTimeout(300);
+            }
+            await shot(page, 'student-excuse');
+        }
+
+        // 9. History
         await page.goto(`${BASE_URL}/student/history`, { waitUntil: 'networkidle' });
         await page.waitForTimeout(600);
         const hasHistTable = await page.locator('[data-onboard="history-table"]').count();
@@ -268,7 +288,7 @@ async function captureStudent(browser) {
         await shot(page, 'student-history');
         await rmHist();
 
-        // 9. Badges
+        // 10. Badges
         await page.goto(`${BASE_URL}/student/badges`, { waitUntil: 'networkidle' });
         await page.waitForTimeout(600);
         const hasBadgeGrid = await page.locator('[data-onboard="badge-grid"]').count();
@@ -290,7 +310,7 @@ async function captureLeader(browser) {
 
     const ctx  = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await ctx.newPage();
-    await login(page, 'LDR001', 'Leader@123');
+    await login(page, 'LDR-0001', 'Leader@123');
 
     // 2. Change password (leader view shows Full Name field)
     await page.goto(`${BASE_URL}/change-password`, { waitUntil: 'domcontentloaded' });
@@ -363,13 +383,29 @@ async function captureLeader(browser) {
 // ── PDF generation ────────────────────────────────────────────────────────────
 
 function loadShot(name) {
-    const p = path.join(OUT_DIR, `${name}.jpg`);
-    return fs.existsSync(p) ? `data:image/jpeg;base64,${fs.readFileSync(p).toString('base64')}` : null;
+    // Accept JPG or PNG
+    for (const ext of ['jpg', 'png']) {
+        const p = path.join(OUT_DIR, `${name}.${ext}`);
+        const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+        if (fs.existsSync(p)) return `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+    }
+    return null;
 }
 
 function loadLogo() {
-    const p = path.join(PUB_DIR, 'images', 'logo.jpg');
-    return fs.existsSync(p) ? `data:image/jpeg;base64,${fs.readFileSync(p).toString('base64')}` : null;
+    const svgPath = path.join(PUB_DIR, 'images', 'logo.svg');
+    if (fs.existsSync(svgPath)) {
+        let svg = fs.readFileSync(svgPath, 'utf8');
+        // Strip the XML prolog so it embeds cleanly
+        svg = svg.slice(svg.indexOf('<svg'));
+        // Replace height:100% with a fixed height so it renders in a data URI <img>
+        svg = svg.replace(/height:\s*100%/g, 'height:100px').replace(/width:\s*auto/g, 'width:auto');
+        const b64 = Buffer.from(svg).toString('base64');
+        return `data:image/svg+xml;base64,${b64}`;
+    }
+    // Fallback to JPEG
+    const jpgPath = path.join(PUB_DIR, 'images', 'logo.jpg');
+    return fs.existsSync(jpgPath) ? `data:image/jpeg;base64,${fs.readFileSync(jpgPath).toString('base64')}` : null;
 }
 
 const PDF_CSS = `
@@ -624,26 +660,26 @@ const STUDENT_SCREENS = [
     },
     {
         num: 4, file: 'student-dashboard', title: 'Your Dashboard',
-        desc: 'The dashboard is your home base. It shows your personal stats at a glance, the daily check-in form for submitting your revision, and a 30-day activity heatmap. You will land here every time you log in.',
+        desc: 'The dashboard is your home base. It shows your personal stats, the form to record your partner&rsquo;s daily muraja&rsquo;a, and your 30-day activity heatmap. Your streak and consistency reflect sessions your partner has recorded for you.',
         callouts: [
-            'Stat cards &mdash; your consistency score, current streak, and total pages submitted',
-            'Today&rsquo;s Revision &mdash; use this card to log your daily muraja&rsquo;a',
+            'Stat cards &mdash; your consistency score, current streak, and total pages recorded for you',
+            'Today&rsquo;s form &mdash; use this card to record your partner&rsquo;s muraja&rsquo;a session',
         ],
     },
     {
-        num: 5, file: 'student-checkin', title: 'Daily Check-in',
-        desc: 'Each day you complete a muraja&rsquo;a session, log it using the check-in form. Select the juz you revised, the page range, and how many minutes you spent. Press Submit &mdash; it records immediately and updates your streak.',
+        num: 5, file: 'student-checkin', title: 'Recording Your Partner&rsquo;s Session',
+        desc: 'After your partner completes their muraja&rsquo;a, you record it here. Select the juz they revised, the page range, and the minutes spent. You are the witness &mdash; your partner does the same for you.',
         callouts: [
-            'Juz selector &mdash; choose the juz you revised in today&rsquo;s session',
-            'Submit &mdash; tap to record today&rsquo;s revision and update your activity',
+            'Juz selector &mdash; choose the juz your partner revised in today&rsquo;s session',
+            'Submit &mdash; tap to record their session; they will be notified immediately',
         ],
     },
     {
         num: 6, file: 'student-pair', title: 'My Partner',
-        desc: 'Once your halqa leader assigns you a partner, their contact details appear here. You can see their name, phone number, and Telegram handle, and browse their recent submission history. If the pairing window is open, you can request a specific partner by entering their Student ID.',
+        desc: 'Once your leader assigns you a partner, their details appear here. You record their sessions; they record yours. You can see their contact details and recent submission history. If the pairing window is open, enter a preferred partner&rsquo;s Student ID to request them.',
         callouts: [
             'Partner card &mdash; your partner&rsquo;s name, phone, and Telegram contact link',
-            'Partner history &mdash; their recent revision submissions',
+            'Partner history &mdash; their recent revision submissions recorded by you',
         ],
     },
     {
@@ -655,15 +691,23 @@ const STUDENT_SCREENS = [
         ],
     },
     {
-        num: 8, file: 'student-history', title: 'Submission History',
-        desc: 'Browse all your past revisions filtered by month. If you filed a submission yourself, you can edit it within the allowed editing window. Submissions entered by your halqa leader cannot be edited by students.',
+        num: 8, file: 'student-excuse', title: 'Missed Sessions &amp; Makeup',
+        desc: 'If you miss a scheduled day, an excuse card appears at the bottom of your dashboard within 48 hours. Write a brief reason and pick a makeup date within the same week. <strong>The makeup date must be a day outside your regular schedule</strong> — your partner records your session on that extra day and your streak is protected.',
         callouts: [
-            'Monthly history table &mdash; all submissions for the selected month',
-            'Edit button &mdash; appears on rows you submitted yourself, within the edit window',
+            'Excuse card &mdash; appears automatically for any missed scheduled day within the last 48 hours',
+            'Makeup date picker &mdash; choose any remaining day in the same week; your partner must record your session on that date',
         ],
     },
     {
-        num: 9, file: 'student-badges', title: 'Badges',
+        num: 9, file: 'student-history', title: 'Submission History',
+        desc: 'Browse all sessions recorded for you, filtered by month. If you missed a scheduled day, file an excuse within 48 hours and your partner records the makeup session on the chosen date to protect your streak.',
+        callouts: [
+            'Monthly history table &mdash; all sessions recorded for you this month',
+            'Edit button &mdash; appears on rows the submitter can still correct within the allowed window',
+        ],
+    },
+    {
+        num: 10, file: 'student-badges', title: 'Badges',
         desc: 'Earn badges by hitting milestones &mdash; maintaining streaks, covering juz, reaching page targets, and more. The next badge hint at the top of the page shows exactly what to work toward to unlock your next achievement.',
         callouts: [
             'Earned badges &mdash; every badge you have unlocked so far; tap any to see details',

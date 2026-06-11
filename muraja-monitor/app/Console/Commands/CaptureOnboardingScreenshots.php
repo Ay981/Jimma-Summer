@@ -40,7 +40,7 @@ class CaptureOnboardingScreenshots extends Command
 
     private function ensureDemoAccount(): void
     {
-        $halqaId = DB::table('users')->where('student_id', 'STU001')->value('halqa_id') ?? 1;
+        $halqaId = DB::table('users')->where('student_id', 'JUMU-2026-010')->value('halqa_id') ?? 1;
 
         DB::table('users')->updateOrInsert(
             ['student_id' => 'JUMU-1446-010'],

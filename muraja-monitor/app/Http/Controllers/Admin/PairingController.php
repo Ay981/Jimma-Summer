@@ -63,12 +63,22 @@ class PairingController extends Controller
                 'compatibility_score' => $p->compatibility_score,
             ])->values();
 
+        $pairs = Pair::with(['studentA:id,name', 'studentB:id,name', 'halqa:id,name'])
+            ->get()
+            ->map(fn ($p) => [
+                'id'        => $p->id,
+                'halqa'     => $p->halqa?->name ?? '—',
+                'student_a' => ['id' => $p->student_a_id, 'name' => $p->studentA?->name ?? '—'],
+                'student_b' => $p->student_b_id ? ['id' => $p->student_b_id, 'name' => $p->studentB?->name] : null,
+            ])->values();
+
         return Inertia::render('Admin/Pairing', [
             'window_open'     => $windowOpen,
             'window_deadline' => $windowDeadline,
             'requests'        => $rows,
             'incompatibles'   => $incompatibles,
             'flagged'         => $flagged,
+            'pairs'           => $pairs,
             'stats'           => [
                 'total_students'  => $totalStudents,
                 'requested'       => $requestedCount,
