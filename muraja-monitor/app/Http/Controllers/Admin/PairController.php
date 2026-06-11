@@ -134,16 +134,25 @@ class PairController extends Controller
             return back()->with('error', 'Students must be in the same halqa to be paired.');
         }
 
-        $alreadyPaired = Pair::where(function ($q) use ($studentA, $studentB) {
-            $q->where('student_a_id', $studentA->id)
-              ->orWhere('student_b_id', $studentA->id)
-              ->orWhere('student_a_id', $studentB->id)
-              ->orWhere('student_b_id', $studentB->id);
-        })->exists();
+        // Block only if either student is in an ACTIVE pair (has a second member)
+        $alreadyActive = Pair::whereNotNull('student_b_id')
+            ->where(function ($q) use ($studentA, $studentB) {
+                $q->where('student_a_id', $studentA->id)
+                  ->orWhere('student_b_id', $studentA->id)
+                  ->orWhere('student_a_id', $studentB->id)
+                  ->orWhere('student_b_id', $studentB->id);
+            })->exists();
 
-        if ($alreadyPaired) {
-            return back()->with('error', 'One or both students are already in a pair.');
+        if ($alreadyActive) {
+            return back()->with('error', 'One or both students are already in an active pair.');
         }
+
+        // Remove any leftover solo pairs for these students before creating the new one
+        Pair::whereNull('student_b_id')
+            ->where(function ($q) use ($studentA, $studentB) {
+                $q->where('student_a_id', $studentA->id)
+                  ->orWhere('student_a_id', $studentB->id);
+            })->delete();
 
         Pair::create([
             'student_a_id' => $studentA->id,

@@ -1,0 +1,71 @@
+import { Head, Link } from '@inertiajs/react';
+import LeaderLayout from '@/Layouts/LeaderLayout';
+
+const STATUS_CONFIG = {
+    escalated_to_admin: { label: 'Pending', bg: 'oklch(88% 0.1 75)', color: 'oklch(38% 0.12 75)' },
+    approved:           { label: 'Approved', bg: 'var(--success)', color: 'var(--success-foreground)' },
+    rejected:           { label: 'Rejected', bg: 'var(--destructive)', color: 'var(--destructive-foreground)' },
+};
+
+const TYPE_CONFIG = {
+    same_halqa:   { label: 'Same Halqa', bg: 'oklch(90% 0.08 145)', color: 'oklch(36% 0.12 145)' },
+    cross_halqa:  { label: 'Cross-Halqa', bg: 'oklch(92% 0.08 20)', color: 'var(--destructive)' },
+    unspecified:  { label: 'Unspecified', bg: 'var(--muted)', color: 'var(--muted-foreground)' },
+};
+
+export default function PairChangeRequests({ requests }) {
+    return (
+        <LeaderLayout title="Pair Change Requests">
+            <Head title="Pair Change Requests" />
+
+            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                    <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Pair Change Requests</h1>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
+                        All requests you have submitted — admin review required.
+                    </p>
+                </div>
+                <Link href="/leader/dashboard" style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', textDecoration: 'none' }}>← Dashboard</Link>
+            </div>
+
+            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                {requests.length === 0 ? (
+                    <p style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0 }}>
+                        No pair change requests submitted yet.
+                    </p>
+                ) : (
+                    <>
+                        {/* Header */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px', gap: '10px', padding: '8px 16px', background: 'oklch(97% 0.005 0)', borderBottom: '1px solid var(--border)' }}>
+                            {['Student', 'Partner', 'Requested', 'Type', 'Status', 'Date'].map(h => (
+                                <span key={h} style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted-foreground)' }}>{h}</span>
+                            ))}
+                        </div>
+                        {requests.map((r, i) => {
+                            const s = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.escalated_to_admin;
+                            const t = TYPE_CONFIG[r.type]   ?? TYPE_CONFIG.unspecified;
+                            return (
+                                <div key={r.id} style={{
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px',
+                                    gap: '10px', padding: '10px 16px', alignItems: 'start',
+                                    background: i % 2 ? 'oklch(98.5% 0.003 0)' : 'transparent',
+                                    borderBottom: i < requests.length - 1 ? '1px solid var(--border)' : 'none',
+                                }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500 }}>{r.student_name}</p>
+                                        <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>{r.student_code}</p>
+                                    </div>
+                                    <span style={{ fontSize: '0.8125rem', color: 'var(--foreground)' }}>{r.partner_name ?? '—'}</span>
+                                    <span style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{r.requested_partner ?? 'No preference'}</span>
+                                    <span style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '2px 7px', borderRadius: '99px', background: t.bg, color: t.color, whiteSpace: 'nowrap', display: 'inline-block' }}>{t.label}</span>
+                                    <span style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '2px 7px', borderRadius: '99px', background: s.bg, color: s.color, whiteSpace: 'nowrap', display: 'inline-block' }}>{s.label}</span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{r.requested_at}</span>
+                                </div>
+                            );
+                        })}
+                    </>
+                )}
+            </div>
+        </LeaderLayout>
+    );
+}

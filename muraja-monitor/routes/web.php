@@ -34,6 +34,8 @@ use App\Http\Controllers\Admin\AnnouncementsController as AdminAnnouncements;
 use App\Http\Controllers\Admin\ReportsController as AdminReports;
 use App\Http\Controllers\Admin\SettingsController as AdminSettings;
 use App\Http\Controllers\Admin\AuditController as AdminAudit;
+use App\Http\Controllers\Admin\PairChangeController as AdminPairChange;
+use App\Http\Controllers\Leader\PairChangeController as LeaderPairChange;
 use App\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 
@@ -133,6 +135,10 @@ Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->g
     Route::get('/weekly-report',       [App\Http\Controllers\Leader\WeeklyReportController::class, 'index'])->name('weekly-report');
     Route::get('/weekly-report/pdf',   [App\Http\Controllers\Leader\WeeklyReportController::class, 'pdf'])->name('weekly-report.pdf');
 
+    // Pair change requests
+    Route::post('/members/{pair}/pair-change',     [LeaderPairChange::class, 'store'])->name('pair-change.store');
+    Route::get('/pair-change-requests',            [LeaderPairChange::class, 'index'])->name('pair-change.index');
+
     // Onboarding guide PDF
     Route::get('/onboarding/guide', [OnboardingController::class, 'downloadLeader'])->name('onboarding.guide');
 });
@@ -178,8 +184,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/pairs/cross-halqa',                        [AdminPair::class, 'crossHalqaPair'])->name('pairs.crossHalqa');
     Route::delete('/pairs/{pair}',                           [AdminPair::class, 'destroy'])->name('pairs.destroy');
     Route::put('/pairs/{pair}/halqa',                        [AdminPair::class, 'assignHalqa'])->name('pairs.assignHalqa');
+    Route::post('/pairs/reassign',                           [AdminPair::class, 'reassign'])->name('pairs.reassign');
     Route::get('/pairs/{pair}',                              [AdminPair::class, 'show'])->name('pairs.show');
     Route::post('/pairs/{pair}/clear-review',                [AdminPair::class, 'clearReview'])->name('pairs.clearReview');
+
+    // Pair change requests
+    Route::get('/pair-changes',                              [AdminPairChange::class, 'index'])->name('pair-changes.index');
+    Route::get('/pair-changes/{changeRequest}',              [AdminPairChange::class, 'show'])->name('pair-changes.show');
+    Route::post('/pair-changes/{changeRequest}/approve',     [AdminPairChange::class, 'approve'])->name('pair-changes.approve');
+    Route::post('/pair-changes/{changeRequest}/reject',      [AdminPairChange::class, 'reject'])->name('pair-changes.reject');
 
     // Leaderboard
     Route::get('/leaderboard',                               [AdminLeaderboard::class, 'index'])->name('leaderboard');

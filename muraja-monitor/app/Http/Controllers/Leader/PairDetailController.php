@@ -130,9 +130,17 @@ class PairDetailController extends Controller
             ];
         })->values()->toArray();
 
+        // All active students for the pair-change partner search
+        $allStudents = \App\Models\User::where('role', 'student')
+            ->where('is_active', true)
+            ->get(['id', 'name', 'student_id', 'halqa_id'])
+            ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa_id' => $s->halqa_id])
+            ->toArray();
+
         return Inertia::render('Leader/PairDetail', [
-            'pair'  => ['id' => $pair->id, 'students' => $students],
-            'halqa' => ['id' => $halqa->id, 'name' => $halqa->name],
+            'pair'         => ['id' => $pair->id, 'students' => $students],
+            'halqa'        => ['id' => $halqa->id, 'name' => $halqa->name],
+            'all_students' => $allStudents,
         ]);
     }
 
