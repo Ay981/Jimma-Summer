@@ -294,6 +294,7 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
         { key: 'Needs Review', count: needsReview.length, warn: needsReview.length > 0 },
         { key: 'Requests',     count: requests.filter((r) => r).length },
         { key: 'Assignment',   count: null },
+        { key: 'Change Requests', count: null, action: () => router.get('/admin/pair-changes') },
     ];
 
     return (
@@ -318,8 +319,8 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                {tabs.map(({ key, count, warn }) => (
-                    <button key={key} onClick={() => setTab(key)} style={{
+                {tabs.map(({ key, count, warn, action }) => (
+                    <button key={key} onClick={() => action ? action() : setTab(key)} style={{
                         padding: '6px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
                         background: tab === key ? (warn ? 'oklch(50% 0.15 30)' : 'var(--primary)') : 'var(--card)',
                         color: tab === key ? '#fff' : (warn ? 'oklch(45% 0.12 30)' : 'var(--foreground)'),

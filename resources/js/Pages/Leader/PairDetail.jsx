@@ -379,10 +379,149 @@ function PrivateNoteEditor({ studentId, pairId, initialNote }) {
     );
 }
 
+// ── Pair Change Request modal ─────────────────────────────────────────────────
+
+function PairChangeModal({ student, partnerName, pairId, allStudents, onClose }) {
+    const { data, setData, post, processing, errors } = useForm({
+        student_id:           student.id,
+        reason:               '',
+        requested_partner_id: '',
+    });
+    const [search, setSearch] = useState('');
+
+    function submit(e) {
+        e.preventDefault();
+        post(`/leader/members/${pairId}/pair-change`, {
+            preserveScroll: true,
+            onSuccess: onClose,
+        });
+    }
+
+    const filtered = allStudents.filter(s =>
+        s.id !== student.id &&
+        (search === '' || s.name.toLowerCase().includes(search.toLowerCase()) || s.student_id.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    const selected = allStudents.find(s => s.id === Number(data.requested_partner_id));
+    const halqaMatch = selected ? selected.halqa_id === student.halqa_id : null;
+    const typeLabel  = selected
+        ? (halqaMatch ? 'Same halqa' : '⚠ Cross-halqa')
+        : 'No preference — admin will find a match';
+
+    const inp = {
+        padding: '7px 10px', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)', background: 'var(--background)',
+        color: 'var(--foreground)', fontSize: '0.875rem', width: '100%', boxSizing: 'border-box',
+    };
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: '16px' }}
+            onClick={onClose}
+        >
+            <div
+                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>Request Pair Change</p>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted-foreground)' }}>✕</button>
+                </div>
+
+                <form onSubmit={submit} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Pre-filled info */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>Student</label>
+                            <div style={{ ...inp, background: 'var(--muted)', color: 'var(--muted-foreground)' }}>{student.name}</div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>Current partner</label>
+                            <div style={{ ...inp, background: 'var(--muted)', color: 'var(--muted-foreground)' }}>{partnerName ?? '— solo —'}</div>
+                        </div>
+                    </div>
+
+                    {/* Reason */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>Reason *</label>
+                        <textarea
+                            value={data.reason}
+                            onChange={e => setData('reason', e.target.value)}
+                            rows={3} required
+                            placeholder="Describe why a pair change is needed…"
+                            style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+                        {errors.reason && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.reason}</p>}
+                    </div>
+
+                    {/* Requested partner search */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
+                            Requested partner <span style={{ fontWeight: 400 }}>(optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Search by name or student ID…"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{ ...inp, marginBottom: '6px' }}
+                        />
+                        {search && (
+                            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', maxHeight: '160px', overflowY: 'auto' }}>
+                                {filtered.length === 0 ? (
+                                    <p style={{ padding: '10px', margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>No students found.</p>
+                                ) : filtered.slice(0, 20).map(s => (
+                                    <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => { setData('requested_partner_id', s.id); setSearch(s.name); }}
+                                        style={{
+                                            display: 'block', width: '100%', padding: '8px 12px', border: 'none',
+                                            background: Number(data.requested_partner_id) === s.id ? 'var(--muted)' : 'transparent',
+                                            textAlign: 'left', cursor: 'pointer', fontSize: '0.8125rem',
+                                            borderBottom: '1px solid var(--border)',
+                                        }}
+                                    >
+                                        {s.name} <span style={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>· {s.student_id}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {selected && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: halqaMatch ? 'oklch(38% 0.14 145)' : 'var(--destructive)' }}>
+                                    Type: {typeLabel}
+                                </span>
+                                <button type="button" onClick={() => { setData('requested_partner_id', ''); setSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Clear</button>
+                            </div>
+                        )}
+                        {!selected && (
+                            <p style={{ margin: '4px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
+                                Leave blank — admin will find a suitable match.
+                            </p>
+                        )}
+                    </div>
+
+                    {errors.error && <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--destructive)' }}>{errors.error}</p>}
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '7px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" disabled={processing} style={{ padding: '7px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.875rem', cursor: processing ? 'not-allowed' : 'pointer', opacity: processing ? 0.7 : 1 }}>
+                            {processing ? 'Escalating…' : 'Escalate to Admin'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 // ── Student panel ─────────────────────────────────────────────────────────────
 
-function StudentPanel({ student, pairId }) {
-    const [section, setSection] = useState('history');
+function StudentPanel({ student, pairId, partnerName, allStudents }) {
+    const [section, setSection]           = useState('history');
+    const [showPairChange, setShowPairChange] = useState(false);
 
     const sections = [
         { key: 'history',  label: 'History' },
@@ -491,6 +630,15 @@ function StudentPanel({ student, pairId }) {
 
             {section === 'contact' && (
                 <div data-onboard="contact-log">
+                    {/* Pair change request trigger */}
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            onClick={() => setShowPairChange(true)}
+                            style={{ padding: '5px 12px', border: '1px solid oklch(82% 0.1 50)', background: 'oklch(97% 0.03 50)', color: 'oklch(40% 0.12 50)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                            ⇄ Request Pair Change
+                        </button>
+                    </div>
                     <AddContactForm studentId={student.id} pairId={pairId} />
                     <div style={{ borderTop: '1px solid var(--border)' }}>
                         {student.contact_logs.length === 0 ? (
@@ -590,13 +738,24 @@ function StudentPanel({ student, pairId }) {
                     )}
                 </div>
             )}
+
+            {/* Pair change modal */}
+            {showPairChange && (
+                <PairChangeModal
+                    student={student}
+                    partnerName={partnerName}
+                    pairId={pairId}
+                    allStudents={allStudents}
+                    onClose={() => setShowPairChange(false)}
+                />
+            )}
         </div>
     );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PairDetail({ pair, halqa }) {
+export default function PairDetail({ pair, halqa, all_students }) {
     const students = pair?.students ?? [];
 
     return (
@@ -621,9 +780,18 @@ export default function PairDetail({ pair, halqa }) {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
                 gap: '16px',
             }}>
-                {students.map((student) => (
-                    <StudentPanel key={student.id} student={student} pairId={pair.id} />
-                ))}
+                {students.map((student) => {
+                    const partner = students.find(s => s.id !== student.id);
+                    return (
+                        <StudentPanel
+                            key={student.id}
+                            student={student}
+                            pairId={pair.id}
+                            partnerName={partner?.name ?? null}
+                            allStudents={all_students ?? []}
+                        />
+                    );
+                })}
             </div>
         </LeaderLayout>
     );
