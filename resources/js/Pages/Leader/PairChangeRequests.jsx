@@ -2,15 +2,15 @@ import { Head, Link } from '@inertiajs/react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 
 const STATUS_CONFIG = {
-    escalated_to_admin: { label: 'Pending', bg: 'oklch(88% 0.1 75)', color: 'oklch(38% 0.12 75)' },
-    approved:           { label: 'Approved', bg: 'var(--success)', color: 'var(--success-foreground)' },
-    rejected:           { label: 'Rejected', bg: 'var(--destructive)', color: 'var(--destructive-foreground)' },
+    escalated_to_admin: { label: 'Pending',  bg: 'var(--status-slipping-bg)',  color: 'var(--status-slipping)' },
+    approved:           { label: 'Approved', bg: 'var(--status-on-track-bg)',  color: 'var(--status-on-track)' },
+    rejected:           { label: 'Rejected', bg: 'var(--status-at-risk-bg)',   color: 'var(--status-at-risk)' },
 };
 
 const TYPE_CONFIG = {
-    same_halqa:   { label: 'Same Halqa', bg: 'oklch(90% 0.08 145)', color: 'oklch(36% 0.12 145)' },
-    cross_halqa:  { label: 'Cross-Halqa', bg: 'oklch(92% 0.08 20)', color: 'var(--destructive)' },
-    unspecified:  { label: 'Unspecified', bg: 'var(--muted)', color: 'var(--muted-foreground)' },
+    same_halqa:   { label: 'Same Halqa',  bg: 'var(--status-on-track-bg)',  color: 'var(--status-on-track)' },
+    cross_halqa:  { label: 'Cross-Halqa', bg: 'var(--status-at-risk-bg)',   color: 'var(--status-at-risk)' },
+    unspecified:  { label: 'Unspecified', bg: 'var(--muted)',               color: 'var(--muted-foreground)' },
 };
 
 export default function PairChangeRequests({ requests }) {
@@ -36,7 +36,7 @@ export default function PairChangeRequests({ requests }) {
                 ) : (
                     <>
                         {/* Header */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px', gap: '10px', padding: '8px 16px', background: 'oklch(97% 0.005 0)', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px', gap: '10px', padding: '8px 16px', background: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                             {['Student', 'Partner', 'Requested', 'Type', 'Status', 'Date'].map(h => (
                                 <span key={h} style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted-foreground)' }}>{h}</span>
                             ))}
@@ -48,7 +48,7 @@ export default function PairChangeRequests({ requests }) {
                                 <div key={r.id} style={{
                                     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px',
                                     gap: '10px', padding: '10px 16px', alignItems: 'start',
-                                    background: i % 2 ? 'oklch(98.5% 0.003 0)' : 'transparent',
+                                    background: i % 2 ? 'var(--muted)' : 'transparent',
                                     borderBottom: i < requests.length - 1 ? '1px solid var(--border)' : 'none',
                                 }}>
                                     <div>

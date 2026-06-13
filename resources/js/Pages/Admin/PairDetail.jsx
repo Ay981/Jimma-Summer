@@ -29,16 +29,16 @@ const RESPONSIVE_CSS = `
 `;
 
 const A = {
-    color : 'var(--success)',
-    bg    : 'oklch(94% 0.05 145)',
-    dark  : 'oklch(32% 0.14 145)',
-    pill  : 'oklch(88% 0.08 145)',
+    color : 'var(--green-600)',
+    bg    : 'var(--green-50)',
+    dark  : 'var(--green-800)',
+    pill  : 'var(--green-100)',
 };
 const B = {
-    color : '#c9a227',
-    bg    : 'oklch(96% 0.05 75)',
-    dark  : 'oklch(42% 0.14 75)',
-    pill  : 'oklch(90% 0.1 75)',
+    color : 'var(--gold-600)',
+    bg    : 'var(--gold-50)',
+    dark  : 'var(--gold-700)',
+    pill  : 'var(--gold-100)',
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -215,8 +215,8 @@ function ExcuseBlock({ name, excuses, color, bg, dark }) {
                                 <div key={i} style={{
                                     padding: '10px 12px',
                                     borderRadius: 'var(--radius-md)',
-                                    background: e.fulfilled ? 'var(--muted)' : 'oklch(96% 0.05 75)',
-                                    border: `1px solid ${e.fulfilled ? 'var(--border)' : 'oklch(82% 0.1 75)'}`,
+                                    background: e.fulfilled ? 'var(--muted)' : 'var(--status-slipping-bg)',
+                                    border: `1px solid ${e.fulfilled ? 'var(--border)' : 'var(--status-slipping-border)'}`,
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
                                         <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
@@ -227,8 +227,8 @@ function ExcuseBlock({ name, excuses, color, bg, dark }) {
                                         </span>
                                         <span style={{
                                             fontSize: '0.6875rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
-                                            background: e.fulfilled ? 'var(--success)' : 'oklch(88% 0.1 75)',
-                                            color: e.fulfilled ? 'var(--success-foreground)' : 'oklch(38% 0.12 75)',
+                                            background: e.fulfilled ? 'var(--success)' : 'var(--status-slipping-bg)',
+                                            color: e.fulfilled ? 'var(--success-foreground)' : 'var(--status-slipping)',
                                         }}>
                                             {e.fulfilled ? '✓ Made up' : 'Pending'}
                                         </span>
@@ -260,7 +260,7 @@ export default function PairDetail({ pair, students, history }) {
 
     const score    = pair.compatibility_score ?? null;
     const scoreBg  = score === null ? 'oklch(90% 0.01 0)' : score >= 10 ? 'oklch(86% 0.1 145)' : score >= 5 ? 'oklch(89% 0.1 75)' : 'oklch(90% 0.12 20)';
-    const scoreClr = score === null ? 'var(--muted-foreground)' : score >= 10 ? A.dark : score >= 5 ? B.dark : 'oklch(40% 0.18 20)';
+    const scoreClr = score === null ? 'var(--muted-foreground)' : score >= 10 ? A.dark : score >= 5 ? B.dark : 'var(--status-at-risk)';
 
     // Build subject_id → { name, slot } map for history rows
     const nameMap = Object.fromEntries(students.map((s, i) => [s.id, { name: s.name, slot: i }]));
@@ -289,17 +289,17 @@ export default function PairDetail({ pair, students, history }) {
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px',
                         padding: '10px 16px', borderRadius: 'var(--radius-md)',
-                        background: 'oklch(96% 0.06 75)', border: '1px solid oklch(80% 0.12 75)',
+                        background: 'var(--status-slipping-bg)', border: '1px solid var(--status-slipping-border)',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '1rem' }}>⚠</span>
-                            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'oklch(38% 0.14 75)' }}>
+                            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--status-slipping)' }}>
                                 Flagged for review — low compatibility score ({score}/18)
                             </span>
                         </div>
                         <button
                             onClick={() => router.post(`/admin/pairs/${pair.id}/clear-review`, {}, { preserveScroll: true })}
-                            style={{ padding: '5px 14px', border: '1px solid oklch(70% 0.14 75)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer', color: 'oklch(38% 0.14 75)', fontWeight: 600 }}
+                            style={{ padding: '5px 14px', border: '1px solid oklch(70% 0.14 75)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer', color: 'var(--status-slipping)', fontWeight: 600 }}
                         >
                             Clear flag
                         </button>
@@ -308,7 +308,7 @@ export default function PairDetail({ pair, students, history }) {
 
                 {/* ── Hero header ─────────────────────────────────────────── */}
                 <div className="pd-hero" style={{
-                    background: '#1a3a2a',
+                    background: 'var(--green-900)',
                     borderRadius: 'var(--radius-lg)',
                     padding: '20px 22px',
                 }}>
@@ -321,7 +321,7 @@ export default function PairDetail({ pair, students, history }) {
                                 <>
                                     <span style={{ color: 'oklch(75% 0.12 145)' }}>{a.name}</span>
                                     <span style={{ color: 'rgba(255,255,255,0.35)', margin: '0 10px', fontWeight: 300 }}>↔</span>
-                                    <span style={{ color: 'oklch(80% 0.12 75)' }}>{b.name}</span>
+                                    <span style={{ color: 'var(--status-slipping-border)' }}>{b.name}</span>
                                 </>
                             )}
                         </h1>
@@ -330,8 +330,8 @@ export default function PairDetail({ pair, students, history }) {
                             <span style={{ opacity: 0.35, color: 'white' }}>·</span>
                             <span style={{
                                 fontSize: '0.6875rem', padding: '2px 9px', borderRadius: '99px', fontWeight: 600,
-                                background: pair.status === 'active' ? 'oklch(55% 0.2 145)' : 'rgba(255,255,255,0.15)',
-                                color: pair.status === 'active' ? 'white' : 'rgba(255,255,255,0.7)',
+                                background: pair.status === 'active' ? 'var(--green-600)' : 'rgba(255,255,255,0.15)',
+                                color: pair.status === 'active' ? 'var(--warm-50)' : 'rgba(255,255,255,0.7)',
                             }}>
                                 {pair.status}
                             </span>
@@ -430,7 +430,7 @@ export default function PairDetail({ pair, students, history }) {
                             <div style={{
                                 display: 'grid', gridTemplateColumns: '96px 1fr 56px 64px 64px',
                                 gap: '8px', padding: '7px 16px', minWidth: '380px',
-                                background: 'oklch(97% 0.005 0)', borderBottom: '1px solid var(--border)',
+                                background: 'var(--muted)', borderBottom: '1px solid var(--border)',
                             }}>
                                 {['Date', 'Student', 'Juz', 'Pages', 'Min'].map(h => (
                                     <span key={h} style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted-foreground)' }}>{h}</span>
@@ -447,7 +447,7 @@ export default function PairDetail({ pair, students, history }) {
                                         style={{
                                             display: 'grid', gridTemplateColumns: '96px 1fr 56px 64px 64px',
                                             gap: '8px', padding: '8px 16px', alignItems: 'center', minWidth: '380px',
-                                            background: i % 2 !== 0 ? 'oklch(98.5% 0.003 0)' : 'transparent',
+                                            background: i % 2 !== 0 ? 'var(--muted)' : 'transparent',
                                             borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none',
                                         }}
                                     >

@@ -194,10 +194,10 @@ export default function ProfileComplete({ user }) {
 
                     {/* Amharic pledge */}
                     <div style={{
-                        border: '1px solid oklch(80% 0.08 150)',
+                        border: '1px solid var(--border)',
                         borderRadius: 'var(--radius-md)',
                         padding: '16px',
-                        background: 'oklch(97% 0.02 150)',
+                        background: 'var(--secondary)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '8px',
@@ -209,7 +209,7 @@ export default function ProfileComplete({ user }) {
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
-    color: 'oklch(40% 0.1 150)',
+    color: 'var(--secondary-foreground)',
   }}
 >
   የእውነት ቃል ኪዳን
@@ -233,7 +233,7 @@ export default function ProfileComplete({ user }) {
   style={{
     margin: 0,
     fontSize: '0.8125rem',
-    color: 'oklch(45% 0.08 150)',
+    color: 'var(--muted-foreground)',
     fontStyle: 'italic',
   }}
 >

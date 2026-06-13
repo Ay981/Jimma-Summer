@@ -566,7 +566,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                         style={{
                             padding: '5px 10px', borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--border)',
-                            background: student.on_watchlist ? 'oklch(83% 0.12 50 / 0.15)' : 'transparent',
+                            background: student.on_watchlist ? 'var(--status-slipping-bg)' : 'transparent',
                             color: student.on_watchlist ? 'oklch(50% 0.12 50)' : 'var(--foreground)',
                             fontSize: '0.75rem', cursor: 'pointer', fontWeight: student.on_watchlist ? 600 : 400,
                         }}
@@ -634,7 +634,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
                         <button
                             onClick={() => setShowPairChange(true)}
-                            style={{ padding: '5px 12px', border: '1px solid oklch(82% 0.1 50)', background: 'oklch(97% 0.03 50)', color: 'oklch(40% 0.12 50)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
+                            style={{ padding: '5px 12px', border: '1px solid var(--status-slipping-border)', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
                         >
                             ⇄ Request Pair Change
                         </button>
@@ -671,7 +671,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                                 <span style={{
                                     fontSize: '0.6875rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
                                     background: e.fulfilled ? 'var(--success)' : 'oklch(88% 0.1 50)',
-                                    color: e.fulfilled ? 'var(--success-foreground)' : 'oklch(40% 0.12 50)',
+                                    color: e.fulfilled ? 'var(--success-foreground)' : 'var(--status-slipping)',
                                 }}>
                                     {e.fulfilled ? '✓ Made up' : 'Pending'}
                                 </span>

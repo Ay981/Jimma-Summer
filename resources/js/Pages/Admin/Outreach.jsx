@@ -104,7 +104,7 @@ export default function Outreach({ logs, notToday }) {
                                     <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--secondary)', color: 'var(--secondary-foreground)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                         {METHOD_LABEL[l.method]}
                                     </span>
-                                    {l.follow_up_required && <span style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.12 50)', fontWeight: 600 }}>Follow-up needed</span>}
+                                    {l.follow_up_required && <span style={{ fontSize: '0.6875rem', color: 'var(--status-slipping)', fontWeight: 600 }}>Follow-up needed</span>}
                                 </div>
                             ))
                         }

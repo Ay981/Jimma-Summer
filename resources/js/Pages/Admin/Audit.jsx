@@ -3,12 +3,12 @@ import { useState, useMemo } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 const ACTION_COLOR = {
-    login:                  'var(--success)',
+    login:                  'var(--status-on-track)',
     logout:                 'var(--muted-foreground)',
     submission_filed:       'var(--primary)',
-    submission_edited:      'oklch(70% 0.15 84)',
+    submission_edited:      'var(--status-slipping)',
     admin_password_reset:   'var(--destructive)',
-    password_changed:       'oklch(60% 0.12 260)',
+    password_changed:       'var(--accent)',
 };
 
 export default function Audit({ logs, actions }) {

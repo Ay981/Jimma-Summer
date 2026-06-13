@@ -7,9 +7,9 @@ const DAY_LABELS  = { sunday:'Sun', monday:'Mon', tuesday:'Tue', wednesday:'Wed'
 const MEMO_LABELS = { less_than_1:'< 1 Juz', '1_5':'1–5 Juz', '6_10':'6–10 Juz', '11_20':'11–20 Juz', '21_29':'21–29 Juz', full_hifz:'Full Hifz' };
 
 const TYPE_COLOR = {
-    mutual:    { bg: 'oklch(95% 0.06 150)', color: 'oklch(35% 0.12 150)', label: '✓ Mutual' },
-    one_sided: { bg: 'oklch(96% 0.05 84)',  color: 'oklch(45% 0.12 84)',  label: '→ One-sided' },
-    conflict:  { bg: 'oklch(96% 0.05 20)',  color: 'var(--destructive)',   label: '✗ Conflict' },
+    mutual:    { bg: 'var(--status-on-track-bg)',  color: 'var(--status-on-track)',  label: '✓ Mutual' },
+    one_sided: { bg: 'var(--status-slipping-bg)',  color: 'var(--status-slipping)',  label: '→ One-sided' },
+    conflict:  { bg: 'var(--status-at-risk-bg)',   color: 'var(--status-at-risk)',   label: '✗ Conflict' },
 };
 
 // ── Edit Pairing Panel ────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ function EditPairingPanel({ pairs, onClose }) {
             boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
         }}>
             {/* Header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'oklch(98% 0.01 145)' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--secondary)' }}>
                 <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>✏ Edit Pairing — {pairs.length} pairs</p>
                 <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--muted-foreground)', padding: '0 4px' }}>✕</button>
             </div>
@@ -85,7 +85,7 @@ function EditPairingPanel({ pairs, onClose }) {
             </div>
 
             {/* Swap section */}
-            <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'oklch(98.5% 0.005 0)' }}>
+            <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--muted)' }}>
                 <p style={{ margin: '0 0 10px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Swap students between pairs
                 </p>
@@ -175,8 +175,8 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                     { label: 'Total Students',  value: stats.total_students },
                     { label: 'Submitted Request', value: stats.requested, color: 'var(--primary)' },
                     { label: 'No Request',       value: stats.no_request, color: 'var(--muted-foreground)' },
-                    { label: 'Mutual Pairs',     value: Math.floor(stats.mutual), color: 'oklch(40% 0.12 150)' },
-                    { label: 'One-sided',        value: stats.one_sided, color: 'oklch(45% 0.12 84)' },
+                    { label: 'Mutual Pairs',     value: Math.floor(stats.mutual), color: 'var(--status-on-track)' },
+                    { label: 'One-sided',        value: stats.one_sided, color: 'var(--status-slipping)' },
                     { label: 'Conflicts',        value: stats.conflict, color: 'var(--destructive)' },
                     { label: 'Pairs Created',    value: stats.existing_pairs, color: stats.existing_pairs > 0 ? 'var(--success)' : 'var(--muted-foreground)' },
                 ].map(({ label, value, color }) => (
@@ -191,15 +191,15 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
             {stats.existing_pairs > 0 && (
                 <div style={{
                     marginBottom: '16px', padding: '12px 16px',
-                    background: 'oklch(96% 0.05 150)', border: '1px solid oklch(82% 0.1 150)',
+                    background: 'var(--secondary)', border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: '10px',
                 }}>
                     <span style={{ fontSize: '1rem' }}>✓</span>
                     <div>
-                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'oklch(35% 0.12 150)' }}>
+                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--secondary-foreground)' }}>
                             {stats.existing_pairs} pair{stats.existing_pairs !== 1 ? 's' : ''} already created
                         </p>
-                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(45% 0.1 150)' }}>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
                             Running pairing again will only pair students not yet assigned to a pair.
                         </p>
                     </div>
@@ -258,20 +258,20 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
             {(incompatibles ?? []).length > 0 && (
                 <div style={{
                     marginBottom: '16px', borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-                    border: '1px solid oklch(82% 0.1 30)', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)',
+                    border: '1px solid var(--status-at-risk-border)', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)',
                 }}>
                     <div style={{
-                        background: 'oklch(96% 0.05 30)', padding: '12px 16px',
-                        borderBottom: '1px solid oklch(82% 0.1 30)',
+                        background: 'var(--status-at-risk-bg)', padding: '12px 16px',
+                        borderBottom: '1px solid var(--status-at-risk-border)',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '1rem' }}>⚠</span>
                             <div>
-                                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: 'oklch(35% 0.12 30)' }}>
+                                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: 'var(--status-at-risk)' }}>
                                     {incompatibles.length} student{incompatibles.length !== 1 ? 's' : ''} could not be paired — incompatible schedules
                                 </p>
-                                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(45% 0.1 30)' }}>
+                                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--status-at-risk)' }}>
                                     Ask them to discuss and update their available days / times, then re-run pairing.
                                 </p>
                             </div>
@@ -281,7 +281,7 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                             target="_blank"
                             style={{
                                 padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                background: 'oklch(45% 0.12 30)', color: '#fff',
+                                background: 'var(--status-at-risk)', color: 'var(--warm-50)',
                                 fontWeight: 600, fontSize: '0.8125rem', textDecoration: 'none', whiteSpace: 'nowrap',
                             }}
                         >
@@ -332,11 +332,11 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
             {(flagged ?? []).length > 0 && (
                 <div style={{
                     marginBottom: '16px', borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-                    border: '1px solid oklch(82% 0.1 50)', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)',
+                    border: '1px solid var(--status-slipping-border)', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)',
                 }}>
-                    <div style={{ background: 'oklch(96% 0.04 50)', padding: '10px 16px', borderBottom: '1px solid oklch(82% 0.1 50)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ background: 'var(--status-slipping-bg)', padding: '10px 16px', borderBottom: '1px solid var(--status-slipping-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.875rem' }}>🔶</span>
-                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: 'oklch(38% 0.12 50)' }}>
+                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: 'var(--status-slipping)' }}>
                             {flagged.length} pair{flagged.length !== 1 ? 's' : ''} flagged for review — low compatibility score
                         </p>
                     </div>
@@ -352,7 +352,7 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                                 </span>
                                 <span style={{
                                     fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px',
-                                    background: 'oklch(88% 0.08 50)', color: 'oklch(38% 0.12 50)',
+                                    background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)',
                                     borderRadius: '99px', whiteSpace: 'nowrap',
                                 }}>
                                     score {p.compatibility_score}
@@ -384,7 +384,7 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                     : [...mutual, ...oneSided, ...conflict].map((r, i) => {
                         const cfg = TYPE_COLOR[r.type];
                         return (
-                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 140px', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'oklch(99% 0 0 / 0.4)' }}>
+                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 140px', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--muted)' }}>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>{r.student_name}</p>
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{r.student_code}</p>

@@ -55,8 +55,8 @@ export default function WeeklyReport({
 
             {/* Nudge list */}
             {nudge_list.length > 0 && (
-                <div style={{ background: 'oklch(97% 0.03 30)', border: '1px solid oklch(82% 0.1 30)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid oklch(82% 0.1 30)' }}>
+                <div style={{ background: 'oklch(97% 0.03 30)', border: '1px solid var(--status-at-risk-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-at-risk-border)' }}>
                         <SectionLabel>⚠ Contact These Students — No Submissions, No Excuse ({nudge_list.length})</SectionLabel>
                     </div>
                     <div>
@@ -98,11 +98,11 @@ export default function WeeklyReport({
                                     <td style={{ padding: '8px 12px', fontVariantNumeric: 'tabular-nums' }}>{s.streak}d</td>
                                     <td style={{ padding: '8px 12px' }}>
                                         {s.has_excuse ? (
-                                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'oklch(93% 0.05 230)', color: 'oklch(35% 0.12 230)', borderRadius: '99px', fontWeight: 600 }}>
+                                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', borderRadius: '99px', fontWeight: 600 }}>
                                                 Makeup {new Date(s.makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
                                             </span>
                                         ) : s.this_week === 0 ? (
-                                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'oklch(93% 0.05 30)', color: 'oklch(40% 0.12 30)', borderRadius: '99px', fontWeight: 600 }}>Needs nudge</span>
+                                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--status-at-risk-bg)', color: 'var(--status-at-risk)', borderRadius: '99px', fontWeight: 600 }}>Needs nudge</span>
                                         ) : (
                                             <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>—</span>
                                         )}

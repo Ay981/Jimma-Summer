@@ -30,15 +30,15 @@ export default function AnnouncementBanner({ announcements = [] }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
             {visible.map((a) => (
                 <div key={a.id} style={{
-                    background: 'oklch(97% 0.03 260)',
-                    border: '1px solid oklch(82% 0.07 260)',
+                    background: 'var(--secondary)',
+                    border: '1px solid var(--border)',
                     borderLeft: '4px solid var(--primary)',
                     borderRadius: 'var(--radius-md)',
                     padding: '12px 14px',
                     display: 'flex', alignItems: 'flex-start', gap: '12px',
                 }}>
                     <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)' }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--secondary-foreground)' }}>
                             📢 {a.title}
                         </p>
                         <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>

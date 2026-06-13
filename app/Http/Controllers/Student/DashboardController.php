@@ -25,7 +25,7 @@ class DashboardController extends Controller
         private readonly BadgeService $badges,
     ) {}
 
-    public function index(Request $request): Response
+    public function index (Request $request): Response
     {
         $user = $request->user()->load('halqa.leader');
         $today = now()->toDateString();
@@ -41,16 +41,11 @@ class DashboardController extends Controller
         }
 
         // ── Today ────────────────────────────────────────────────────────────
-        // Has the logged-in user already filed a submission for their partner (or self if solo)?
-        $todaySubmission = $partner
-            ? PairSubmission::where('submitted_by', $user->id)
-                ->where('subject_student_id', $partner->id)
-                ->where('submission_date', $today)
-                ->first()
-            : PairSubmission::where('submitted_by', $user->id)
-                ->where('subject_student_id', $user->id)
-                ->where('submission_date', $today)
-                ->first();
+        // A submits B's session → subject = B (partner ?? self)
+        $subject         = $partner ?? $user;
+        $todaySubmission = PairSubmission::where('subject_student_id', $subject->id)
+            ->where('submission_date', $today)
+            ->first();
 
         // ── Stats ────────────────────────────────────────────────────────────
         $stats = PairSubmission::where('subject_student_id', $user->id)
@@ -126,10 +121,10 @@ class DashboardController extends Controller
             ->flip()
             ->toArray();
 
-        // Dates of missed days that were fulfilled via makeup — colour the MISSED day amber
+        // Dates that were makeup submissions (excuse fulfilled on that date)
         $makeupDates = MissedSubmissionExcuse::where('student_id', $user->id)
             ->where('fulfilled', true)
-            ->pluck('missed_date')
+            ->pluck('makeup_date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->flip()
             ->toArray();
@@ -139,7 +134,7 @@ class DashboardController extends Controller
             $inProgram = Carbon::parse($date)->gte($visibleStart);
             return [
                 'date'       => $date,
-                'submitted'  => isset($submittedDates[$date]) || isset($makeupDates[$date]),
+                'submitted'  => isset($submittedDates[$date]),
                 'is_makeup'  => isset($makeupDates[$date]),
                 'scheduled'  => $inProgram,
             ];
@@ -180,6 +175,12 @@ class DashboardController extends Controller
             $halqaRank = 1;
         }
 
+        // ── Program window flags ─────────────────────────────────────────────
+        $programStartDate = ProgramSetting::get('program_start_date');
+        $programEndDate   = ProgramSetting::get('program_end_date');
+        $programStarted   = $programStartDate && !Carbon::today()->lt(Carbon::parse($programStartDate));
+        $programEnded     = $programEndDate   && !Carbon::today()->lte(Carbon::parse($programEndDate));
+
         return Inertia::render('Student/Dashboard', [
             'name'              => $user->name,
             'streak'            => $this->consistency->getStreak($user->id),
@@ -197,23 +198,37 @@ class DashboardController extends Controller
                 'minutes_spent'=> $todaySubmission->minutes_spent,
             ] : null,
             'pair_id'           => $pair?->id,
-            'server_date'       => now()->format('l, d M Y'),
-            'program_started'   => ! Carbon::today()->lt($programStart),
-            'program_ended'     => ($endDate = ProgramSetting::get('program_end_date'))
-                                    ? Carbon::today()->gt(Carbon::parse($endDate))
-                                    : false,
-            'partner'           => $partner ? [
-                'name'            => $partner->name,
-                'phone'           => $partner->phone,
-                // Has my partner confirmed my session today?
-                'today_submitted'  => PairSubmission::where('submitted_by', $partner->id)
-                    ->where('subject_student_id', $user->id)
-                    ->where('submission_date', $today)->exists(),
-                'scheduled_today'  => $this->isScheduledOn($partner, $today)
-                                       || $this->hasMakeupToday($partner->id, $today),
-                'makeup_today'     => $this->hasMakeupToday($partner->id, $today),
-                'next_available'   => $this->nextAvailableDay($partner),
-            ] : null,
+            'partner'           => $partner ? (function () use ($partner, $today, $user) {
+                $partnerDays    = array_map('strtolower', $partner->available_days ?? []);
+                $todayName      = strtolower(now()->format('l'));
+                $scheduledToday = in_array($todayName, $partnerDays, true);
+                $makeupToday    = MissedSubmissionExcuse::where('student_id', $partner->id)
+                    ->where('makeup_date', $today)->where('fulfilled', false)->exists();
+
+                // Next available day name (or null if no schedule set)
+                $nextAvailable = null;
+                if (!empty($partnerDays)) {
+                    $days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+                    $todayIdx = array_search($todayName, $days);
+                    for ($i = 1; $i <= 7; $i++) {
+                        $candidate = $days[($todayIdx + $i) % 7];
+                        if (in_array($candidate, $partnerDays, true)) {
+                            $nextAvailable = ucfirst($candidate);
+                            break;
+                        }
+                    }
+                }
+
+                return [
+                    'name'            => $partner->name,
+                    'phone'           => $partner->phone,
+                    'scheduled_today' => $scheduledToday || $makeupToday,
+                    'makeup_today'    => $makeupToday,
+                    'next_available'  => $nextAvailable,
+                    'today_submitted' => PairSubmission::where('subject_student_id', $user->id)
+                        ->where('submission_date', $today)->exists(),
+                ];
+            })() : null,
             'halqa'             => $user->halqa ? [
                 'name'              => $user->halqa->name,
                 'leader_name'       => $user->halqa->leader?->name ?? '—',
@@ -232,7 +247,10 @@ class DashboardController extends Controller
             ],
             'excusable_missed'  => $excusableMissed,
             'pending_excuses'   => $pendingExcuses,
-            'scheduled_days'    => array_map('ucfirst', array_map('strtolower', $user->available_days ?? [])),
+            'program_started'   => $programStarted,
+            'program_ended'     => $programEnded,
+            'server_date'       => Carbon::today()->format('l, d F Y'),
+            'scheduled_days'    => array_map('ucfirst', $user->available_days ?? []),
         ]);
     }
 
@@ -241,33 +259,5 @@ class DashboardController extends Controller
         $request->validate(['weekly_target' => ['required', 'integer', 'min:1', 'max:604']]);
         $request->user()->update(['weekly_target' => $request->weekly_target]);
         return back()->with('success', 'Weekly target updated.');
-    }
-
-    private function isScheduledOn(\App\Models\User $user, string $date): bool
-    {
-        $days = array_map('strtolower', $user->available_days ?? []);
-        if (empty($days)) return true;
-        return in_array(strtolower(Carbon::parse($date)->format('l')), $days, true);
-    }
-
-    private function hasMakeupToday(int $userId, string $today): bool
-    {
-        return MissedSubmissionExcuse::where('student_id', $userId)
-            ->where('makeup_date', $today)
-            ->where('fulfilled', false)
-            ->exists();
-    }
-
-    private function nextAvailableDay(\App\Models\User $user): ?string
-    {
-        $days = array_map('strtolower', $user->available_days ?? []);
-        if (empty($days)) return null;
-        $week = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-        $today = Carbon::today()->dayOfWeek;
-        for ($i = 1; $i <= 7; $i++) {
-            $day = $week[($today + $i) % 7];
-            if (in_array($day, $days, true)) return ucfirst($day);
-        }
-        return null;
     }
 }
