@@ -40,29 +40,54 @@ class CaptureOnboardingScreenshots extends Command
 
     private function ensureDemoAccount(): void
     {
-        $halqaId = DB::table('users')->where('student_id', 'JUMU-2026-010')->value('halqa_id') ?? 1;
+        $halqaId = DB::table('halqas')->value('id') ?? 1;
 
+        // ── Account 1: profile NOT complete (used for profile-complete screenshot)
         DB::table('users')->updateOrInsert(
             ['student_id' => 'JUMU-1446-010'],
             [
-                'name'              => 'Demo Student',
-                'student_id'        => 'JUMU-1446-010',
-                'phone'             => '0911000000',
-                'password'          => Hash::make('Student@123'),
-                'role'              => 'student',
-                'halqa_id'          => $halqaId,
-                'profile_completed' => false,
+                'name'                 => 'Demo Student',
+                'student_id'           => 'JUMU-1446-010',
+                'phone'                => '0911000000',
+                'password'             => Hash::make('Student@123'),
+                'role'                 => 'student',
+                'halqa_id'             => $halqaId,
+                'profile_completed'    => false,
                 'must_change_password' => false,
-                'weekly_target'     => 20,
-                'current_juz'       => 1,
-                'is_active'         => true,
-                'is_monitored'      => false,
-                'is_solo'           => false,
-                'updated_at'        => now(),
-                'created_at'        => now(),
+                'weekly_target'        => 20,
+                'current_juz'          => 1,
+                'is_active'            => true,
+                'is_monitored'         => false,
+                'is_solo'              => false,
+                'updated_at'           => now(),
+                'created_at'           => now(),
             ]
         );
 
-        $this->line('  Demo account JUMU-1446-010 ready.');
+        // ── Account 2: fully set up (used for dashboard, checkin, history, etc.)
+        DB::table('users')->updateOrInsert(
+            ['student_id' => 'JUMU-2026-010'],
+            [
+                'name'                 => 'Demo Student B',
+                'student_id'           => 'JUMU-2026-010',
+                'phone'                => '0911000001',
+                'password'             => Hash::make('Student@123'),
+                'role'                 => 'student',
+                'halqa_id'             => $halqaId,
+                'profile_completed'    => true,
+                'must_change_password' => false,
+                'weekly_target'        => 20,
+                'current_juz'          => 5,
+                'available_days'       => json_encode(['monday','wednesday','friday','saturday','sunday']),
+                'available_times'      => json_encode(['after_asr','after_isha']),
+                'is_active'            => true,
+                'is_monitored'         => false,
+                'is_solo'              => true,
+                'updated_at'           => now(),
+                'created_at'           => now(),
+            ]
+        );
+
+        $this->line('  Demo accounts JUMU-1446-010 + JUMU-2026-010 ready.');
     }
 }
