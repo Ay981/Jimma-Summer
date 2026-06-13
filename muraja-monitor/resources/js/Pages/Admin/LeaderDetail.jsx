@@ -88,8 +88,8 @@ export default function LeaderDetail({ leader, members, meetings, contacts, logi
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
                             <div style={{
                                 width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-                                background: `oklch(65% 0.14 ${avatarHue})`,
-                                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: `oklch(60% 0.10 ${(avatarHue % 120) + 100})`,
+                                color: 'var(--warm-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: '1.125rem', fontWeight: 700,
                             }}>
                                 {initials}
@@ -186,7 +186,7 @@ export default function LeaderDetail({ leader, members, meetings, contacts, logi
                                                 <span style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{m.attendance_count} attended</span>
                                             </div>
                                             {m.highlights && <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--foreground)' }}><strong>Highlights:</strong> {m.highlights}</p>}
-                                            {m.concerns   && <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'oklch(50% 0.12 20)' }}><strong>Concerns:</strong> {m.concerns}</p>}
+                                            {m.concerns   && <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--status-at-risk)' }}><strong>Concerns:</strong> {m.concerns}</p>}
                                             {m.notes      && <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{m.notes}</p>}
                                         </div>
                                     ))

@@ -232,7 +232,7 @@ export default function Halqas({ halqas, total_active_students, unassigned_count
 
             {/* Solo student warning */}
             {soloWarning && (
-                <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'oklch(97% 0.04 50)', border: '1px solid oklch(85% 0.1 50)', borderLeft: '4px solid oklch(55% 0.15 50)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem' }}>
+                <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'var(--status-slipping-bg)', border: '1px solid var(--status-slipping-border)', borderLeft: '4px solid var(--status-slipping)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--status-slipping)' }}>
                     ⚠ <strong>{total_active_students} students total is odd.</strong> 1 student cannot be paired and will be assigned to her halqa leader for direct monitoring.
                 </div>
             )}

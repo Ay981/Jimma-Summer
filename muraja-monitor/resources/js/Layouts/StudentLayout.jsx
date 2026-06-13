@@ -148,18 +148,9 @@ function NavItem({ href, icon: Icon, label, active }) {
     return (
         <Link
             href={href}
-            style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '9px 12px', borderRadius: 'var(--radius-md)',
-                textDecoration: 'none',
-                color: active ? 'var(--primary)' : 'var(--foreground)',
-                background: active ? 'var(--secondary)' : 'transparent',
-                fontWeight: active ? 600 : 400,
-                fontSize: '0.9rem',
-                transition: 'background 0.1s',
-            }}
+            className={`sidebar-nav-item${active ? ' active' : ''}`}
         >
-            <Icon size={18} weight={active ? 'fill' : 'regular'} />
+            <Icon size={18} weight={active ? 'fill' : 'regular'} style={{ opacity: active ? 1 : 0.8 }} />
             {label}
         </Link>
     );
@@ -240,9 +231,15 @@ export default function StudentLayout({ children, title }) {
             }}
                 className="sidebar-desktop"
             >
-                {/* Logo */}
-                <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--sidebar-border)' }}>
+                {/* Logo + app name */}
+                <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--sidebar-border)' }}>
                     <Logo height={36} />
+                    <p style={{ margin: '6px 0 0', fontSize: '0.75rem', fontWeight: 600, color: 'var(--warm-50)' }}>
+                        Muraja'a Monitor
+                    </p>
+                    <p style={{ margin: '1px 0 0', fontSize: '0.6875rem', color: 'var(--gold-400)' }}>
+                        Summer 1446H
+                    </p>
                 </div>
 
                 {/* Nav links */}
@@ -253,19 +250,27 @@ export default function StudentLayout({ children, title }) {
                 </nav>
 
                 {/* User + Logout */}
-                <div style={{ padding: '10px 8px', borderTop: '1px solid var(--sidebar-border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px' }}>
-                        <div>
-                            <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--sidebar-foreground)' }}>
+                <div style={{ padding: '10px 10px', borderTop: '1px solid var(--sidebar-border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px' }}>
+                        <div style={{
+                            width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--green-600)', color: 'var(--warm-50)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.75rem', fontWeight: 700,
+                        }}>
+                            {auth?.user?.name?.charAt(0)?.toUpperCase() ?? '?'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: 'var(--warm-50)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {auth?.user?.name}
                             </p>
-                            <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>Student</p>
+                            <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--gold-300)' }}>Student</p>
                         </div>
                         <Link
                             href="/logout"
                             method="post"
                             as="button"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', padding: '4px' }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sidebar-accent-foreground)', padding: '4px', flexShrink: 0 }}
                         >
                             <SignOut size={16} />
                         </Link>

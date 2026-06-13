@@ -10,17 +10,17 @@ export default function Heatmap({ data = [] }) {
 
                     let bg, border;
                     if (!isScheduled) {
-                        bg = 'transparent';
-                        border = '1px dashed var(--border)';
+                        bg     = 'var(--heatmap-no-schedule)';
+                        border = 'none';
                     } else if (submitted && is_makeup) {
-                        bg = 'oklch(72% 0.15 75)'; // amber — makeup submission
+                        bg     = 'var(--heatmap-makeup)';
                         border = 'none';
                     } else if (submitted) {
-                        bg = 'var(--success)';
+                        bg     = 'var(--heatmap-done)';
                         border = 'none';
                     } else {
-                        bg = 'var(--muted)';
-                        border = '1px solid var(--border)';
+                        bg     = 'var(--heatmap-missed)';
+                        border = 'none';
                     }
 
                     return (
@@ -30,11 +30,10 @@ export default function Heatmap({ data = [] }) {
                             style={{
                                 width: '12px', height: '12px', borderRadius: '2px',
                                 background: bg, border,
-                                outline: isToday ? '2px solid var(--accent)' : 'none',
-                                outlineOffset: '1px',
-                                opacity: !isScheduled ? 0.35 : 1,
+                                outline: isToday ? `2px solid var(--heatmap-today-ring)` : 'none',
+                                outlineOffset: '2px',
+                                opacity: !isScheduled ? 0.5 : 1,
                                 flexShrink: 0,
-                                position: 'relative',
                             }}
                         />
                     );
@@ -42,18 +41,18 @@ export default function Heatmap({ data = [] }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '7px', flexWrap: 'wrap' }}>
                 {[
-                    { bg: 'var(--success)', label: 'Submitted' },
-                    { bg: 'oklch(72% 0.15 75)', label: 'Makeup' },
-                    { bg: 'var(--muted)', border: '1px solid var(--border)', label: 'Missed' },
-                    { bg: 'transparent', border: '1px dashed var(--border)', opacity: 0.35, label: 'Not scheduled' },
-                ].map(({ bg, border, opacity, label }) => (
+                    { bg: 'var(--heatmap-done)',        label: 'Submitted' },
+                    { bg: 'var(--heatmap-makeup)',      label: 'Makeup' },
+                    { bg: 'var(--heatmap-missed)',      label: 'Missed' },
+                    { bg: 'var(--heatmap-no-schedule)', label: 'Not scheduled', opacity: 0.5 },
+                ].map(({ bg, opacity, label }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: bg, border, opacity }} />
+                        <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: bg, opacity }} />
                         <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>{label}</span>
                     </div>
                 ))}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: 'var(--muted)', outline: '2px solid var(--accent)', outlineOffset: '1px' }} />
+                    <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: 'var(--heatmap-done)', outline: `2px solid var(--heatmap-today-ring)`, outlineOffset: '1px' }} />
                     <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>Today</span>
                 </div>
             </div>

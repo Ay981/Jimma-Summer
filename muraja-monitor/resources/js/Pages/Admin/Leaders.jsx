@@ -18,7 +18,7 @@ export default function Leaders({ leaders }) {
         });
     }
 
-    const rowBg = (l) => (l.never_logged_in || l.inactive_this_week) ? 'oklch(98% 0.02 20)' : 'transparent';
+    const rowBg = (l) => (l.never_logged_in || l.inactive_this_week) ? 'var(--status-at-risk-bg)' : 'transparent';
 
     return (
         <AdminLayout title="Leader Monitoring">
@@ -26,10 +26,10 @@ export default function Leaders({ leaders }) {
 
             {flagged.length > 0 && (
                 <div style={{ background: 'oklch(97% 0.04 20)', border: '1px solid oklch(85% 0.08 20)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '16px' }}>
-                    <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', fontWeight: 700, color: 'oklch(45% 0.1 20)' }}>⚠ Leaders needing attention ({flagged.length})</p>
+                    <p style={{ margin: '0 0 6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--status-at-risk)' }}>⚠ Leaders needing attention ({flagged.length})</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {flagged.map((l) => (
-                            <span key={l.id} style={{ fontSize: '0.8125rem', padding: '3px 8px', background: 'oklch(92% 0.06 20)', borderRadius: 'var(--radius-sm)', color: 'oklch(40% 0.1 20)' }}>
+                            <span key={l.id} style={{ fontSize: '0.8125rem', padding: '3px 8px', background: 'oklch(92% 0.06 20)', borderRadius: 'var(--radius-sm)', color: 'var(--status-at-risk)' }}>
                                 {l.name} {l.never_logged_in ? '(never logged in)' : '(inactive this week)'}
                             </span>
                         ))}

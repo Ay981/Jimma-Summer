@@ -15,11 +15,11 @@ const SLOT_KEYS = Object.keys(SLOTS);
 
 function Avatar({ name, size = 32 }) {
     const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-    const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+    const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 120;
     return (
         <div style={{
             width: size, height: size, borderRadius: '50%', flexShrink: 0,
-            background: `oklch(70% 0.12 ${hue})`, color: '#fff',
+            background: `oklch(62% 0.10 ${hue + 100})`, color: 'var(--warm-50)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: size * 0.34 + 'px', fontWeight: 700,
         }}>
@@ -237,10 +237,10 @@ function StudentRow({ student }) {
                 alignItems: 'center', gap: '10px',
                 padding: '10px 14px', textDecoration: 'none', color: 'var(--foreground)',
                 borderBottom: '1px solid var(--border)',
-                background: student.is_monitored ? 'oklch(97% 0.03 50)' : 'transparent',
+                background: student.is_monitored ? 'var(--status-slipping-bg)' : 'transparent',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--muted)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = student.is_monitored ? 'oklch(97% 0.03 50)' : 'transparent')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = student.is_monitored ? 'var(--status-slipping-bg)' : 'transparent')}
         >
             <Avatar name={student.name} size={32} />
 
@@ -249,8 +249,8 @@ function StudentRow({ student }) {
                     {student.name}
                     {!student.is_active && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 400 }}>inactive</span>}
                     {student.is_monitored && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'oklch(60% 0.12 50)', fontWeight: 600 }}>⚑</span>}
-                    {student.must_change_password && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'oklch(93% 0.06 50)', color: 'oklch(40% 0.12 50)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No login</span>}
-                    {!student.must_change_password && !student.profile_completed && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'oklch(93% 0.06 84)', color: 'oklch(40% 0.12 84)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No profile</span>}
+                    {student.must_change_password && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No login</span>}
+                    {!student.must_change_password && !student.profile_completed && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', fontWeight: 600, padding: '1px 5px', borderRadius: '3px' }}>No profile</span>}
                 </p>
                 <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {student.halqa} {student.partner ? `· ↔ ${student.partner}` : '· no pair'}

@@ -115,8 +115,8 @@ export default function WeeklyReport({
 
             {/* Zero submissions */}
             {zero_this_week.length > 0 && (
-                <div style={{ background: 'var(--card)', border: '1px solid oklch(82% 0.1 30)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid oklch(82% 0.1 30)', background: 'oklch(97% 0.03 30)' }}>
+                <div style={{ background: 'var(--card)', border: '1px solid var(--status-at-risk-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-at-risk-border)', background: 'var(--status-at-risk-bg)' }}>
                         <SectionLabel>⚠ No Submissions This Week ({zero_this_week.length})</SectionLabel>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0' }}>
@@ -135,8 +135,8 @@ export default function WeeklyReport({
 
             {/* Zero pairs */}
             {zero_pairs.length > 0 && (
-                <div style={{ background: 'var(--card)', border: '1px solid oklch(82% 0.1 50)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid oklch(82% 0.1 50)', background: 'oklch(97% 0.03 50)' }}>
+                <div style={{ background: 'var(--card)', border: '1px solid var(--status-slipping-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-slipping-border)', background: 'var(--status-slipping-bg)' }}>
                         <SectionLabel>🔶 Pairs with Zero Joint Submissions ({zero_pairs.length})</SectionLabel>
                     </div>
                     <div>
@@ -166,7 +166,7 @@ export default function WeeklyReport({
                         </thead>
                         <tbody>
                             {student_rows.map((s, i) => (
-                                <tr key={s.id} style={{ borderBottom: '1px solid var(--border)', background: s.this_week === 0 ? 'oklch(98.5% 0.01 20)' : i % 2 === 0 ? 'transparent' : 'var(--muted)' }}>
+                                <tr key={s.id} style={{ borderBottom: '1px solid var(--border)', background: s.this_week === 0 ? 'var(--status-at-risk-bg)' : i % 2 === 0 ? 'transparent' : 'var(--muted)' }}>
                                     <td style={{ padding: '8px 12px', fontSize: '0.875rem', fontWeight: 500 }}>{s.name}</td>
                                     <td style={{ padding: '8px 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{s.halqa}</td>
                                     <td style={{ padding: '8px 12px', fontSize: '0.875rem', fontVariantNumeric: 'tabular-nums', color: s.this_week === 0 ? 'var(--destructive)' : 'var(--foreground)', fontWeight: s.this_week === 0 ? 700 : 400 }}>{s.this_week}</td>

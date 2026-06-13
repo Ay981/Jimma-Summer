@@ -282,17 +282,17 @@ export default function LeaderDashboard({
 
             {/* ── Onboarding banner ──────────────────────────────────────── */}
             <div style={{
-                background:'oklch(97% 0.03 145)',border:'1px solid oklch(85% 0.08 145)',
+                background:'var(--secondary)',border:'1px solid var(--border)',
                 borderRadius:'var(--radius-lg)',padding:'12px 16px',
                 display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
                 marginBottom:'16px',
             }}>
                 <div>
-                    <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'oklch(35% 0.1 145)'}}>New to Muraja Monitor?</p>
-                    <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'oklch(45% 0.08 145)'}}>Download the visual leader onboarding guide.</p>
+                    <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'var(--secondary-foreground)'}}>New to Muraja Monitor?</p>
+                    <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>Download the visual leader onboarding guide.</p>
                 </div>
                 <a href="/leader/onboarding/guide" target="_blank" rel="noreferrer" style={{
-                    padding:'7px 16px',background:'oklch(40% 0.12 145)',color:'#fff',
+                    padding:'7px 16px',background:'var(--primary)',color:'var(--primary-foreground)',
                     borderRadius:'var(--radius-sm)',fontWeight:600,fontSize:'0.8125rem',
                     textDecoration:'none',whiteSpace:'nowrap',flexShrink:0,
                 }}>Download Guide (PDF)</a>

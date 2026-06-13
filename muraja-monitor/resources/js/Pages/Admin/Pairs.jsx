@@ -28,7 +28,7 @@ function PairRow({ pair, showScore = false }) {
     }
 
     return (
-        <div className={`pairs-row ${showScore ? 'scored' : 'normal'}`} style={{ background: pair.needs_review ? 'oklch(98% 0.02 50)' : 'transparent' }}>
+        <div className={`pairs-row ${showScore ? 'scored' : 'normal'}`} style={{ background: pair.needs_review ? 'var(--status-slipping-bg)' : 'transparent' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pair.student_a.name}</span>
             <span style={{ fontSize: '0.875rem', color: pair.student_b ? 'var(--foreground)' : 'var(--muted-foreground)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {pair.student_b ? pair.student_b.name : '— solo —'}
@@ -36,7 +36,7 @@ function PairRow({ pair, showScore = false }) {
             <span className="pairs-col-halqa" style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{pair.halqa}</span>
             <span className="pairs-col-cons" style={{ fontSize: '0.8125rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{pair.consistency}%</span>
             {showScore && (
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'oklch(88% 0.08 50)', color: 'oklch(38% 0.12 50)', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', textAlign: 'center' }}>
                     {pair.compatibility_score ?? '—'}
                 </span>
             )}
@@ -322,10 +322,10 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
                 {tabs.map(({ key, count, warn, action }) => (
                     <button key={key} onClick={() => action ? action() : setTab(key)} style={{
                         padding: '6px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
-                        background: tab === key ? (warn ? 'oklch(50% 0.15 30)' : 'var(--primary)') : 'var(--card)',
-                        color: tab === key ? '#fff' : (warn ? 'oklch(45% 0.12 30)' : 'var(--foreground)'),
+                        background: tab === key ? (warn ? 'var(--status-at-risk)' : 'var(--primary)') : 'var(--card)',
+                        color: tab === key ? 'var(--warm-50)' : (warn ? 'var(--status-at-risk)' : 'var(--foreground)'),
                         fontWeight: tab === key ? 600 : 400, fontSize: '0.875rem',
-                        borderColor: warn && tab !== key ? 'oklch(75% 0.1 30)' : 'var(--border)',
+                        borderColor: warn && tab !== key ? 'var(--status-at-risk-border)' : 'var(--border)',
                     }}>
                         {key}{count != null ? ` (${count})` : ''}
                     </button>
@@ -375,7 +375,7 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
                         <p style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0 }}>No pairs flagged for review.</p>
                     ) : (
                         <>
-                        <div style={{ padding: '10px 14px', background: 'oklch(96% 0.04 50)', border: '1px solid oklch(82% 0.1 50)', borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem', color: 'oklch(38% 0.12 50)' }}>
+                        <div style={{ padding: '10px 14px', background: 'oklch(96% 0.04 50)', border: '1px solid oklch(82% 0.1 50)', borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem', color: 'var(--status-slipping)' }}>
                             🔶 These pairs were created but have a low compatibility score (≤ 4 out of 18). Consider swapping partners where possible.
                         </div>
                         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>

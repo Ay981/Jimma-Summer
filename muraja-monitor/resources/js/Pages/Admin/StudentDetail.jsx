@@ -220,8 +220,8 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                             <div style={{
                                 width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-                                background: `oklch(70% 0.12 ${student.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360})`,
-                                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: `oklch(60% 0.10 ${(student.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 120) + 100})`,
+                                color: 'var(--warm-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: '1.125rem', fontWeight: 700,
                             }}>
                                 {student.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
@@ -260,7 +260,7 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
                     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                         {!student.is_active    && <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>Inactive</span>}
                         {student.is_monitored  && <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: 'var(--radius-sm)', background: 'oklch(95% 0.06 50)', color: 'oklch(40% 0.1 50)', fontWeight: 600 }}>⚑ Monitored</span>}
-                        {student.on_watchlist  && <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: 'var(--radius-sm)', background: 'oklch(95% 0.05 84)', color: 'oklch(40% 0.1 84)', fontWeight: 600 }}>★ Watchlist</span>}
+                        {student.on_watchlist  && <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', fontWeight: 600 }}>★ Watchlist</span>}
                         {!student.is_monitored && !student.on_watchlist && student.is_active && (
                             <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Active · no flags</span>
                         )}

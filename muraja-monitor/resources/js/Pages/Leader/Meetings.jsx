@@ -66,7 +66,7 @@ function MeetingCard({ meeting, allStudents }) {
     const total    = Object.keys(meeting.attendance ?? {}).length;
 
     return (
-        <div style={{ background: 'var(--card)', border: `1px solid ${isDraft ? 'oklch(80% 0.1 84)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)' }}>
+        <div style={{ background: 'var(--card)', border: `1px solid ${isDraft ? 'var(--status-slipping-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)' }}>
             {/* Header */}
             <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '180px' }}>
@@ -76,7 +76,7 @@ function MeetingCard({ meeting, allStudents }) {
                             <span style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', marginLeft: '8px' }}>{meeting.meeting_time}</span>
                         )}
                         {isDraft && (
-                            <span style={{ marginLeft: '8px', fontSize: '0.6875rem', padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'oklch(95% 0.08 84)', color: 'oklch(45% 0.12 84)', fontWeight: 700 }}>DRAFT</span>
+                            <span style={{ marginLeft: '8px', fontSize: '0.6875rem', padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', fontWeight: 700 }}>DRAFT</span>
                         )}
                     </p>
                     <p style={{ margin: '2px 0 0', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>

@@ -111,6 +111,76 @@ function WeeklyTargetEditor({ currentTarget }) {
     );
 }
 
+// ── Edit today's submission ───────────────────────────────────────────────────
+
+function EditSubmissionForm({ submission, partner, onCancel }) {
+    const { data, setData, put, processing, errors } = useForm({
+        juz:           String(submission.juz),
+        page_from:     String(submission.page_from),
+        page_to:       String(submission.page_to),
+        minutes_spent: String(submission.minutes_spent),
+    });
+
+    const inp = {
+        padding:'8px 10px', background:'var(--background)',
+        border:'1px solid var(--border)', borderRadius:'var(--radius-md)',
+        color:'var(--foreground)', fontSize:'0.9rem', outline:'none',
+        width:'100%', boxSizing:'border-box',
+    };
+
+    function submit(e) {
+        e.preventDefault();
+        put(`/student/checkin/${submission.id}`, { onSuccess: onCancel });
+    }
+
+    return (
+        <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+            <div>
+                <label style={{fontSize:'0.8125rem',fontWeight:500,color:'var(--foreground)',display:'block',marginBottom:'4px'}}>Juz</label>
+                <select value={data.juz} onChange={e=>setData('juz',e.target.value)} style={inp}>
+                    {Array.from({length:30},(_,i)=>i+1).map(j=>(
+                        <option key={j} value={j}>Juz {j}</option>
+                    ))}
+                </select>
+                {errors.juz && <p style={{color:'var(--destructive)',fontSize:'0.75rem',margin:'2px 0 0'}}>{errors.juz}</p>}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                    <label style={{fontSize:'0.8125rem',fontWeight:500,color:'var(--foreground)',display:'block',marginBottom:'4px'}}>Page from</label>
+                    <input type="number" min="1" max="604" value={data.page_from} onChange={e=>setData('page_from',e.target.value)} style={inp} />
+                    {errors.page_from && <p style={{color:'var(--destructive)',fontSize:'0.75rem',margin:'2px 0 0'}}>{errors.page_from}</p>}
+                </div>
+                <div>
+                    <label style={{fontSize:'0.8125rem',fontWeight:500,color:'var(--foreground)',display:'block',marginBottom:'4px'}}>Page to</label>
+                    <input type="number" min="1" max="604" value={data.page_to} onChange={e=>setData('page_to',e.target.value)} style={inp} />
+                    {errors.page_to && <p style={{color:'var(--destructive)',fontSize:'0.75rem',margin:'2px 0 0'}}>{errors.page_to}</p>}
+                </div>
+            </div>
+            <div>
+                <label style={{fontSize:'0.8125rem',fontWeight:500,color:'var(--foreground)',display:'block',marginBottom:'4px'}}>Minutes spent</label>
+                <input type="number" min="1" max="480" value={data.minutes_spent} onChange={e=>setData('minutes_spent',e.target.value)} style={inp} />
+                {errors.minutes_spent && <p style={{color:'var(--destructive)',fontSize:'0.75rem',margin:'2px 0 0'}}>{errors.minutes_spent}</p>}
+            </div>
+            {errors.edit && <p style={{color:'var(--destructive)',fontSize:'0.8125rem',margin:0}}>{errors.edit}</p>}
+            <div style={{display:'flex',gap:'8px'}}>
+                <button type="submit" disabled={processing} style={{
+                    flex:1, padding:'9px', background:'var(--primary)', color:'var(--primary-foreground)',
+                    border:'none', borderRadius:'var(--radius-md)', fontWeight:600, fontSize:'0.9rem',
+                    cursor:processing?'not-allowed':'pointer', opacity:processing?0.7:1,
+                }}>
+                    {processing ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button type="button" onClick={onCancel} style={{
+                    padding:'9px 16px', background:'var(--muted)', color:'var(--foreground)',
+                    border:'none', borderRadius:'var(--radius-md)', fontSize:'0.9rem', cursor:'pointer',
+                }}>
+                    Cancel
+                </button>
+            </div>
+        </form>
+    );
+}
+
 // ── Excuse / makeup card ──────────────────────────────────────────────────────
 
 function ExcuseCard({ missed, scheduledDays = [] }) {
@@ -134,10 +204,10 @@ function ExcuseCard({ missed, scheduledDays = [] }) {
     const inp = { padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem', width: '100%', boxSizing: 'border-box' };
 
     return (
-        <div style={{ background: 'oklch(97% 0.03 50)', border: '1px solid oklch(85% 0.08 50)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid oklch(85% 0.08 50)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ background: 'var(--status-slipping-bg)', border: '1px solid var(--status-slipping-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-slipping-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.875rem' }}>⏳</span>
-                <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(45% 0.12 50)' }}>
+                <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--status-slipping)' }}>
                     Missed Day — Excuse Window Open
                 </p>
             </div>
@@ -146,7 +216,7 @@ function ExcuseCard({ missed, scheduledDays = [] }) {
                     You missed a scheduled day. File an excuse within 48 hours and propose a makeup date <strong>in the same week</strong> to protect your streak.
                 </p>
                 {scheduledDays.length > 0 && (
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'oklch(50% 0.12 50)', fontWeight: 500 }}>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--status-slipping)', fontWeight: 500 }}>
                         ⚠ Makeup must be on a day <strong>outside</strong> your regular schedule ({scheduledDays.join(', ')}).
                     </p>
                 )}
@@ -182,7 +252,7 @@ function ExcuseCard({ missed, scheduledDays = [] }) {
                         ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', gap: '8px' }}>
                                 <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{m.label}</span>
-                                <button onClick={() => openForm(m.date, m.week_end)} style={{ padding: '4px 12px', border: 'none', background: 'oklch(55% 0.15 50)', color: '#fff', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => openForm(m.date, m.week_end)} style={{ padding: '4px 12px', border: 'none', background: 'var(--warning)', color: 'var(--warning-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                     File Excuse
                                 </button>
                             </div>
@@ -201,7 +271,7 @@ function PendingExcusesBanner({ excuses }) {
             {excuses.map((e) => (
                 <div key={e.missed_date} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', gap: '8px' }}>
                     <span>Missed <strong>{new Date(e.missed_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}</strong> — makeup due <strong>{new Date(e.makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}</strong></span>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'oklch(93% 0.06 84)', color: 'oklch(40% 0.12 84)', borderRadius: '99px', fontWeight: 600, whiteSpace: 'nowrap' }}>pending</span>
+                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'var(--status-slipping-bg)', color: 'var(--status-slipping)', borderRadius: '99px', fontWeight: 600, whiteSpace: 'nowrap' }}>pending</span>
                 </div>
             ))}
         </div>
@@ -218,6 +288,7 @@ export default function Dashboard({
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
+    const [editingSubmission, setEditingSubmission] = useState(false);
 
     return (
         <StudentLayout title="Dashboard">
@@ -227,16 +298,16 @@ export default function Dashboard({
 
                 {/* ── Onboarding banner ─────────────────────────────────── */}
                 <div style={{
-                    background:'oklch(97% 0.03 145)',border:'1px solid oklch(85% 0.08 145)',
+                    background:'var(--secondary)',border:'1px solid var(--border)',
                     borderRadius:'var(--radius-lg)',padding:'12px 16px',
                     display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
                 }}>
                     <div>
-                        <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'oklch(35% 0.1 145)'}}>New to Muraja Monitor?</p>
-                        <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'oklch(45% 0.08 145)'}}>Download the visual step-by-step onboarding guide.</p>
+                        <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'var(--secondary-foreground)'}}>New to Muraja Monitor?</p>
+                        <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>Download the visual step-by-step onboarding guide.</p>
                     </div>
                     <a href="/student/onboarding/guide" target="_blank" rel="noreferrer" style={{
-                        padding:'7px 16px',background:'oklch(40% 0.12 145)',color:'#fff',
+                        padding:'7px 16px',background:'var(--primary)',color:'var(--primary-foreground)',
                         borderRadius:'var(--radius-sm)',fontWeight:600,fontSize:'0.8125rem',
                         textDecoration:'none',whiteSpace:'nowrap',flexShrink:0,
                     }}>Download Guide (PDF)</a>
@@ -255,7 +326,7 @@ export default function Dashboard({
                             <div style={{
                                 display:'flex',alignItems:'center',gap:'6px',
                                 padding:'6px 12px',borderRadius:'var(--radius-md)',
-                                background:'var(--success)',color:'var(--success-foreground)',
+                                background:'var(--status-on-track-bg)',color:'var(--status-on-track)',
                                 fontSize:'0.875rem',fontWeight:600,
                             }}>
                                 🔥 {streak}-day streak
@@ -295,17 +366,29 @@ export default function Dashboard({
                 <div className="grid-2col" style={{gap:'16px'}}>
 
                     {/* Submission card */}
-                    <div data-onboard="submission-form" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
-                        <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
-                            {partner?.makeup_today
-                                ? `Makeup — ${partner.name}'s Session`
-                                : partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
-                        </h2>
+                    <div data-onboard="submission-form" style={{
+                        background: 'var(--card)',
+                        border: today_submitted
+                            ? '1px solid var(--status-on-track-border)'
+                            : '1px solid var(--border)',
+                        borderLeft: today_submitted
+                            ? '3px solid var(--status-on-track)'
+                            : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '16px',
+                    }}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                            <h2 style={{margin:0,fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                                {partner?.makeup_today
+                                    ? `Makeup — ${partner.name}'s Session`
+                                    : partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
+                            </h2>
+                        </div>
                         {partner?.makeup_today && (
                             <div style={{
                                 padding:'8px 12px',borderRadius:'var(--radius-md)',marginBottom:'12px',
-                                background:'oklch(97% 0.04 75)',border:'1px solid oklch(82% 0.1 75)',
-                                fontSize:'0.8125rem',color:'oklch(42% 0.1 75)',fontWeight:500,
+                                background:'var(--status-slipping-bg)',border:'1px solid var(--status-slipping-border)',
+                                fontSize:'0.8125rem',color:'var(--status-slipping)',fontWeight:500,
                             }}>
                                 Today is a makeup day for {partner.name}. Record their session to protect their streak.
                             </div>
@@ -321,13 +404,13 @@ export default function Dashboard({
                         ) : partner && !partner.scheduled_today ? (
                             <div style={{
                                 padding:'14px',borderRadius:'var(--radius-md)',
-                                background:'oklch(97% 0.02 60)',
-                                border:'1px solid oklch(85% 0.06 60)',
+                                background:'var(--muted)',
+                                border:'1px solid var(--border)',
                             }}>
-                                <p style={{margin:'0 0 4px',fontSize:'0.875rem',fontWeight:600,color:'oklch(40% 0.1 60)'}}>
+                                <p style={{margin:'0 0 4px',fontSize:'0.875rem',fontWeight:600,color:'var(--foreground)'}}>
                                     {partner.name} is not available today
                                 </p>
-                                <p style={{margin:0,fontSize:'0.8125rem',color:'oklch(50% 0.08 60)'}}>
+                                <p style={{margin:0,fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>
                                     {partner.next_available
                                         ? `Next available day: ${partner.next_available}`
                                         : 'No scheduled days set — ask them to complete their profile.'}
@@ -335,26 +418,47 @@ export default function Dashboard({
                             </div>
                         ) : today_submitted ? (
                             <div>
-                                <div style={{
-                                    padding:'12px',borderRadius:'var(--radius-md)',
-                                    background:'var(--success)',color:'var(--success-foreground)',
-                                    fontSize:'0.875rem',fontWeight:500,marginBottom:'12px',
-                                }}>
-                                    ✓ {partner ? `${partner.name}'s session recorded` : 'Already submitted today'}
-                                </div>
-                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-                                    {[
-                                        ['Juz', today_submission.juz],
-                                        ['Pages', `${today_submission.page_from}–${today_submission.page_to}`],
-                                        ['Minutes', today_submission.minutes_spent],
-                                        ['Pages covered', today_submission.page_to - today_submission.page_from + 1],
-                                    ].map(([l,v])=>(
-                                        <div key={l} style={{background:'var(--muted)',borderRadius:'var(--radius-sm)',padding:'8px 10px'}}>
-                                            <p style={{margin:0,fontSize:'0.6875rem',color:'var(--muted-foreground)'}}>{l}</p>
-                                            <p style={{margin:'2px 0 0',fontSize:'0.9375rem',fontWeight:600,color:'var(--foreground)'}}>{v}</p>
+                                {editingSubmission ? (
+                                    <EditSubmissionForm
+                                        submission={today_submission}
+                                        partner={partner}
+                                        onCancel={() => setEditingSubmission(false)}
+                                    />
+                                ) : (
+                                    <>
+                                        <div style={{
+                                            padding:'10px 12px',borderRadius:'var(--radius-md)',marginBottom:'12px',
+                                            background:'var(--status-on-track-bg)',
+                                            border:'1px solid var(--status-on-track-border)',
+                                            display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',
+                                        }}>
+                                            <span style={{fontSize:'0.875rem',fontWeight:600,color:'var(--status-on-track)'}}>
+                                                ✓ {partner ? `${partner.name}'s session recorded` : 'Submitted today'}
+                                            </span>
+                                            <button onClick={() => setEditingSubmission(true)} style={{
+                                                background:'none',border:'1px solid var(--status-on-track-border)',
+                                                borderRadius:'var(--radius-sm)',padding:'3px 10px',
+                                                fontSize:'0.75rem',fontWeight:600,color:'var(--status-on-track)',
+                                                cursor:'pointer',flexShrink:0,
+                                            }}>
+                                                Edit
+                                            </button>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+                                            {[
+                                                ['Juz', today_submission.juz],
+                                                ['Pages', `${today_submission.page_from}–${today_submission.page_to}`],
+                                                ['Minutes', today_submission.minutes_spent],
+                                                ['Pages covered', today_submission.page_to - today_submission.page_from + 1],
+                                            ].map(([l,v])=>(
+                                                <div key={l} style={{background:'var(--muted)',borderRadius:'var(--radius-sm)',padding:'8px 10px'}}>
+                                                    <p style={{margin:0,fontSize:'0.6875rem',color:'var(--muted-foreground)'}}>{l}</p>
+                                                    <p style={{margin:'2px 0 0',fontSize:'0.9375rem',fontWeight:600,color:'var(--foreground)'}}>{v}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             pair_id ? (
@@ -393,13 +497,13 @@ export default function Dashboard({
                                 <div style={{
                                     display:'flex',alignItems:'center',gap:'6px',
                                     padding:'8px 12px',borderRadius:'var(--radius-md)',
-                                    background: partner.today_submitted ? 'var(--success)' : 'var(--muted)',
-                                    color: partner.today_submitted ? 'var(--success-foreground)' : 'var(--muted-foreground)',
+                                    background: partner.today_submitted ? 'var(--status-on-track-bg)' : 'var(--muted)',
+                                    color: partner.today_submitted ? 'var(--status-on-track)' : 'var(--muted-foreground)',
                                     fontSize:'0.875rem',fontWeight:500,
                                 }}>
                                     <span style={{
                                         width:'8px',height:'8px',borderRadius:'50%',
-                                        background: partner.today_submitted ? 'var(--success-foreground)' : 'var(--muted-foreground)',
+                                        background: partner.today_submitted ? 'var(--status-on-track)' : 'var(--muted-foreground)',
                                         flexShrink:0,
                                     }} />
                                     {partner.today_submitted ? 'Confirmed your session' : 'Hasn\'t confirmed yet'}
@@ -473,7 +577,7 @@ export default function Dashboard({
                             {earned_badges.map(b=>(
                                 <span key={b.type} style={{
                                     padding:'4px 12px',borderRadius:'var(--radius-md)',
-                                    background:'var(--success)',color:'var(--success-foreground)',
+                                    background:'var(--status-on-track-bg)',color:'var(--status-on-track)',
                                     fontSize:'0.8125rem',fontWeight:600,
                                 }}>
                                     {b.type.replace(/_/g,' ')}

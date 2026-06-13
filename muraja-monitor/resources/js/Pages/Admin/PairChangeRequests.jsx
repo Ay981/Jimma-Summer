@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 const STATUS = {
-    escalated_to_admin: { label: 'Pending',  bg: 'oklch(88% 0.1 75)',  color: 'oklch(38% 0.12 75)' },
+    escalated_to_admin: { label: 'Pending',  bg: 'var(--status-slipping-bg)',  color: 'var(--status-slipping)' },
     approved:           { label: 'Approved', bg: 'var(--success)',      color: 'var(--success-foreground)' },
     rejected:           { label: 'Rejected', bg: 'var(--destructive)',  color: 'var(--destructive-foreground)' },
 };
@@ -94,7 +94,7 @@ export default function PairChangeRequests({ requests, halqas, filter_status, fi
                                 <div key={r.id} style={{
                                     display: 'grid', gridTemplateColumns: '1fr 80px 1fr 1fr 70px 70px 90px 80px',
                                     gap: '8px', padding: '9px 14px', alignItems: 'center',
-                                    background: i % 2 ? 'oklch(98.5% 0.003 0)' : 'transparent',
+                                    background: i % 2 ? 'var(--muted)' : 'transparent',
                                     borderBottom: i < requests.length - 1 ? '1px solid var(--border)' : 'none',
                                 }}>
                                     <div>

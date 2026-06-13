@@ -48,8 +48,8 @@ function LockModal({ onClose }) {
                 ) : (
                     <>
                         <div style={{ padding: '12px 14px', background: 'oklch(97% 0.04 20)', border: '1px solid oklch(85% 0.1 20)', borderRadius: 'var(--radius-md)', marginBottom: '14px' }}>
-                            <p style={{ margin: '0 0 4px', fontSize: '0.875rem', fontWeight: 700, color: 'oklch(40% 0.1 20)' }}>⚠ Are you sure?</p>
-                            <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(40% 0.1 20)' }}>
+                            <p style={{ margin: '0 0 4px', fontSize: '0.875rem', fontWeight: 700, color: 'var(--status-at-risk)' }}>⚠ Are you sure?</p>
+                            <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--status-at-risk)' }}>
                                 This saves a permanent snapshot for <strong>"{data.program_name}"</strong>. The leaderboard will be locked. This action cannot be undone (but an admin can manually unlock in emergencies).
                             </p>
                         </div>
@@ -133,7 +133,7 @@ function StudentTable({ students }) {
     return (
         <LbTable cols={COLS} colsMobile={COLS_MOBILE} headers={HDRS} className="lb-student" rows={
             (students ?? []).map((s) => (
-                <div key={s.id} className="lb-student-row" style={{ background: s.rank <= 3 ? 'oklch(98% 0.02 84)' : 'transparent' }}>
+                <div key={s.id} className="lb-student-row" style={{ background: s.rank <= 3 ? 'var(--gold-50)' : 'transparent' }}>
                     <RankBadge rank={s.rank} />
                     <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
@@ -171,7 +171,7 @@ function PairTable({ pairs }) {
     return (
         <LbTable cols={COLS} colsMobile={COLS_MOBILE} headers={HDRS} className="lb-pair" rows={
             (pairs ?? []).map((p) => (
-                <div key={p.id} className="lb-pair-row" style={{ background: p.rank <= 3 ? 'oklch(98% 0.02 84)' : 'transparent' }}>
+                <div key={p.id} className="lb-pair-row" style={{ background: p.rank <= 3 ? 'var(--gold-50)' : 'transparent' }}>
                     <RankBadge rank={p.rank} />
                     {/* On mobile, stack both names in one cell */}
                     <div style={{ minWidth: 0 }}>
@@ -208,7 +208,7 @@ function HalqaTable({ halqas }) {
     return (
         <LbTable cols={COLS} colsMobile={COLS_MOBILE} headers={HDRS} className="lb-halqa" rows={
             (halqas ?? []).map((h) => (
-                <div key={h.id} className="lb-halqa-row" style={{ background: h.rank <= 3 ? 'oklch(98% 0.02 84)' : 'transparent' }}>
+                <div key={h.id} className="lb-halqa-row" style={{ background: h.rank <= 3 ? 'var(--gold-50)' : 'transparent' }}>
                     <RankBadge rank={h.rank} />
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, alignSelf: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
                     <span className="lb-halqa-hide" style={NUM}>{h.pair_count}</span>
@@ -245,7 +245,7 @@ function LeaderTable({ leaders }) {
     return (
         <LbTable cols={COLS} colsMobile={COLS_MOBILE} headers={HDRS} className="lb-leader" rows={
             leaders.map((l) => (
-                <div key={l.id} className="lb-leader-row" style={{ background: l.rank <= 3 ? 'oklch(98% 0.02 84)' : 'transparent' }}>
+                <div key={l.id} className="lb-leader-row" style={{ background: l.rank <= 3 ? 'var(--gold-50)' : 'transparent' }}>
                     <RankBadge rank={l.rank} />
                     <div style={{ minWidth: 0 }}>
                         <Link href={`/admin/leaders/${l.id}`} style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</Link>
@@ -284,7 +284,7 @@ export default function Leaderboard({ students, pairs, halqas, leaders, awards, 
             {/* Fix 10 — program ended banner */}
             {is_ended && (
                 <div style={{ marginBottom: '14px', padding: '10px 16px', background: 'oklch(97% 0.04 20)', border: '1px solid oklch(85% 0.1 20)', borderLeft: '4px solid var(--destructive)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'oklch(40% 0.1 20)' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--status-at-risk)' }}>
                         ⚠ The program has ended — lock the leaderboard to finalise awards.
                     </p>
                     <button onClick={() => setShowLock(true)} style={{ padding: '6px 14px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>

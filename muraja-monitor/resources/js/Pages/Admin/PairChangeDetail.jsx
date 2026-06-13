@@ -138,7 +138,7 @@ export default function PairChangeDetail({
                                 Submitted {change_request.requested_at} by leader {change_request.leader_name}
                             </p>
                         </div>
-                        <span style={{ fontSize:'0.75rem', fontWeight:600, padding:'4px 12px', borderRadius:'var(--radius-sm)', background: change_request.status === 'escalated_to_admin' ? 'oklch(88% 0.1 75)' : change_request.status === 'approved' ? 'var(--success)' : 'var(--destructive)', color: change_request.status === 'escalated_to_admin' ? 'oklch(38% 0.12 75)' : change_request.status === 'approved' ? 'var(--success-foreground)' : 'var(--destructive-foreground)' }}>
+                        <span style={{ fontSize:'0.75rem', fontWeight:600, padding:'4px 12px', borderRadius:'var(--radius-sm)', background: change_request.status === 'escalated_to_admin' ? 'var(--status-slipping-bg)' : change_request.status === 'approved' ? 'var(--success)' : 'var(--destructive)', color: change_request.status === 'escalated_to_admin' ? 'var(--status-slipping)' : change_request.status === 'approved' ? 'var(--success-foreground)' : 'var(--destructive-foreground)' }}>
                             {change_request.status === 'escalated_to_admin' ? 'Pending review' : change_request.status}
                         </span>
                     </div>
@@ -171,7 +171,7 @@ export default function PairChangeDetail({
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'8px', marginBottom:'14px' }}>
                     <StudentCard label="Requesting student" name={student.name} halqa={student.halqa} color="oklch(32% 0.14 145)" />
                     <StudentCard label="Current partner" name={current_partner?.name ?? '— solo —'} />
-                    {requested_partner && <StudentCard label="Requested new partner" name={requested_partner.name} partnerName={req_partner_partner?.name} color="oklch(42% 0.14 75)" />}
+                    {requested_partner && <StudentCard label="Requested new partner" name={requested_partner.name} partnerName={req_partner_partner?.name} color="var(--gold-600)" />}
                     {req_partner_partner && <StudentCard label="Requested partner's current partner" name={req_partner_partner.name} />}
                 </div>
 
