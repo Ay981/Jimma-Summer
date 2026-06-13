@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\LeaderboardController;
 use App\Models\Halqa;
 use App\Models\Pair;
-use App\Models\PairingRequest;
+use App\Models\PairChangeRequest;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
@@ -33,7 +33,7 @@ class DashboardController extends Controller
         $totalStudents  = User::where('role', 'student')->count();
         $activeStudents = User::where('role', 'student')->where('is_active', true)->count();
         $totalPairs     = Pair::count();
-        $pendingRequests= PairingRequest::count();
+        $pendingRequests = PairChangeRequest::where('status', 'escalated_to_admin')->count();
 
         $todaySubs = PairSubmission::where('submission_date', $today->toDateString())
             ->distinct('subject_student_id')->count('subject_student_id');
@@ -325,12 +325,12 @@ class DashboardController extends Controller
     private function suggestedActions(array $sc, int $pulse, int $todaySubs, int $active, int $never, int $pending): array
     {
         $actions = [];
-        if ($pulse < 40) $actions[] = ['icon' => '🔴', 'text' => "Low pulse ({$pulse}/100) today — " . ($active - $todaySubs) . " students haven't submitted.", 'href' => '/admin/outreach', 'label' => 'Open Outreach'];
-        if ($sc['at_risk'] > 0)  $actions[] = ['icon' => '⚠', 'text' => "{$sc['at_risk']} student(s) at risk of dropping out.", 'href' => '/admin/students', 'label' => 'Review Students'];
-        if ($sc['inactive'] > 0) $actions[] = ['icon' => '🔕', 'text' => "{$sc['inactive']} student(s) inactive 7+ days.", 'href' => '/admin/outreach', 'label' => 'Send Reminder'];
-        if ($never > 0)          $actions[] = ['icon' => '📭', 'text' => "{$never} student(s) have never submitted.", 'href' => '/admin/students', 'label' => 'View List'];
-        if ($pending > 0)        $actions[] = ['icon' => '🤝', 'text' => "{$pending} pair request(s) waiting for review.", 'href' => '/admin/pairs', 'label' => 'Review Requests'];
-        if (empty($actions))     $actions[] = ['icon' => '✅', 'text' => "Everything looks good. Pulse: {$pulse}/100.", 'href' => null, 'label' => null];
+        if ($pulse < 40) $actions[] = ['icon' => 'WarningCircle', 'text' => "Low pulse ({$pulse}/100) today — " . ($active - $todaySubs) . " students haven't submitted.", 'href' => '/admin/outreach', 'label' => 'Open Outreach'];
+        if ($sc['at_risk'] > 0)  $actions[] = ['icon' => 'Warning',       'text' => "{$sc['at_risk']} student(s) at risk of dropping out.",    'href' => '/admin/students', 'label' => 'Review Students'];
+        if ($sc['inactive'] > 0) $actions[] = ['icon' => 'BellSlash',     'text' => "{$sc['inactive']} student(s) inactive 7+ days.",           'href' => '/admin/outreach', 'label' => 'Send Reminder'];
+        if ($never > 0)          $actions[] = ['icon' => 'EnvelopeSimple', 'text' => "{$never} student(s) have never submitted.",                'href' => '/admin/students', 'label' => 'View List'];
+        if ($pending > 0)        $actions[] = ['icon' => 'GitBranch',      'text' => "{$pending} pair change request(s) waiting for review.",    'href' => '/admin/pairs',    'label' => 'Review Requests'];
+        if (empty($actions))     $actions[] = ['icon' => 'CheckCircle',    'text' => "Everything looks good. Pulse: {$pulse}/100.",              'href' => null,              'label' => null];
         return $actions;
     }
 

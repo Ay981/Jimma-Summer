@@ -22,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
                      Request::HEADER_X_FORWARDED_AWS_ELB,
         );
 
+        $middleware->web(prepend: [
+            \App\Http\Middleware\NoCacheHeaders::class,
+        ]);
+
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\MustChangePassword::class,

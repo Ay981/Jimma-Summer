@@ -22,7 +22,7 @@ class AuthController extends Controller
         return Inertia::render('Auth/Login');
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(Request $request): RedirectResponse|\Symfony\Component\HttpFoundation\Response
     {
         $credentials = $request->validate([
             'student_id' => ['required', 'string'],
@@ -51,7 +51,11 @@ class AuthController extends Controller
             'action'  => 'login',
         ]);
 
-        return redirect()->intended($user->dashboardRoute());
+        // Use Inertia::location() so the browser does a full-page navigation
+        // rather than following the post-login redirect via XHR. This ensures
+        // the session cookie is committed before the next request, which is
+        // required when running behind Cloudflare Tunnel.
+        return Inertia::location($user->dashboardRoute());
     }
 
     // ── Logout ───────────────────────────────────────────────────────────────

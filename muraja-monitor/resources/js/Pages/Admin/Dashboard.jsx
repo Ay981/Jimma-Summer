@@ -2,6 +2,19 @@ import React from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
+import {
+    BellSlash, CheckCircle, EnvelopeSimple, GitBranch,
+    Warning, WarningCircle,
+} from '@phosphor-icons/react';
+
+const ACTION_ICONS = {
+    WarningCircle: <WarningCircle size={18} weight="fill" color="var(--status-at-risk)" />,
+    Warning:       <Warning       size={18} weight="fill" color="var(--status-slipping)" />,
+    BellSlash:     <BellSlash     size={18} weight="fill" color="var(--muted-foreground)" />,
+    EnvelopeSimple:<EnvelopeSimple size={18} weight="fill" color="var(--muted-foreground)" />,
+    GitBranch:     <GitBranch     size={18} weight="fill" color="var(--primary)" />,
+    CheckCircle:   <CheckCircle   size={18} weight="fill" color="var(--status-on-track)" />,
+};
 
 // ── New program year modal ────────────────────────────────────────────────────
 
@@ -197,7 +210,9 @@ export default function AdminDashboard({
                                     padding: '8px 10px', borderRadius: 'var(--radius-sm)',
                                     background: 'var(--muted)',
                                 }}>
-                                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>{a.icon}</span>
+                                    <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                                        {ACTION_ICONS[a.icon] ?? null}
+                                    </span>
                                     <span style={{ flex: 1, fontSize: '0.8125rem', color: 'var(--foreground)', lineHeight: 1.4 }}>{a.text}</span>
                                     {a.href && (
                                         <Link href={a.href} style={{

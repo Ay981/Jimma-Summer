@@ -77,8 +77,6 @@
 <body>
 
 @php
-    $W = 700;
-
     $statusMap = [
         'on_track' => ['row' => 'r-good', 'tag' => 't-good', 'label' => 'On Track'],
         'slipping' => ['row' => 'r-warn', 'tag' => 't-warn', 'label' => 'Slipping'],
@@ -86,86 +84,83 @@
         'inactive' => ['row' => 'r-grey', 'tag' => 't-grey', 'label' => 'Inactive'],
     ];
 
-    // Bar + line dual-axis chart (submissions bars + consistency % line)
-    $chartTrend = function ($weeks) use ($W) {
-        $n = count($weeks);
-        if ($n === 0) return '<p style="font-size:10px;color:#9ca3af;">No data yet.</p>';
-        $H = 300; $padL = 44; $padR = 44; $padT = 16; $padB = 40;
-        $plotH = $H - $padT - $padB; $base = $padT + $plotH; $plotW = $W - $padL - $padR;
+    // ── CSS horizontal-bar chart (dompdf-safe, no SVG) ─────────────────────────
+    // Used for the weekly trend (submissions + consistency) on page 3
+    $chartTrend = function ($weeks) {
+        if (empty($weeks)) return '<p style="font-size:10px;color:#9ca3af;">No data yet.</p>';
         $maxSub = max(1, max(array_column($weeks, 'submissions')));
-        $step = $plotW / $n; $bw = min(46, $step * 0.5);
-        $s = '<svg width="' . $W . '" height="' . $H . '" viewBox="0 0 ' . $W . ' ' . $H . '" xmlns="http://www.w3.org/2000/svg">';
-        for ($g = 0; $g <= 4; $g++) {
-            $y = $padT + $plotH * $g / 4;
-            $s .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($W - $padR) . '" y2="' . $y . '" stroke="#eef2f0" stroke-width="1"/>';
-            $s .= '<text x="' . ($padL - 6) . '" y="' . ($y + 3) . '" font-size="8" fill="#9ca3af" text-anchor="end">' . round($maxSub * (4 - $g) / 4) . '</text>';
-            $s .= '<text x="' . ($W - $padR + 6) . '" y="' . ($y + 3) . '" font-size="8" fill="#9a7b12" text-anchor="start">' . ((4 - $g) * 25) . '%</text>';
+        $out = '<table style="width:100%;border-collapse:collapse;font-size:8.5px;">';
+        $out .= '<tr style="border-bottom:1px solid #e0eae5;">
+            <th style="text-align:left;padding:3px 4px;color:#6b7280;font-size:7.5px;width:40px;">Week</th>
+            <th style="text-align:left;padding:3px 4px;color:#6b7280;font-size:7.5px;">Submissions</th>
+            <th style="text-align:right;padding:3px 8px;color:#6b7280;font-size:7.5px;width:36px;">Sub.</th>
+            <th style="text-align:right;padding:3px 8px;color:#C9A227;font-size:7.5px;width:46px;">Consist.</th>
+        </tr>';
+        foreach ($weeks as $w) {
+            $pct = round($w['submissions'] / $maxSub * 100);
+            $con = $w['consistency'];
+            $conClr = $con >= 70 ? '#1a7f4b' : ($con >= 40 ? '#92600a' : '#b3201f');
+            $out .= '<tr style="border-bottom:1px solid #f0f5f2;">';
+            $out .= '<td style="padding:4px 4px;color:#6b7280;font-size:7.5px;white-space:nowrap;">' . htmlspecialchars($w['label']) . '</td>';
+            $out .= '<td style="padding:4px 4px;">
+                <div style="background:#eef5f1;border-radius:3px;height:10px;width:100%;">
+                    <div style="background:#2d6a4f;border-radius:3px;height:10px;width:' . $pct . '%;"></div>
+                </div></td>';
+            $out .= '<td style="text-align:right;padding:4px 8px;font-weight:bold;color:#1a3a2a;">' . $w['submissions'] . '</td>';
+            $out .= '<td style="text-align:right;padding:4px 8px;font-weight:bold;color:' . $conClr . ';">' . $con . '%</td>';
+            $out .= '</tr>';
         }
-        $s .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($W - $padR) . '" y2="' . $base . '" stroke="#cbd5d0" stroke-width="1.2"/>';
-        $pts = [];
-        foreach ($weeks as $i => $w) {
-            $cx = $padL + $step * ($i + 0.5);
-            $bh = $w['submissions'] / $maxSub * $plotH;
-            $by = $base - $bh;
-            $s .= '<rect x="' . round($cx - $bw / 2, 1) . '" y="' . round($by, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" fill="#2d6a4f"/>';
-            $s .= '<text x="' . round($cx, 1) . '" y="' . round($by - 3, 1) . '" font-size="7.5" fill="#1a3a2a" text-anchor="middle">' . $w['submissions'] . '</text>';
-            $s .= '<text x="' . round($cx, 1) . '" y="' . ($base + 13) . '" font-size="8" fill="#374151" text-anchor="middle">' . $w['label'] . '</text>';
-            $pts[] = [$cx, $padT + $plotH * (1 - min(100, $w['consistency']) / 100)];
-        }
-        $poly = implode(' ', array_map(fn ($p) => round($p[0], 1) . ',' . round($p[1], 1), $pts));
-        $s .= '<polyline points="' . $poly . '" fill="none" stroke="#C9A227" stroke-width="2"/>';
-        foreach ($pts as $p) $s .= '<circle cx="' . round($p[0], 1) . '" cy="' . round($p[1], 1) . '" r="2.6" fill="#C9A227" stroke="#fff" stroke-width="0.8"/>';
-        return $s . '</svg>';
+        return $out . '</table>';
     };
 
-    // Simple labelled bar chart
-    $chartBars = function ($items, $key, $color) use ($W) {
-        $n = count($items);
-        if ($n === 0) return '<p style="font-size:10px;color:#9ca3af;">No data yet.</p>';
-        $H = 180; $padL = 42; $padR = 12; $padT = 12; $padB = 30;
-        $plotH = $H - $padT - $padB; $base = $padT + $plotH; $plotW = $W - $padL - $padR;
+    // ── Simple bar chart for minutes or pages per week ──────────────────────────
+    $chartBars = function ($items, $key, $color) {
+        if (empty($items)) return '<p style="font-size:10px;color:#9ca3af;">No data yet.</p>';
         $max = max(1, max(array_column($items, $key)));
-        $step = $plotW / $n; $bw = min(46, $step * 0.55);
-        $s = '<svg width="' . $W . '" height="' . $H . '" viewBox="0 0 ' . $W . ' ' . $H . '" xmlns="http://www.w3.org/2000/svg">';
-        for ($g = 0; $g <= 2; $g++) {
-            $y = $padT + $plotH * $g / 2;
-            $s .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($W - $padR) . '" y2="' . $y . '" stroke="#eef2f0" stroke-width="1"/>';
-            $s .= '<text x="' . ($padL - 6) . '" y="' . ($y + 3) . '" font-size="8" fill="#9ca3af" text-anchor="end">' . round($max * (2 - $g) / 2) . '</text>';
+        $out = '<table style="width:100%;border-collapse:collapse;font-size:8.5px;">';
+        foreach ($items as $it) {
+            $pct = round($it[$key] / $max * 100);
+            $out .= '<tr style="border-bottom:1px solid #f0f5f2;">';
+            $out .= '<td style="padding:3px 6px 3px 0;color:#6b7280;font-size:7.5px;white-space:nowrap;width:40px;">' . htmlspecialchars($it['label']) . '</td>';
+            $out .= '<td style="padding:3px 0;">
+                <div style="background:#eef5f1;border-radius:3px;height:10px;width:100%;">
+                    <div style="background:' . $color . ';border-radius:3px;height:10px;width:' . $pct . '%;"></div>
+                </div></td>';
+            $out .= '<td style="text-align:right;padding:3px 0 3px 8px;font-weight:bold;color:#1a3a2a;width:60px;">' . number_format($it[$key]) . '</td>';
+            $out .= '</tr>';
         }
-        $s .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($W - $padR) . '" y2="' . $base . '" stroke="#cbd5d0" stroke-width="1.2"/>';
-        foreach ($items as $i => $it) {
-            $cx = $padL + $step * ($i + 0.5);
-            $bh = $it[$key] / $max * $plotH; $by = $base - $bh;
-            $s .= '<rect x="' . round($cx - $bw / 2, 1) . '" y="' . round($by, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" fill="' . $color . '"/>';
-            $s .= '<text x="' . round($cx, 1) . '" y="' . round($by - 3, 1) . '" font-size="7" fill="#374151" text-anchor="middle">' . $it[$key] . '</text>';
-            $s .= '<text x="' . round($cx, 1) . '" y="' . ($base + 12) . '" font-size="8" fill="#374151" text-anchor="middle">' . $it['label'] . '</text>';
-        }
-        return $s . '</svg>';
+        return $out . '</table>';
     };
 
-    // Juz coverage — 30 bars with juz number + rotated surah name
-    $chartJuz = function ($juz) use ($W) {
-        $H = 320; $padL = 28; $padR = 10; $padT = 16; $padB = 88;
-        $plotH = $H - $padT - $padB; $base = $padT + $plotH; $plotW = $W - $padL - $padR;
-        $n = 30; $step = $plotW / $n; $bw = $step * 0.6;
+    // ── Juz coverage: two-column horizontal bar table (30 juzs) ────────────────
+    $chartJuz = function ($juz) {
+        if (empty($juz)) return '<p style="font-size:10px;color:#9ca3af;">No data yet.</p>';
         $max = max(1, max(array_column($juz, 'count')));
-        $s = '<svg width="' . $W . '" height="' . $H . '" viewBox="0 0 ' . $W . ' ' . $H . '" xmlns="http://www.w3.org/2000/svg">';
-        for ($g = 0; $g <= 2; $g++) {
-            $y = $padT + $plotH * $g / 2;
-            $s .= '<line x1="' . $padL . '" y1="' . $y . '" x2="' . ($W - $padR) . '" y2="' . $y . '" stroke="#eef2f0" stroke-width="1"/>';
-            $s .= '<text x="' . ($padL - 5) . '" y="' . ($y + 3) . '" font-size="7.5" fill="#9ca3af" text-anchor="end">' . round($max * (2 - $g) / 2) . '</text>';
-        }
-        $s .= '<line x1="' . $padL . '" y1="' . $base . '" x2="' . ($W - $padR) . '" y2="' . $base . '" stroke="#cbd5d0" stroke-width="1.2"/>';
-        foreach ($juz as $i => $jz) {
-            $cx = $padL + $step * ($i + 0.5);
-            $bh = $jz['count'] / $max * $plotH; $by = $base - $bh;
-            $s .= '<rect x="' . round($cx - $bw / 2, 1) . '" y="' . round($by, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" fill="#2d6a4f"/>';
-            if ($jz['count'] > 0) $s .= '<text x="' . round($cx, 1) . '" y="' . round($by - 2, 1) . '" font-size="6" fill="#374151" text-anchor="middle">' . $jz['count'] . '</text>';
-            $s .= '<text x="' . round($cx, 1) . '" y="' . ($base + 9) . '" font-size="6.5" fill="#1a3a2a" text-anchor="middle">' . $jz['juz'] . '</text>';
-            $ly = $base + 14;
-            $s .= '<text transform="rotate(-90 ' . round($cx, 1) . ' ' . $ly . ')" x="' . round($cx, 1) . '" y="' . $ly . '" font-size="6" fill="#6b7280" text-anchor="end">' . $jz['surah'] . '</text>';
-        }
-        return $s . '</svg>';
+        $half = (int) ceil(count($juz) / 2);
+        $col1 = array_slice($juz, 0, $half);
+        $col2 = array_slice($juz, $half);
+
+        $renderCol = function ($items) use ($max) {
+            $out = '<table style="width:100%;border-collapse:collapse;font-size:8px;">';
+            foreach ($items as $jz) {
+                $pct = $max > 0 ? round($jz['count'] / $max * 100) : 0;
+                $out .= '<tr style="border-bottom:1px solid #f0f5f2;">';
+                $out .= '<td style="width:28px;padding:3px 4px 3px 0;color:#1a3a2a;font-weight:bold;text-align:right;">J' . $jz['juz'] . '</td>';
+                $out .= '<td style="padding:3px 0;">
+                    <div style="background:#eef5f1;border-radius:2px;height:9px;width:100%;">
+                        <div style="background:#2d6a4f;border-radius:2px;height:9px;width:' . $pct . '%;min-width:' . ($jz['count'] > 0 ? '4' : '0') . 'px;"></div>
+                    </div></td>';
+                $out .= '<td style="width:22px;text-align:right;padding:3px 0 3px 4px;color:#374151;font-weight:bold;">' . $jz['count'] . '</td>';
+                $out .= '</tr>';
+            }
+            return $out . '</table>';
+        };
+
+        return '<table style="width:100%;border-collapse:collapse;"><tr>
+            <td style="width:49%;vertical-align:top;padding-right:8px;">' . $renderCol($col1) . '</td>
+            <td style="width:2%;"></td>
+            <td style="width:49%;vertical-align:top;padding-left:8px;">' . $renderCol($col2) . '</td>
+        </tr></table>';
     };
 @endphp
 
@@ -225,8 +220,8 @@
         <div class="chart-box">
             <div class="chart-h">Submissions per week &amp; consistency %</div>
             <div class="legend">
-                <span class="sw" style="background:#2d6a4f;"></span> Submissions (left axis)
-                <span class="sw" style="background:#C9A227;"></span> Consistency % (right axis)
+                <span class="sw" style="background:#2d6a4f;"></span> Submissions
+                <span class="sw" style="background:#C9A227;"></span> Consistency %
             </div>
             {!! $chartTrend($weeks) !!}
         </div>
