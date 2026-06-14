@@ -128,7 +128,7 @@ class CheckinController extends Controller
     {
         $user = $request->user();
 
-        abort_if($submission->submitted_by !== $user->id && $submission->subject_student_id !== $user->id, 403);
+        abort_if($submission->submitted_by !== $user->id, 403);
 
         $endDate = \App\Models\ProgramSetting::get('program_end_date');
         if ($endDate && now()->gt(\Carbon\Carbon::parse($endDate))) {

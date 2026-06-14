@@ -16,18 +16,16 @@ class User extends Authenticatable
         'phone',
         'telegram_username',
         'password',
-        'role',
         'halqa_id',
         'weekly_target',
         'current_juz',
         'memo_level',
         'available_times',
         'available_days',
-        'is_active',
         'is_monitored',
         'is_solo',
-        'must_change_password',
-        'profile_completed',
+        // role, is_active, must_change_password, profile_completed are set
+        // only through explicit controller assignments — never from request input
     ];
 
     protected $hidden = [
@@ -40,6 +38,10 @@ class User extends Authenticatable
         'available_times',
         'available_days',
         'is_monitored',
+        'role',
+        'is_active',
+        'must_change_password',
+        'profile_completed',
     ];
 
     protected function casts(): array
