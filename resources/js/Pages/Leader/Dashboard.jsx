@@ -429,11 +429,9 @@ export default function LeaderDashboard({
                     ))}
                 </div>
 
-                <div style={{ flex: 1 }} />
-
                 {/* Status filter */}
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
+                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}>
                     <option value="">All statuses</option>
                     <option value="on_track">On Track</option>
                     <option value="slipping">Slipping</option>
@@ -443,7 +441,7 @@ export default function LeaderDashboard({
 
                 {/* Sort */}
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}>
+                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}>
                     <option value="consistency">Sort: Consistency</option>
                     <option value="last_seen">Sort: Last Seen</option>
                     <option value="name">Sort: Name</option>
@@ -452,7 +450,7 @@ export default function LeaderDashboard({
                 {/* Search */}
                 <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                     placeholder={view === 'pairs' ? 'Search pairs…' : 'Search students…'}
-                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', width: '160px' }} />
+                    style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 140px', minWidth: '120px' }} />
             </div>
 
             {/* ── Pairs view ─────────────────────────────────────────────── */}

@@ -78,7 +78,7 @@ function HalqaCard({ halqa }) {
 
     return (
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: '14px 16px' }}>
                 {renaming ? (
                     <form onSubmit={saveRename} style={{ flex: 1, display: 'flex', gap: '6px' }}>
                         <input value={data.name} onChange={(e) => setData('name', e.target.value)} autoFocus
@@ -89,24 +89,26 @@ function HalqaCard({ halqa }) {
                             style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Cancel</button>
                     </form>
                 ) : (
-                    <>
+                    <div className="halqa-card-inner">
                         <div style={{ flex: 1 }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{halqa.name}</h3>
                             <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
                                 Leader: {halqa.leader?.name ?? 'No leader assigned'} · {halqa.student_count} students · {halqa.pair_count} pairs · {halqa.group_consistency}%
                             </p>
                         </div>
-                        <button onClick={() => setRenaming(true)}
-                            style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Rename</button>
-                        <button onClick={randomPair}
-                            style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Auto-pair</button>
-                        <button onClick={del}
-                            style={{ padding: '5px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Delete</button>
-                        <button onClick={() => setExpanded(!expanded)}
-                            style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>
-                            {expanded ? 'Collapse' : 'Details'}
-                        </button>
-                    </>
+                        <div className="card-actions" style={{ margin: 0 }}>
+                            <button onClick={() => setRenaming(true)}
+                                style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Rename</button>
+                            <button onClick={randomPair}
+                                style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Auto-pair</button>
+                            <button onClick={del}
+                                style={{ padding: '5px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Delete</button>
+                            <button onClick={() => setExpanded(!expanded)}
+                                style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>
+                                {expanded ? 'Collapse' : 'Details'}
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
 
@@ -208,25 +210,31 @@ export default function Halqas({ halqas, total_active_students, unassigned_count
             )}
 
             {/* Stats banner */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', alignItems: 'center' }}>
-                <div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Active students</p>
-                    <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{total_active_students}</p>
+            <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                {/* Stat items */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Active students</p>
+                        <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{total_active_students}</p>
+                    </div>
+                    <div style={{ color: 'var(--border)' }}>·</div>
+                    <div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Halqas</p>
+                        <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{halqas.length}</p>
+                    </div>
+                    <div style={{ color: 'var(--border)' }}>·</div>
+                    <div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Unassigned students</p>
+                        <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: unassigned_count > 0 ? 'var(--destructive)' : 'var(--success)' }}>{unassigned_count}</p>
+                    </div>
                 </div>
-                <div style={{ color: 'var(--border)' }}>·</div>
-                <div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Halqas</p>
-                    <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{halqas.length}</p>
-                </div>
-                <div style={{ color: 'var(--border)' }}>·</div>
-                <div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Unassigned students</p>
-                    <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: unassigned_count > 0 ? 'var(--destructive)' : 'var(--success)' }}>{unassigned_count}</p>
-                </div>
+                {/* Auto-assign button — own row, full-width on mobile, right-aligned on desktop */}
                 {unassigned_count > 0 && halqas.length > 0 && (
-                    <button onClick={randomAssign} style={{ marginLeft: 'auto', padding: '7px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
-                        Auto-assign to halqas
-                    </button>
+                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button onClick={randomAssign} style={{ width: '100%', maxWidth: '260px', padding: '9px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
+                            Auto-assign to halqas
+                        </button>
+                    </div>
                 )}
             </div>
 

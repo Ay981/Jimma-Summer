@@ -87,16 +87,24 @@ function LbTable({ cols, colsMobile, headers, rows, className }) {
                 .${className}-row        { ${objToCSS(gridStyle(false))} padding: 9px 12px; border-bottom: 1px solid var(--border); }
                 .${className}-header     { ${objToCSS(gridStyle(false))} padding: 6px 12px; border-bottom: 1px solid var(--border); }
                 .${className}-hide       { }
+                .${className}-hdr-short  { display: none; }
                 @media (max-width: 640px) {
-                    .${className}-row    { ${objToCSS(gridStyle(true))} }
-                    .${className}-header { ${objToCSS(gridStyle(true))} }
-                    .${className}-hide   { display: none !important; }
+                    .${className}-row      { ${objToCSS(gridStyle(true))} }
+                    .${className}-header   { ${objToCSS(gridStyle(true))} }
+                    .${className}-hide     { display: none !important; }
+                    .${className}-hdr-full { display: none; }
+                    .${className}-hdr-short{ display: inline; }
                 }
             `}</style>
             <div>
                 <div className={`${className}-header`}>
-                    {headers.map(({ label, hide }, i) => (
-                        <span key={i} className={hide ? `${className}-hide` : ''} style={HDR}>{label}</span>
+                    {headers.map(({ label, mobileLabel, hide }, i) => (
+                        <span key={i} className={hide ? `${className}-hide` : ''} style={HDR}>
+                            {mobileLabel
+                                ? <><span className={`${className}-hdr-full`}>{label}</span><span className={`${className}-hdr-short`}>{mobileLabel}</span></>
+                                : label
+                            }
+                        </span>
                     ))}
                 </div>
                 {rows}
@@ -115,16 +123,16 @@ function objToCSS(obj) {
 // ── Tables ────────────────────────────────────────────────────────────────────
 
 function StudentTable({ students }) {
-    // Desktop: rank | name | consistency | streak | pages | min | halqa | cert
-    // Mobile:  rank | name | consistency | cert
-    const COLS        = '36px 1fr 76px 56px 60px 56px 70px 88px';
-    const COLS_MOBILE = '36px 1fr 76px 88px';
+    // Desktop: rank | name(capped) | consistency | streak | pages | min | halqa | cert
+    // Mobile:  rank | name(capped) | % | pages | cert
+    const COLS        = '36px minmax(100px, 200px) 76px 56px 60px 56px 70px 88px';
+    const COLS_MOBILE = '36px minmax(80px, 130px) 46px 52px 80px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Student' },
-        { label: 'Consistency' },
+        { label: 'Consistency', mobileLabel: '%' },
         { label: 'Streak',  hide: true },
-        { label: 'Pages',   hide: true },
+        { label: 'Pages',   mobileLabel: 'Pgs' },
         { label: 'Min',     hide: true },
         { label: 'Halqa',   hide: true },
         { label: '' },
@@ -141,7 +149,7 @@ function StudentTable({ students }) {
                     </div>
                     <span style={{ ...NUM, fontWeight: s.rank <= 3 ? 700 : 400 }}>{s.consistency}%</span>
                     <span className="lb-student-hide" style={NUM}>{s.streak}d</span>
-                    <span className="lb-student-hide" style={NUM}>{s.pages}</span>
+                    <span style={NUM}>{s.pages}</span>
                     <span className="lb-student-hide" style={NUM}>{s.minutes}</span>
                     <span className="lb-student-hide" style={{ ...NUM, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{s.halqa}</span>
                     <a href={`/admin/leaderboard/certificate/${s.id}`} style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
@@ -156,8 +164,8 @@ function StudentTable({ students }) {
 function PairTable({ pairs }) {
     // Desktop: rank | A | B | consistency | pages | min | streak
     // Mobile:  rank | A + B stacked | consistency
-    const COLS        = '36px 1fr 1fr 76px 60px 56px 56px';
-    const COLS_MOBILE = '36px 1fr 76px';
+    const COLS        = '36px minmax(80px,160px) minmax(80px,160px) 76px 60px 56px 56px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 76px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Student A' },
@@ -194,8 +202,8 @@ function PairTable({ pairs }) {
 function HalqaTable({ halqas }) {
     // Desktop: rank | name | pairs | consistency | pages | avg streak
     // Mobile:  rank | name | consistency
-    const COLS        = '36px 1fr 56px 76px 60px 70px';
-    const COLS_MOBILE = '36px 1fr 76px';
+    const COLS        = '36px minmax(80px,180px) 56px 76px 60px 70px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 76px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Halqa' },
@@ -228,8 +236,8 @@ function LeaderTable({ leaders }) {
 
     // Desktop: rank | leader | halqa | meetings | attendance | notes | resolved | recovered | score
     // Mobile:  rank | leader | score
-    const COLS        = '36px 1fr 80px 66px 72px 56px 72px 68px 60px';
-    const COLS_MOBILE = '36px 1fr 60px';
+    const COLS        = '36px minmax(80px,180px) 80px 66px 72px 56px 72px 68px 60px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 60px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Leader' },
@@ -271,6 +279,7 @@ export default function Leaderboard({ students, pairs, halqas, leaders, awards, 
     const [showLock, setShowLock] = useState(false);
 
     const aw = awards ?? {};
+    const totalPagesAll = (students ?? []).reduce((sum, s) => sum + (s.pages || 0), 0);
 
     function unlock() {
         if (!confirm('Unlock the leaderboard? This will delete the most recent snapshot.')) return;
@@ -294,28 +303,35 @@ export default function Leaderboard({ students, pairs, halqas, leaders, awards, 
             )}
 
             {/* Awards strip */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-                <h3 style={{ margin: '0 12px 0 0', fontSize: '0.875rem', fontWeight: 700, alignSelf: 'center' }}>🏆 Awards</h3>
-                {[
-                    { label: 'Most Consistent', value: aw.most_consistent_students?.[0]?.name },
-                    { label: 'Best Pair', value: aw.most_consistent_pair ? `${aw.most_consistent_pair.student_a} & ${aw.most_consistent_pair.student_b}` : null },
-                    { label: 'Longest Streak', value: aw.longest_streak?.name, sub: aw.longest_streak ? `${aw.longest_streak.streak}d` : null },
-                    { label: 'Most Pages', value: aw.most_pages?.name, sub: aw.most_pages ? `${aw.most_pages.pages}pp` : null },
-                    { label: 'Most Improved', value: aw.most_improved_student?.name },
-                    { label: 'Best Leader', value: leaders?.[0]?.name, sub: leaders?.[0]?.halqa },
-                ].filter((a) => a.value).map(({ label, value, sub }) => (
-                    <div key={label} style={{ padding: '6px 12px', background: 'var(--secondary)', borderRadius: 'var(--radius-sm)' }}>
-                        <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
-                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>{value}{sub && <span style={{ fontWeight: 400, color: 'var(--muted-foreground)', marginLeft: '4px' }}>{sub}</span>}</p>
+            <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+                {/* Title row: Awards left, action buttons right */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>🏆 Awards</h3>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <a href="/admin/leaderboard/pdf" target="_blank" style={{ padding: '6px 12px', border: '1px solid var(--border)', background: 'var(--muted)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', textDecoration: 'none', color: 'var(--foreground)' }}>Export PDF</a>
+                        {is_locked ? (
+                            <button onClick={unlock} style={{ padding: '6px 12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>🔓 Unlock</button>
+                        ) : (
+                            <button onClick={() => setShowLock(true)} style={{ padding: '6px 12px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer' }}>🔒 Lock & Archive</button>
+                        )}
                     </div>
-                ))}
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <a href="/admin/leaderboard/pdf" target="_blank" style={{ padding: '6px 12px', border: '1px solid var(--border)', background: 'var(--muted)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', textDecoration: 'none', color: 'var(--foreground)' }}>Export PDF</a>
-                    {is_locked ? (
-                        <button onClick={unlock} style={{ padding: '6px 12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>🔓 Unlock</button>
-                    ) : (
-                        <button onClick={() => setShowLock(true)} style={{ padding: '6px 12px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer' }}>🔒 Lock & Archive</button>
-                    )}
+                </div>
+                {/* Award chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {[
+                        { label: 'Total Pages', value: totalPagesAll > 0 ? totalPagesAll.toLocaleString() : null, sub: 'pages recited' },
+                        { label: 'Most Consistent', value: aw.most_consistent_students?.[0]?.name },
+                        { label: 'Best Pair', value: aw.most_consistent_pair ? `${aw.most_consistent_pair.student_a} & ${aw.most_consistent_pair.student_b}` : null },
+                        { label: 'Longest Streak', value: aw.longest_streak?.name, sub: aw.longest_streak ? `${aw.longest_streak.streak}d` : null },
+                        { label: 'Most Pages', value: aw.most_pages?.name, sub: aw.most_pages ? `${aw.most_pages.pages}pp` : null },
+                        { label: 'Most Improved', value: aw.most_improved_student?.name },
+                        { label: 'Best Leader', value: leaders?.[0]?.name, sub: leaders?.[0]?.halqa },
+                    ].filter((a) => a.value).map(({ label, value, sub }) => (
+                        <div key={label} style={{ padding: '6px 12px', background: 'var(--secondary)', borderRadius: 'var(--radius-sm)' }}>
+                            <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+                            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>{value}{sub && <span style={{ fontWeight: 400, color: 'var(--muted-foreground)', marginLeft: '4px' }}>{sub}</span>}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -346,11 +362,18 @@ export default function Leaderboard({ students, pairs, halqas, leaders, awards, 
                 </div>
             )}
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                {['Students', 'Pairs', 'Halqas', 'Leaders'].map((t) => (
-                    <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 18px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer', background: tab === t ? 'var(--primary)' : 'var(--card)', color: tab === t ? 'var(--primary-foreground)' : 'var(--foreground)', fontWeight: tab === t ? 600 : 400, fontSize: '0.875rem' }}>{t}</button>
-                ))}
+            {/* Tabs: desktop row / mobile select */}
+            <div style={{ marginBottom: '12px' }}>
+                <div className="tab-row-desktop">
+                    {['Students', 'Pairs', 'Halqas', 'Leaders'].map((t) => (
+                        <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 18px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer', background: tab === t ? 'var(--primary)' : 'var(--card)', color: tab === t ? 'var(--primary-foreground)' : 'var(--foreground)', fontWeight: tab === t ? 600 : 400, fontSize: '0.875rem' }}>{t}</button>
+                    ))}
+                </div>
+                <select className="tab-select-mobile" value={tab} onChange={(e) => setTab(e.target.value)}>
+                    {['Students', 'Pairs', 'Halqas', 'Leaders'].map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                    ))}
+                </select>
             </div>
 
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
