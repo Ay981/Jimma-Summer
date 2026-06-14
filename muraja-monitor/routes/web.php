@@ -43,10 +43,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login.attempt');
 
     Route::get('/leader/setup', [AuthController::class, 'showLeaderSetup'])->name('leader.setup');
-    Route::post('/leader/setup', [AuthController::class, 'leaderSetup'])->name('leader.setup.submit');
+    Route::post('/leader/setup', [AuthController::class, 'leaderSetup'])->middleware('throttle:5,60')->name('leader.setup.submit');
 });
 
 // ── Authenticated: Change Password & Logout ───────────────────────────────────

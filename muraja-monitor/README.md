@@ -1,6 +1,6 @@
 # Muraja'a Monitor
 
-A full-stack web application for managing a Quran revision (muraja'a) program. Built for Jimma University MSU Summer Revision Program — handles student onboarding, pair assignment, daily check-ins, halqa (group) management, leader monitoring, and program analytics.
+A web application for managing Quran revision partnerships (muraja'a pairs) in structured Islamic programs. Built with Laravel 11, Inertia.js, and React.
 
 ---
 
@@ -8,357 +8,200 @@ A full-stack web application for managing a Quran revision (muraja'a) program. B
 
 | Layer | Technology |
 |---|---|
-| Backend | Laravel 13 (PHP 8.3) |
-| Frontend | React 18 + Inertia.js (no separate API) |
+| Backend | PHP 8.3 / Laravel 11 |
+| Frontend | React 18 + Inertia.js |
 | Database | PostgreSQL |
-| Styling | CSS custom properties (no Tailwind) |
-| PDF generation | barryvdh/laravel-dompdf |
-| Icons | @phosphor-icons/react |
-| Build | Vite |
+| Styles | Custom CSS with oklch design tokens |
+| PDF | DomPDF |
+| Deployment | Docker (Alpine Linux + nginx + PHP-FPM + Supervisord) |
 
 ---
 
-## Prerequisites
+## Roles
 
-- PHP 8.3+ with extensions: `pgsql`, `pdo_pgsql`, `mbstring`, `xml`, `curl`, `zip`
-- Composer
-- Node.js 18+ and npm
-- PostgreSQL 14+
+| Role | Access |
+|---|---|
+| **Admin** | Full system control — students, leaders, halqas, pairs, reports, leaderboard |
+| **Leader** | Monitors their halqa — pair progress, meetings, outreach, weekly reports |
+| **Student** | Submits daily muraja'a, views partner stats, journal, badges |
 
 ---
 
-## Installation
+## Setup
+
+### Local Development
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url>
-cd muraja-monitor
-
-# 2. Install PHP dependencies
-composer install
-
-# 3. Install JS dependencies
-npm install
-
-# 4. Copy environment file
 cp .env.example .env
-
-# 5. Generate application key
 php artisan key:generate
+# Configure DB_* in .env
+php artisan migrate
+php artisan db:seed --force
+npm install && npm run dev
+php artisan serve
 ```
 
-### Configure `.env`
+### Docker (Production)
+
+```bash
+docker-compose up -d
+```
+
+On **first deploy only**, seed the database to create the admin account:
+
+```bash
+RUN_SEEDERS=true docker-compose up -d
+# or: docker exec <container> php artisan db:seed --force
+```
+
+This creates `ADMIN001` with password `Muraja@1446`. The admin is forced to change this on first login.
+
+On subsequent restarts, omit `RUN_SEEDERS` — seeders do not run by default to protect production data.
+
+---
+
+## Environment
+
+Critical `.env` values for production:
 
 ```env
-APP_NAME="Muraja Monitor"
-APP_URL=http://localhost:8000
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=<generate with: php artisan key:generate>
+APP_URL=https://yourdomain.com
+
+SESSION_ENCRYPT=true
+SESSION_SECURE_COOKIE=true
 
 DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=muraja_monitor
-DB_USERNAME=your_pg_user
-DB_PASSWORD=your_pg_password
-
-SESSION_DRIVER=database
-QUEUE_CONNECTION=sync
+DB_HOST=...
+DB_PASSWORD=<use secrets manager>
 ```
-
-### Database setup
-
-```bash
-# Create the database in PostgreSQL first
-createdb muraja_monitor
-
-# Run migrations and seed (creates admin + demo accounts)
-php artisan migrate --seed
-
-# OR: wipe everything and start clean (useful during testing)
-php artisan migrate:fresh --seed
-```
-
-### Run the app
-
-```bash
-# Terminal 1 — Laravel dev server
-php artisan serve
-
-# Terminal 2 — Vite (hot reload)
-npm run dev
-```
-
-App runs at `http://localhost:8000`.
 
 ---
 
-## Default Accounts (after seeding)
+## Security
 
-| Role | Login ID | Password |
+This section documents the attack surfaces audited and the controls in place. Verified by a 7-agent parallel security scan covering injection, auth/authz, XSS/CSRF, file upload, sensitive data, rate limiting, and infrastructure.
+
+---
+
+### SQL Injection
+
+**Protected.** All database queries use Laravel's Eloquent ORM with PDO parameterized statements. Every `selectRaw()`, `whereRaw()`, and `orderByRaw()` call in the codebase uses static SQL strings — no user input is interpolated into raw query fragments. The only string interpolation near queries uses server-controlled values (`now()->year`), never request input.
+
+---
+
+### Mass Assignment
+
+**Protected.** The `User` model's `$fillable` array explicitly excludes `role`, `is_active`, `must_change_password`, and `profile_completed`. These security-critical fields are set only through explicit controller assignments — never via `$request->all()` or `fill()`. All `store()` and `update()` controller methods use field allowlists (`$request->only(...)`), not bulk input.
+
+---
+
+### Cross-Site Request Forgery (CSRF)
+
+**Protected.** Laravel's `VerifyCsrfToken` middleware is active on all web routes with no exceptions configured. Inertia.js automatically attaches the XSRF-TOKEN cookie to every non-GET request. Session cookies are set with `SameSite=lax` and `HttpOnly=true`.
+
+---
+
+### Cross-Site Scripting (XSS)
+
+**Protected.** The React frontend contains zero uses of `dangerouslySetInnerHTML`. All user-supplied strings (names, IDs, notes, partner details) are rendered as React text nodes, which the React runtime escapes automatically. Laravel Blade templates in PDF views use `htmlspecialchars()` on any interpolated user content. The nginx configuration adds `X-Content-Type-Options: nosniff` and `X-Frame-Options: SAMEORIGIN` on every response.
+
+---
+
+### Authentication Brute Force
+
+**Protected.** The login endpoint (`POST /login`) is throttled to **10 attempts per minute per IP**. The leader activation endpoint (`POST /leader/setup`) is throttled to **5 attempts per hour per IP**. Exceeding these limits returns HTTP 429. Passwords are hashed with bcrypt (cost 12) via Laravel's `'hashed'` model cast.
+
+---
+
+### Privilege Escalation
+
+**Protected.** Every route group is gated by `role:admin`, `role:leader`, or `role:student` middleware. Role is never accepted from request input — it is hardcoded in the controller at account creation time. The `role` field is excluded from `User::$fillable` and from the model's JSON serialization (`$hidden`), so it is never exposed to the frontend or mass-assignable.
+
+---
+
+### Insecure Direct Object Reference (IDOR)
+
+**Protected.** The student dashboard scopes all data strictly to `$request->user()->id`. No student ID is accepted from the URL or request body for personal data endpoints. Leaders can only view students within their own halqa. Admins are gated by role middleware before any data is returned.
+
+---
+
+### Submission Tampering
+
+**Protected.** Only the student who filed a submission (`submitted_by`) can edit it. The subject of the submission (the partner whose revision was recorded) cannot alter their own record — this prevents students from inflating their own progress metrics.
+
+---
+
+### CSV Injection (Formula Injection)
+
+**Protected.** All CSV export methods sanitize user-controlled fields before writing them. Any cell value beginning with `=`, `+`, `-`, `@`, tab, or carriage return is prefixed with a tab character to prevent formula execution in Excel/LibreOffice. All values are also double-quote escaped.
+
+---
+
+### File Upload
+
+**Protected.** CSV imports accept only `csv` MIME type with a 2 MB file size cap. Uploaded files are processed from PHP's temporary directory and never stored in the public webroot. No execution path allows uploaded content to be served as PHP. File download endpoints for snapshots validate that the stored path matches the expected `snapshots/*.pdf` format before serving.
+
+---
+
+### Session Security
+
+**Protected.** Sessions are stored server-side in the database. Session payloads are encrypted (`SESSION_ENCRYPT=true`). Cookies are `HttpOnly` (not accessible to JavaScript), `Secure` (HTTPS only), and `SameSite=lax`. Session data uses JSON serialization, which prevents PHP object deserialization gadget-chain attacks.
+
+---
+
+### Sensitive Data Exposure
+
+**Protected.** `APP_DEBUG=false` in production — no stack traces or internal paths are exposed in error responses. The `password`, `phone`, `telegram_username`, `role`, `is_active`, `must_change_password`, and `profile_completed` fields are excluded from User model JSON serialization. The `.env` file is excluded from the Docker image via `.dockerignore`. No real credentials exist in `.env.example`.
+
+---
+
+### Clickjacking
+
+**Protected.** nginx sets `X-Frame-Options: SAMEORIGIN` on all responses, preventing the application from being embedded in third-party iframes.
+
+---
+
+### Infrastructure
+
+**Protected.**
+- `server_tokens off` in nginx suppresses version disclosure
+- `.env` and `.htaccess` files return 403 if accessed directly via HTTP
+- PostgreSQL is not exposed to the host (no `ports` mapping in docker-compose)
+- Composer is pinned to version `2.7` for reproducible builds
+- Chromium is not present in the production image (testing-only dependency removed)
+- FastCGI read timeout set to 60 seconds (prevents slow-connection DoS)
+
+---
+
+### Known Accepted Risks
+
+| Item | Risk | Mitigation |
 |---|---|---|
-| Admin | `ADMIN001` | `Muraja@1446` |
-| Leader (demo) | `LDR001` | `Leader@123` |
-| Student (demo) | `STU001` | `Student@123` |
-| Student (demo) | `STU002` | `Student@123` |
-
-Demo leader setup code: **`LDR-TEST`**
-
-> All accounts with `must_change_password = true` are forced to set a new password on first login. Leaders are also asked for their real name at this step.
+| PDF generation endpoints (admin/leader) | No per-user rate limit — a compromised admin/leader session could hammer CPU-intensive PDF rendering | PDFs are admin/leader-only; add `throttle:5,1` to PDF routes if abuse occurs |
+| `trustProxies(at: '*')` | Clients can spoof `X-Forwarded-For` if app is exposed directly without a proxy | Acceptable while Azure load balancer is in front; narrow to LB CIDR ranges if topology changes |
+| `newProgram` data wipe | Irreversible TRUNCATE of all program data requires only role auth + string token | Protected by admin-only middleware; consider adding password re-confirmation for this action |
+| Session lifetime (120 min) | Long idle window on shared devices | Acceptable for the use case; reduce if stricter security is needed |
 
 ---
 
-## User Roles
-
-### Admin
-Full control. Manages the entire program lifecycle.
-
-### Leader (Halqa Leader)
-Monitors their assigned halqa (group). Logs meetings, files contact notes, manages pairs, views member progress.
-
-### Student
-Submits daily muraja'a check-ins, views partner progress, requests a preferred pair partner, fills profile on first login.
-
----
-
-## Program Lifecycle (Admin Workflow)
-
-Follow these steps in order when running a new program:
-
-### Step 1 — Import Students
-1. Collect student names and phone numbers (Google Form works well)
-2. Export to CSV with columns: `name`, `phone`
-3. Go to **Admin → Students → Import CSV**
-4. Student IDs are auto-generated as `JUMU-{year}-{sequence}` (e.g. `JUMU-2026-001`)
-
-### Step 2 — Share Credentials
-1. Go to **Admin → Students → ⬇ Credentials PDF**
-2. Distribute the PDF to students — it shows each student's name, login ID, and default password
-3. Students log in, change their password, then complete their profile (juz level, available days/times, health notes)
-
-### Step 3 — Open Pairing Request Window
-1. Go to **Admin → Pairing**
-2. Set a deadline and click **Open Window**
-3. Students can now go to **My Partner** page and enter a preferred partner's student ID
-4. They can change or withdraw their request anytime before the deadline
-
-### Step 4 — Run Pairing
-1. After the deadline, go to **Admin → Pairing**
-2. Review the requests table — requests are shown as **Mutual**, **One-sided**, or **Conflict**
-3. Click **⚡ Run Pairing**
-
-**Algorithm:**
-- **Mutual** (A→B and B→A): always paired together
-- **One-sided** (A→B, B has no request): paired together
-- **Conflict** (A→B, B→C): both go to the random pool
-- **Random pool**: paired by best time-slot overlap (most shared available times)
-- Odd number left over: flagged for manual assignment by admin
-
-### Step 5 — Create Halqas
-1. Go to **Admin → Halqas**
-2. Use **Auto-create halqas** — specify how many halqas to create
-3. Leader accounts are auto-created with IDs `LDR-0001`, `LDR-0002`… and default password `Muraja@1446`
-4. Distribute credentials to leaders — they log in, enter their real name, and set a password
-5. Assign pairs to halqas (keeping pairs together in the same halqa)
-
-### Step 6 — Program Running
-- Students do daily check-ins via **Student → Check In**
-- Leaders monitor their halqa via the Leader dashboard
-- Admin monitors everything via **Admin → Dashboard**
-
----
-
-## Key Pages Reference
-
-### Admin
-| URL | Purpose |
-|---|---|
-| `/admin/dashboard` | Program overview — pulse, charts, early warning |
-| `/admin/students` | Full student list with status, flags, filters |
-| `/admin/students/{id}` | Student detail — timeline, submissions, admin notes |
-| `/admin/pairing` | Pairing request window control + run pairing |
-| `/admin/halqas` | Halqa management, random assign, pair distribution |
-| `/admin/leaders` | Leader monitoring — login activity, notes, meetings |
-| `/admin/leaders/{id}` | Leader detail — members, meetings, contact notes |
-| `/admin/leaderboard` | Rankings — students, pairs, halqas, leaders |
-| `/admin/pairs` | All pairs, integrity flags |
-| `/admin/reports` | Export PDFs — certificates, program reports |
-| `/admin/announcements` | Broadcast messages to students/leaders |
-| `/admin/integrity` | Flagged submissions review |
-| `/admin/outreach` | Contact students, escalation queue |
-| `/admin/audit` | Full audit log of all actions |
-| `/admin/settings` | Program start date and global settings |
-
-### Leader
-| URL | Purpose |
-|---|---|
-| `/leader/dashboard` | Halqa overview — pair statuses, absence queue |
-| `/leader/members/{pair}` | Pair detail — submission history, contact notes |
-| `/leader/meetings` | Log and view halqa meetings |
-
-### Student
-| URL | Purpose |
-|---|---|
-| `/student/dashboard` | Personal stats, streak, today's check-in |
-| `/student/pair` | Partner info + partner request form |
-| `/student/history` | Personal submission history |
-| `/student/halqa` | Halqa members overview |
-| `/student/badges` | Earned badges |
-| `/student/journal` | Private reflection journal |
-
----
-
-## File Structure (Key Files)
+## Program Lifecycle
 
 ```
-app/
-  Http/
-    Controllers/
-      Admin/
-        DashboardController.php    # Admin dashboard data
-        StudentController.php      # Students CRUD + CSV import
-        HalqaController.php        # Halqa management + auto-assign
-        PairingController.php      # Pairing window + run algorithm
-        LeadersController.php      # Leader monitoring + detail + reset PW
-        LeaderboardController.php  # Rankings calculation
-      Leader/
-        HalqaDashboardController.php  # Leader dashboard
-        PairDetailController.php      # Pair member detail
-        MeetingController.php         # Meeting logs
-      Student/
-        DashboardController.php    # Student dashboard
-        CheckinController.php      # Daily muraja'a submission
-        PairController.php         # My partner page + pairing info
-        PairRequestController.php  # Submit/withdraw partner request
-      Auth/
-        AuthController.php         # Login, logout, change password, leader setup
-    Middleware/
-      MustChangePassword.php       # Forces password change on first login
-      MustCompleteProfile.php      # Forces profile completion (students)
-  Models/
-    User.php          # Students, leaders, admin (all in one table, role column)
-    Halqa.php         # Halqa groups
-    Pair.php          # Student pairs (student_a_id, student_b_id)
-    PairSubmission.php  # Daily check-in records
-    PairingRequest.php  # Partner preference requests
-    ProgramSetting.php  # Key-value program config store
-    MeetingLog.php
-    ContactLog.php
-    Badge.php
-  Services/
-    ConsistencyService.php  # Consistency % and streak calculations
-
-resources/
-  js/
-    Pages/
-      Admin/          # All admin React pages
-      Leader/         # All leader React pages
-      Student/        # All student React pages
-      Auth/           # Login, ChangePassword, LeaderSetup
-    Components/
-      UI/
-        PasswordInput.jsx   # Eye-toggle password input
-        BarChart.jsx
-        LineChart.jsx
-        Sparkline.jsx
-        Heatmap.jsx
-        StatusTag.jsx
-    Layouts/
-      AdminLayout.jsx    # Sidebar nav for admin
-      LeaderLayout.jsx
-      StudentLayout.jsx
-  views/
-    pdf/
-      student-credentials.blade.php  # Credentials PDF (name, ID, password)
-      certificate.blade.php          # Completion certificate
-      halqa-report.blade.php         # Halqa progress report
-
-database/
-  migrations/    # 32 migrations, numbered sequentially
-  seeders/
-    DatabaseSeeder.php        # Runs all seeders
-    DemoSeeder.php            # Demo accounts for testing
-    ProgramSettingsSeeder.php # Default program settings
-    AyatRotationSeeder.php    # Daily ayat rotation data
+Register students → Open pairing window → Students submit preferences
+→ Admin runs pairing algorithm → Pairs created → Assign halqas (auto or manual)
+→ Start program → Daily muraja'a submissions → Weekly leader reports
+→ End program → Lock leaderboard → Archive awards → New program year
 ```
 
 ---
 
-## Student ID Format
+## Default Credentials
 
-Auto-generated on CSV import: `JUMU-{year}-{sequence}`
-
-Examples: `JUMU-2026-001`, `JUMU-2026-002`, …`JUMU-2026-099`
-
-The sequence continues from the highest existing ID so repeated imports never collide.
-
----
-
-## Password Policy
-
-- Default password for all imported students and auto-created leaders: `Muraja@1446`
-- Every account with `must_change_password = true` is intercepted after login and forced to the change-password screen
-- Leaders additionally enter their real name at this step
-- Students additionally complete their profile (juz, available times, health notes) after password change
-- Admin can reset any student or leader password back to the default from their detail page
-
----
-
-## Pairing Algorithm
-
-Located in `PairingController::run()`.
-
-**Pass 1 — Mutual requests:** If A requested B AND B requested A → locked pair.
-
-**Pass 2 — One-sided requests:** If A requested B and B submitted no request → paired together. If both parties requested different people (conflict) → both go to the random pool.
-
-**Pass 3 — Random pool:** Students paired by greedy best-fit time-slot overlap. The student with the most shared available prayer times gets matched first. If an odd number of students remain unmatched after all passes → flagged for manual admin assignment.
-
----
-
-## PDF Generation
-
-Uses `barryvdh/laravel-dompdf`. All PDF blade views are in `resources/views/pdf/`.
-
-Available PDFs:
-- **Student credentials** — `GET /admin/students/credentials-pdf`
-- **Halqa report** — from Leader dashboard export
-- **Completion certificate** — from Admin → Reports → Leaderboard
-
----
-
-## Common Commands
-
-```bash
-# Fresh database with demo data
-php artisan migrate:fresh --seed
-
-# Fresh database with admin only
-php artisan migrate:fresh --seed && php artisan tinker --execute="App\Models\User::where('role', '!=', 'admin')->delete();"
-
-# Run a specific seeder
-php artisan db:seed --class=DemoSeeder
-
-# Clear all caches
-php artisan optimize:clear
-
-# Build for production
-npm run build
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-```
-
----
-
-## Environment Notes
-
-- `SESSION_DRIVER=database` is required (sessions are stored in the DB, not files)
-- `QUEUE_CONNECTION=sync` means jobs run synchronously — fine for development; use `redis` or `database` driver in production with a queue worker
-- PostgreSQL is required — the codebase uses `::text` casts and other Postgres-specific syntax that won't work on MySQL
-
----
-
-## Known Limitations / Future Work
-
-- **Trio support** — when pairing produces an odd student, they are currently flagged for manual assignment. A future version will support three-student groups (trios) with a rotating reviewer cycle.
-- **Pairing window auto-close** — the deadline date is informational only; the window must be manually closed by the admin after the deadline passes.
-- **Halqa assignment after pairing** — after running pairing, pairs have `halqa_id = null`. The admin must distribute pairs to halqas manually via Admin → Halqas, ensuring pairs are never split across halqas.
+| Account | ID | Default Password | Notes |
+|---|---|---|---|
+| Admin | `ADMIN001` | `Muraja@1446` | Created on first seed; forced password change on login |
+| Students | `JUMU-YYYY-NNN` | `Muraja@1446` | Forced password change on first login |
+| Leaders | Set during activation | Chosen by leader during setup | Activation code required |

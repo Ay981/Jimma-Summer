@@ -11,9 +11,7 @@ RUN apk add --no-cache \
     zip \
     unzip \
     curl \
-    supervisor \
-    chromium \
-    chromium-chromedriver
+    supervisor
 
 RUN docker-php-ext-install \
     pdo \
@@ -26,7 +24,7 @@ RUN docker-php-ext-install \
     xml \
     opcache
 
-COPY --from=composer:latest \
+COPY --from=composer:2.7 \
     /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www

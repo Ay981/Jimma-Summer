@@ -39,6 +39,19 @@ class ReportsController extends Controller
         ]);
     }
 
+    // ── CSV formula injection sanitizer ──────────────────────────────────────
+
+    private function csvSafe(?string $value): string
+    {
+        $v = $value ?? '';
+        // Neutralise formula injection: prefix dangerous leading chars with a tab
+        if ($v !== '' && in_array($v[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            $v = "\t" . $v;
+        }
+        // Escape embedded double-quotes
+        return str_replace('"', '""', $v);
+    }
+
     // ── Submissions CSV ───────────────────────────────────────────────────────
 
     public function exportSubmissions(): Response
@@ -50,9 +63,9 @@ class ReportsController extends Controller
         $csv = "student_name,student_id,halqa,juz,page_from,page_to,pages,minutes_spent,submission_date,submitted_at,filed_by,is_edited,is_flagged,flag_verdict\n";
         foreach ($rows as $r) {
             $csv .= implode(',', [
-                '"' . ($r->subject?->name ?? '') . '"',
+                '"' . $this->csvSafe($r->subject?->name) . '"',
                 $r->subject?->student_id ?? '',
-                '"' . ($r->pair?->halqa?->name ?? '') . '"',
+                '"' . $this->csvSafe($r->pair?->halqa?->name) . '"',
                 $r->juz,
                 $r->page_from,
                 $r->page_to,
@@ -60,7 +73,7 @@ class ReportsController extends Controller
                 $r->minutes_spent,
                 Carbon::parse($r->submission_date)->toDateString(),
                 Carbon::parse($r->submitted_at)->format('Y-m-d H:i'),
-                '"' . ($r->submitter?->name ?? '') . '"',
+                '"' . $this->csvSafe($r->submitter?->name) . '"',
                 $r->is_edited ? 'yes' : 'no',
                 $r->is_flagged ? 'yes' : 'no',
                 $r->flag_verdict ?? '',
@@ -92,9 +105,9 @@ class ReportsController extends Controller
             $streak  = $this->consistency->getStreak($s->id);
 
             $csv .= implode(',', [
-                '"' . $s->name . '"',
+                '"' . $this->csvSafe($s->name) . '"',
                 $s->student_id,
-                '"' . ($s->halqa?->name ?? '') . '"',
+                '"' . $this->csvSafe($s->halqa?->name) . '"',
                 $subs->count(),
                 (int) $pages,
                 (int) $mins,
@@ -121,11 +134,11 @@ class ReportsController extends Controller
         $csv = "student_name,student_id,contacted_by,method,note,contacted_at,follow_up_required\n";
         foreach ($logs as $l) {
             $csv .= implode(',', [
-                '"' . ($l->student?->name ?? '') . '"',
+                '"' . $this->csvSafe($l->student?->name) . '"',
                 $l->student?->student_id ?? '',
-                '"' . ($l->contactedBy?->name ?? '') . '"',
+                '"' . $this->csvSafe($l->contactedBy?->name) . '"',
                 $l->method,
-                '"' . str_replace('"', '""', $l->note) . '"',
+                '"' . $this->csvSafe($l->note) . '"',
                 Carbon::parse($l->contacted_at)->format('Y-m-d H:i'),
                 $l->follow_up_required ? 'yes' : 'no',
             ]) . "\n";
