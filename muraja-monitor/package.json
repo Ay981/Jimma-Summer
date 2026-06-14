@@ -10,7 +10,11 @@
         "build": "vite build",
         "dev": "vite",
         "dev:host": "vite --host 0.0.0.0",
-        "capture:onboarding": "node scripts/capture-onboarding.mjs"
+        "capture:onboarding": "node scripts/capture-onboarding.mjs",
+        "video:student": "playwright test tests/videos/student.spec.js --headed",
+        "video:leader": "playwright test tests/videos/leader.spec.js --headed",
+        "video:admin": "playwright test tests/videos/admin.spec.js --headed",
+        "video:all": "playwright test tests/videos/ --headed"
     },
     "devDependencies": {
         "@playwright/test": "^1.60.0",

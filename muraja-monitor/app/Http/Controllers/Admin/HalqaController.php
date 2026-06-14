@@ -228,15 +228,27 @@ class HalqaController extends Controller
             return strcmp($sigA, $sigB);
         });
 
-        $n         = $halqas->count();
-        $halqaList = $halqas->values();
+        // Build a live count of how many active students each halqa already has
+        $halqaCounts = $halqas->mapWithKeys(fn ($h) => [
+            $h->id => User::where('role', 'student')
+                          ->where('is_active', true)
+                          ->where('halqa_id', $h->id)
+                          ->count(),
+        ])->toArray();
 
-        DB::transaction(function () use ($units, $halqaList, $n, $students) {
-            foreach ($units as $i => $unit) {
-                $halqa = $halqaList[$i % $n];
+        $halqaById = $halqas->keyBy('id');
+
+        DB::transaction(function () use ($units, $halqaById, &$halqaCounts, $students) {
+            foreach ($units as $unit) {
+                // Pick the halqa with the fewest students so far
+                asort($halqaCounts);
+                $halqaId = array_key_first($halqaCounts);
+                $halqa   = $halqaById[$halqaId];
+
                 foreach ($unit as $studentId) {
                     $students[$studentId]->update(['halqa_id' => $halqa->id]);
                 }
+                $halqaCounts[$halqaId] += count($unit);
             }
 
             // Backfill halqa_id on any null-halqa pairs whose both students are now assigned
@@ -249,7 +261,8 @@ class HalqaController extends Controller
             });
         });
 
-        return back()->with('success', count(array_merge(...$units)) . " students assigned to {$n} halqa(s). Pair groupings preserved.");
+        $n = count($halqaById);
+        return back()->with('success', count(array_merge(...$units)) . " students assigned to {$n} halqa(s) (smallest halqa filled first). Pair groupings preserved.");
     }
 
     // ── Random pair within halqa ──────────────────────────────────────────────

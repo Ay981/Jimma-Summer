@@ -162,13 +162,15 @@ function MobileNavItem({ href, icon: Icon, label, active }) {
             href={href}
             style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-                flex: 1, padding: '6px 4px', textDecoration: 'none',
+                flex: 1, minWidth: 0, padding: '6px 1px', textDecoration: 'none',
                 color: active ? 'var(--primary)' : 'var(--muted-foreground)',
-                fontSize: '0.625rem', fontWeight: active ? 600 : 400,
+                fontSize: '0.5rem', fontWeight: active ? 600 : 400,
             }}
         >
-            <Icon size={20} weight={active ? 'fill' : 'regular'} />
-            {label}
+            <Icon size={18} weight={active ? 'fill' : 'regular'} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
+                {label}
+            </span>
         </Link>
     );
 }
@@ -295,7 +297,19 @@ export default function StudentLayout({ children, title }) {
                     >
                         {title}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {/* Badges shortcut — mobile only, since badges isn't in the bottom nav */}
+                        <Link
+                            href="/student/badges"
+                            className="mobile-only"
+                            style={{
+                                display: 'flex', alignItems: 'center', padding: '6px',
+                                color: isActive('/student/badges') ? 'var(--primary)' : 'var(--muted-foreground)',
+                                borderRadius: 'var(--radius-md)',
+                            }}
+                        >
+                            <Medal size={20} weight={isActive('/student/badges') ? 'fill' : 'regular'} />
+                        </Link>
                         <NotificationBell />
                         <HeaderLogoutButton />
                     </div>
@@ -317,7 +331,7 @@ export default function StudentLayout({ children, title }) {
                 className="mobile-bottom-nav"
             >
                 {/* Show 5 most important nav items on mobile */}
-                {['/student/dashboard', '/student/announcements', '/student/history', '/student/pair', '/student/halqa'].map((href) => {
+                {['/student/dashboard', '/student/announcements', '/student/history', '/student/pair', '/student/halqa', '/student/journal'].map((href) => {
                     const item = navItems.find((n) => n.href === href);
                     return item ? <MobileNavItem key={href} {...item} active={isActive(href)} /> : null;
                 })}

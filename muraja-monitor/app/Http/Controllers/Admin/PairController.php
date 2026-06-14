@@ -127,13 +127,6 @@ class PairController extends Controller
         $studentA = User::findOrFail($request->student_a_id);
         $studentB = User::findOrFail($request->student_b_id);
 
-        if (!$studentA->halqa_id || !$studentB->halqa_id) {
-            return back()->with('error', 'Both students must be assigned to a halqa before being paired.');
-        }
-        if ($studentA->halqa_id !== $studentB->halqa_id) {
-            return back()->with('error', 'Students must be in the same halqa to be paired.');
-        }
-
         // Block only if either student is in an ACTIVE pair (has a second member)
         $alreadyActive = Pair::whereNotNull('student_b_id')
             ->where(function ($q) use ($studentA, $studentB) {
@@ -154,10 +147,12 @@ class PairController extends Controller
                   ->orWhere('student_a_id', $studentB->id);
             })->delete();
 
+        $halqaId = $studentA->halqa_id ?? $studentB->halqa_id;
+
         Pair::create([
             'student_a_id' => $studentA->id,
             'student_b_id' => $studentB->id,
-            'halqa_id'     => $studentA->halqa_id,
+            'halqa_id'     => $halqaId,
             'status'       => 'active',
         ]);
 

@@ -20,7 +20,7 @@ class PartnerSubmitted extends Notification
     public function toDatabase(mixed $notifiable): array
     {
         return [
-            'message'      => "{$this->partnerName} logged their revision for today.",
+            'message'      => "{$this->partnerName} has recorded your revision for today.",
             'partner_name' => $this->partnerName,
             'submission_id'=> $this->submission->id,
             'juz'          => $this->submission->juz,

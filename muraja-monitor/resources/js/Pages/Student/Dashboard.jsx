@@ -344,7 +344,7 @@ export default function Dashboard({
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
 
                 {/* ── Stat Cards ────────────────────────────────────────── */}
-                <div data-onboard="stat-cards" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'12px'}}>
+                <div className="stat-grid" data-onboard="stat-cards" style={{gap:'12px'}}>
                     <StatCard label="Consistency" value={`${Math.round(consistency)}%`} sub="Overall program" />
                     <StatCard label="Current Streak" value={streak} sub="days in a row" />
                     <StatCard label="Total Pages" value={pages_total.toLocaleString()} sub="submitted" />

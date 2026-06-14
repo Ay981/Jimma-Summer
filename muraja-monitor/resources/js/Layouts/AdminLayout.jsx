@@ -174,7 +174,8 @@ export default function AdminLayout({ children, title }) {
                 width: '220px', flexShrink: 0,
                 background: 'var(--sidebar)', borderRight: '1px solid var(--sidebar-border)',
                 display: 'flex', flexDirection: 'column',
-                position: 'sticky', top: 0, height: '100vh',
+                position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 50,
+                overflowY: 'auto',
             }}>
                 {/* Logo + app name */}
                 <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--sidebar-border)' }}>
@@ -218,7 +219,7 @@ export default function AdminLayout({ children, title }) {
             </aside>
 
             {/* ── Main content ──────────────────────────────────────────── */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div className="admin-main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                 {/* Top bar */}
                 <header style={{

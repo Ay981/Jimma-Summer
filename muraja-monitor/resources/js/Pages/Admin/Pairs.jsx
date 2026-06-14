@@ -222,18 +222,12 @@ function CreatePairForm({ students, onClose }) {
                     <label style={{ display: 'block', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Student A</label>
                     <select
                         value={data.student_a_id}
-                        onChange={e => {
-                            const newA = e.target.value;
-                            const aHalqa = students.find(s => s.id === Number(newA))?.halqa_id;
-                            const bHalqa = students.find(s => s.id === Number(data.student_b_id))?.halqa_id;
-                            setData('student_a_id', newA);
-                            if (aHalqa !== bHalqa) setData('student_b_id', '');
-                        }}
+                        onChange={e => setData('student_a_id', e.target.value)}
                         style={selectStyle}
                         required
                     >
                         <option value="">— Select —</option>
-                        {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {students.map(s => <option key={s.id} value={s.id}>{s.name}{s.halqa ? ` · ${s.halqa}` : ''}</option>)}
                     </select>
                     {errors.student_a_id && <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.student_a_id}</p>}
                 </div>
@@ -248,12 +242,8 @@ function CreatePairForm({ students, onClose }) {
                     >
                         <option value="">{data.student_a_id ? '— Select —' : '— Pick Student A first —'}</option>
                         {students
-                            .filter(s => {
-                                if (s.id === Number(data.student_a_id)) return false;
-                                const a = students.find(x => x.id === Number(data.student_a_id));
-                                return a && s.halqa_id && s.halqa_id === a.halqa_id;
-                            })
-                            .map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                            .filter(s => s.id !== Number(data.student_a_id))
+                            .map(s => <option key={s.id} value={s.id}>{s.name}{s.halqa ? ` · ${s.halqa}` : ''}</option>)
                         }
                     </select>
                     {errors.student_b_id && <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.student_b_id}</p>}
@@ -283,17 +273,18 @@ function CreatePairForm({ students, onClose }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function Pairs({ pairs, requests, suggested, no_match, halqas, students }) {
+export default function Pairs({ pairs, requests, suggested, no_match, halqas, students, unassigned }) {
     const [tab, setTab] = useState('All Pairs');
     const [showCreate, setShowCreate] = useState(false);
 
-    const needsReview = pairs.filter(p => p.needs_review);
+    const needsReview   = pairs.filter(p => p.needs_review);
+    const unpairedCount = (pairs.filter(p => p.status === 'solo').length) + ((unassigned ?? []).length);
 
     const tabs = [
         { key: 'All Pairs',    count: pairs.length },
         { key: 'Needs Review', count: needsReview.length, warn: needsReview.length > 0 },
         { key: 'Requests',     count: requests.filter((r) => r).length },
-        { key: 'Assignment',   count: null },
+        { key: 'Assignment',   count: unpairedCount, warn: unpairedCount > 0 },
         { key: 'Change Requests', count: null, action: () => router.get('/admin/pair-changes') },
     ];
 
@@ -303,11 +294,11 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
             <style>{PAIRS_CSS}</style>
 
             {/* Summary */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div className="stat-grid" style={{ marginBottom: '20px' }}>
                 {[
-                    { label: 'Total pairs',   value: pairs.length },
-                    { label: 'Active',        value: pairs.filter((p) => p.status === 'active').length },
-                    { label: 'Solo',          value: pairs.filter((p) => p.status === 'solo').length },
+                    { label: 'Total pairs',      value: pairs.length },
+                    { label: 'Active',           value: pairs.filter((p) => p.status === 'active').length },
+                    { label: 'Unpaired students', value: unpairedCount, warn: unpairedCount > 0 },
                     { label: 'Pending requests', value: requests.length, warn: requests.length > 0 },
                 ].map(({ label, value, warn }) => (
                     <div key={label} style={{ padding: '10px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', gap: '8px', alignItems: 'baseline', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>
@@ -317,19 +308,34 @@ export default function Pairs({ pairs, requests, suggested, no_match, halqas, st
                 ))}
             </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                {tabs.map(({ key, count, warn, action }) => (
-                    <button key={key} onClick={() => action ? action() : setTab(key)} style={{
-                        padding: '6px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
-                        background: tab === key ? (warn ? 'var(--status-at-risk)' : 'var(--primary)') : 'var(--card)',
-                        color: tab === key ? 'var(--warm-50)' : (warn ? 'var(--status-at-risk)' : 'var(--foreground)'),
-                        fontWeight: tab === key ? 600 : 400, fontSize: '0.875rem',
-                        borderColor: warn && tab !== key ? 'var(--status-at-risk-border)' : 'var(--border)',
-                    }}>
-                        {key}{count != null ? ` (${count})` : ''}
-                    </button>
-                ))}
+            {/* Tabs: desktop row / mobile select */}
+            <div style={{ marginBottom: '16px' }}>
+                <div className="tab-row-desktop">
+                    {tabs.map(({ key, count, warn, action }) => (
+                        <button key={key} onClick={() => action ? action() : setTab(key)} style={{
+                            padding: '6px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer',
+                            background: tab === key ? (warn ? 'var(--status-at-risk)' : 'var(--primary)') : 'var(--card)',
+                            color: tab === key ? 'var(--warm-50)' : (warn ? 'var(--status-at-risk)' : 'var(--foreground)'),
+                            fontWeight: tab === key ? 600 : 400, fontSize: '0.875rem',
+                            borderColor: warn && tab !== key ? 'var(--status-at-risk-border)' : 'var(--border)',
+                        }}>
+                            {key}{count != null ? ` (${count})` : ''}
+                        </button>
+                    ))}
+                </div>
+                <select
+                    className="tab-select-mobile"
+                    value={tab}
+                    onChange={(e) => {
+                        const found = tabs.find(t => t.key === e.target.value);
+                        if (found?.action) found.action();
+                        else setTab(e.target.value);
+                    }}
+                >
+                    {tabs.map(({ key, count }) => (
+                        <option key={key} value={key}>{key}{count != null ? ` (${count})` : ''}</option>
+                    ))}
+                </select>
             </div>
 
             {/* All Pairs */}

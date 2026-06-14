@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Playwright video recordings — keep scripts in git, ignore generated output
+/tests/video-output/
+/tests/videos/pair-request.png

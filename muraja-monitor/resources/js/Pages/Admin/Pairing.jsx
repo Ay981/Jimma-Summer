@@ -170,7 +170,7 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
             <Head title="Pairing" />
 
             {/* Stats bar */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+            <div className="stat-grid" style={{ marginBottom: '20px' }}>
                 {[
                     { label: 'Total Students',  value: stats.total_students },
                     { label: 'Submitted Request', value: stats.requested, color: 'var(--primary)' },
@@ -179,8 +179,8 @@ export default function Pairing({ window_open, window_deadline, requests, stats,
                     { label: 'One-sided',        value: stats.one_sided, color: 'var(--status-slipping)' },
                     { label: 'Conflicts',        value: stats.conflict, color: 'var(--destructive)' },
                     { label: 'Pairs Created',    value: stats.existing_pairs, color: stats.existing_pairs > 0 ? 'var(--success)' : 'var(--muted-foreground)' },
-                ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 16px', minWidth: '110px', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>
+                ].map(({ label, value, color }, i, arr) => (
+                    <div key={label} className={i === arr.length - 1 && arr.length % 2 !== 0 ? 'stat-card-full' : ''} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 16px', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.08)' }}>
                         <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: color ?? 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
                         <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
                     </div>

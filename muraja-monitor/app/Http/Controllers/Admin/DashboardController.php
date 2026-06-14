@@ -160,8 +160,16 @@ class DashboardController extends Controller
 
     public function startProgram(Request $request): RedirectResponse
     {
+        $existingStart = ProgramSetting::get('program_start_date');
+
+        if ($existingStart) {
+            // Resume after an end — keep the original start date, just clear the end
+            ProgramSetting::set('program_end_date', '');
+            return back()->with('success', "Program resumed. Original start date ({$existingStart}) preserved.");
+        }
+
+        // Truly fresh start — no start date has ever been set
         $today = Carbon::today()->toDateString();
-        // Clear end date so the program is running again, set new start
         ProgramSetting::set('program_start_date', $today);
         ProgramSetting::set('program_end_date', '');
         return back()->with('success', "Program started on {$today}.");

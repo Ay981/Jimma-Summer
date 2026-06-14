@@ -239,13 +239,10 @@ class StudentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name'            => ['required', 'string', 'max:255'],
-            'student_id'      => ['required', 'string', 'max:50', 'unique:users,student_id', 'regex:/^JUMU-\d{4}-\d{3}$/'],
-            'phone'           => ['nullable', 'string', 'max:20'],
-            'current_juz'     => ['required', 'integer', 'min:1', 'max:30'],
-            'available_times' => ['required', 'array', 'min:1'],
-            'available_times.*'=> ['in:after_subhi,after_zuhr,after_asr,after_maghrib,after_isha'],
-            'halqa_id'        => ['nullable', 'exists:halqas,id'],
+            'name'       => ['required', 'string', 'max:255'],
+            'student_id' => ['required', 'string', 'max:50', 'unique:users,student_id', 'regex:/^JUMU-\d{4}-\d{3}$/'],
+            'phone'      => ['required', 'string', 'max:20'],
+            'halqa_id'   => ['required', 'exists:halqas,id'],
         ]);
 
         User::create([
@@ -255,8 +252,6 @@ class StudentController extends Controller
             'password'             => Hash::make('Muraja@1446'),
             'role'                 => 'student',
             'halqa_id'             => $request->halqa_id,
-            'current_juz'          => $request->current_juz,
-            'available_times'      => $request->available_times,
             'is_active'            => true,
             'must_change_password' => true,
         ]);
@@ -345,6 +340,18 @@ class StudentController extends Controller
         ]);
 
         $student->update($request->only('name', 'phone', 'current_juz', 'available_times', 'available_days', 'halqa_id'));
+
+        // Sync pair's halqa_id whenever the student's halqa changes
+        $pair = Pair::where(function ($q) use ($student) {
+            $q->where('student_a_id', $student->id)->orWhere('student_b_id', $student->id);
+        })->whereNotNull('student_b_id')->first();
+
+        if ($pair) {
+            $partner    = User::find($pair->student_a_id === $student->id ? $pair->student_b_id : $pair->student_a_id);
+            $newHalqaId = $student->halqa_id ?? $partner?->halqa_id;
+            $pair->update(['halqa_id' => $newHalqaId]);
+        }
+
         return back()->with('success', 'Student updated.');
     }
 

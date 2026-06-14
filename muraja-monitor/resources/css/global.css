@@ -651,3 +651,134 @@
 	border-left-color: var(--gold-500);
 	font-weight: 500;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PART 2 — GLOBAL MOBILE FIXES
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* FIX 1 — Overflow prevention */
+html, body { overflow-x: hidden; max-width: 100vw; }
+* { min-width: 0; box-sizing: border-box; }
+
+/* FIX 2 — Stat grid (2-col on mobile, auto-fit on desktop) */
+.stat-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+@media (min-width: 640px) {
+	.stat-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
+.stat-card-full { grid-column: 1 / -1; }
+
+/* FIX 3 — Tab filters: desktop row / mobile select */
+.tab-row-desktop { display: none; }
+@media (min-width: 640px) {
+	.tab-row-desktop { display: flex; gap: 8px; flex-wrap: nowrap; }
+}
+.tab-select-mobile {
+	display: block;
+	width: 100%;
+	padding: 10px 14px;
+	border-radius: var(--radius-md);
+	border: 1px solid var(--border);
+	background: var(--card);
+	color: var(--foreground);
+	font-family: 'Lexend', sans-serif;
+	font-size: 0.875rem;
+	font-weight: 500;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 14px center;
+	padding-right: 36px;
+	cursor: pointer;
+}
+@media (min-width: 640px) { .tab-select-mobile { display: none; } }
+
+/* FIX 4 — Card action buttons */
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-actions button { flex: 1 1 auto; min-width: 80px; white-space: nowrap; }
+
+/* FIX 5 — Halqa card inner */
+.halqa-card-inner { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 640px) {
+	.halqa-card-inner { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+/* FIX 7 — Action button rows */
+.action-btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.action-btn-row button,
+.action-btn-row a { flex: 1 1 auto; min-width: 120px; text-align: center; white-space: nowrap; }
+
+/* Students page layout helpers */
+.students-header-actions {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16px;
+}
+.add-student-footer {
+	display: flex;
+	justify-content: center;
+	margin-top: 20px;
+	padding-top: 16px;
+	border-top: 1px solid var(--border);
+}
+.add-student-footer button { width: 100%; max-width: 320px; }
+
+/* Import modal → bottom drawer on mobile */
+@keyframes slideUp {
+	from { transform: translateY(100%); opacity: 0; }
+	to   { transform: translateY(0);    opacity: 1; }
+}
+@media (max-width: 639px) {
+	.import-modal-backdrop { align-items: flex-end !important; padding: 0 !important; }
+	.import-modal-inner {
+		width: 100% !important;
+		max-width: 100% !important;
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+		max-height: 90vh;
+		overflow-y: auto;
+		animation: slideUp 0.25s ease;
+	}
+}
+
+/* 2-col filter dropdowns (stacked on mobile) */
+.filter-row-dropdowns {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+@media (min-width: 640px) {
+	.filter-row-dropdowns { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+	display: inline-block;
+	width: 16px; height: 16px;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.65s linear infinite;
+	vertical-align: middle;
+	flex-shrink: 0;
+}
+.spinner-sm { width: 12px; height: 12px; border-width: 1.5px; }
+.spinner-lg { width: 24px; height: 24px; border-width: 3px; }
+
+/* ── Admin layout: main content offset for fixed sidebar ─────────────────── */
+.admin-main-content { margin-left: 0; }
+@media (min-width: 769px) {
+	.admin-main-content { margin-left: 220px; }
+}
+
+/* ── Button press feedback ────────────────────────────────────────────────── */
+button:not(:disabled):active {
+	opacity: 0.82;
+	transform: translateY(1px);
+}
+

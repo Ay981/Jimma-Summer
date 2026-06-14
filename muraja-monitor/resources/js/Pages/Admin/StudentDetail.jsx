@@ -148,21 +148,20 @@ function EditForm({ student, halqas, onClose }) {
 
 function AdminNoteEditor({ studentId, initialNote }) {
     const [note, setNote] = useState(initialNote ?? '');
-    const [saved, setSaved] = useState(false);
 
     function save() {
         router.post(`/admin/students/${studentId}/note`, { note }, {
-            preserveScroll: true, onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 2000); },
+            preserveScroll: true,
         });
     }
 
     return (
         <div>
-            <textarea value={note} onChange={(e) => { setNote(e.target.value); setSaved(false); }} placeholder="Private admin note (not visible to student or leader)…" rows={4}
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Private admin note (not visible to student or leader)…" rows={4}
                 style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8125rem', resize: 'vertical', fontFamily: 'inherit' }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
-                <button onClick={save} style={{ padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: saved ? 'var(--success)' : 'var(--primary)', color: saved ? 'var(--success-foreground)' : 'var(--primary-foreground)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}>
-                    {saved ? 'Saved ✓' : 'Save'}
+                <button onClick={save} style={{ padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
+                    Save note
                 </button>
             </div>
         </div>

@@ -2,7 +2,33 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
-const COL = '1fr 100px 80px 90px 80px 80px 80px 100px';
+const COL        = '1fr 100px 80px 90px 80px 80px 80px 100px';
+const COL_MOBILE = '1fr 50px 90px'; // name | logins | reset btn
+
+const LEADERS_CSS = `
+.leaders-row {
+    display: grid;
+    grid-template-columns: ${COL};
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--foreground);
+    cursor: pointer;
+    align-items: center;
+}
+.leaders-header {
+    grid-template-columns: ${COL};
+    padding: 6px 14px;
+    cursor: default;
+}
+.leaders-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 639px) {
+    .leaders-row { grid-template-columns: ${COL_MOBILE}; gap: 8px; }
+    .leaders-header { grid-template-columns: ${COL_MOBILE}; }
+    .leaders-col-hide { display: none !important; }
+}
+`;
 
 export default function Leaders({ leaders }) {
     const flagged = (leaders ?? []).filter((l) => l.never_logged_in || l.inactive_this_week);
@@ -23,6 +49,7 @@ export default function Leaders({ leaders }) {
     return (
         <AdminLayout title="Leader Monitoring">
             <Head title="Leaders" />
+            <style>{LEADERS_CSS}</style>
 
             {flagged.length > 0 && (
                 <div style={{ background: 'oklch(97% 0.04 20)', border: '1px solid oklch(85% 0.08 20)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '16px' }}>
@@ -39,10 +66,15 @@ export default function Leaders({ leaders }) {
 
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                 {/* Header */}
-                <div style={{ display: 'grid', gridTemplateColumns: COL, gap: '10px', padding: '6px 14px', borderBottom: '1px solid var(--border)' }}>
-                    {['Leader', 'Halqa', 'Logins 30d', 'Last Login', 'Notes/wk', 'Meetings', 'Members', ''].map((h) => (
-                        <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
-                    ))}
+                <div className="leaders-row leaders-header" style={{ borderBottom: '1px solid var(--border)', background: 'transparent' }}>
+                    <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leader</span>
+                    <span className="leaders-col-hide" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Halqa</span>
+                    <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Logins 30d</span>
+                    <span className="leaders-col-hide" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Login</span>
+                    <span className="leaders-col-hide" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes/wk</span>
+                    <span className="leaders-col-hide" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meetings</span>
+                    <span className="leaders-col-hide" style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Members</span>
+                    <span />
                 </div>
 
                 {(leaders ?? []).length === 0
@@ -51,35 +83,29 @@ export default function Leaders({ leaders }) {
                         <Link
                             key={l.id}
                             href={`/admin/leaders/${l.id}`}
-                            style={{
-                                display: 'grid', gridTemplateColumns: COL,
-                                gap: '10px', padding: '10px 14px',
-                                borderBottom: '1px solid var(--border)',
-                                background: rowBg(l),
-                                textDecoration: 'none', color: 'var(--foreground)',
-                                cursor: 'pointer',
-                            }}
+                            className="leaders-row"
+                            style={{ background: rowBg(l) }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--muted)')}
                             onMouseLeave={(e) => (e.currentTarget.style.background = rowBg(l))}
                         >
-                            {/* Leader name + ID */}
-                            <div>
-                                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>
+                            {/* Leader name + badge + ID */}
+                            <div className="leaders-name">
+                                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {l.name}
                                     {l.never_logged_in && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'var(--destructive)', fontWeight: 600 }}>NEVER LOGGED IN</span>}
                                     {!l.never_logged_in && l.inactive_this_week && <span style={{ marginLeft: '6px', fontSize: '0.6875rem', color: 'oklch(50% 0.12 50)', fontWeight: 600 }}>INACTIVE</span>}
                                 </p>
-                                <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{l.student_id}</p>
+                                <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.student_id}</p>
                             </div>
 
-                            <span style={{ fontSize: '0.875rem', alignSelf: 'center' }}>{l.halqa}</span>
-                            <span style={{ fontSize: '0.875rem', alignSelf: 'center', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{l.logins_30d}</span>
-                            <span style={{ fontSize: '0.8125rem', alignSelf: 'center', color: l.never_logged_in ? 'var(--destructive)' : 'var(--foreground)' }}>{l.last_login}</span>
-                            <span style={{ fontSize: '0.875rem', alignSelf: 'center', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.notes_this_week}/{l.total_notes}</span>
-                            <span style={{ fontSize: '0.875rem', alignSelf: 'center', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.meeting_count}</span>
-                            <span style={{ fontSize: '0.875rem', alignSelf: 'center', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.member_count}</span>
+                            <span className="leaders-col-hide" style={{ fontSize: '0.875rem' }}>{l.halqa}</span>
+                            <span style={{ fontSize: '0.875rem', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{l.logins_30d}</span>
+                            <span className="leaders-col-hide" style={{ fontSize: '0.8125rem', color: l.never_logged_in ? 'var(--destructive)' : 'var(--foreground)' }}>{l.last_login}</span>
+                            <span className="leaders-col-hide" style={{ fontSize: '0.875rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.notes_this_week}/{l.total_notes}</span>
+                            <span className="leaders-col-hide" style={{ fontSize: '0.875rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.meeting_count}</span>
+                            <span className="leaders-col-hide" style={{ fontSize: '0.875rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{l.member_count}</span>
 
-                            {/* Reset PW — stops row navigation */}
+                            {/* Reset PW */}
                             <div style={{ alignSelf: 'center' }}>
                                 <button
                                     onClick={(e) => handleReset(e, l)}

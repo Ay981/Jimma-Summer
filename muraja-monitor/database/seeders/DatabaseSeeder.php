@@ -13,11 +13,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AyatRotationSeeder::class,
             ProgramSettingsSeeder::class,
-            DemoSeeder::class,
+            // DemoSeeder::class,  ← dev only, never run in production
         ]);
 
-        // Create a default admin account for first-run setup
-        User::updateOrCreate(
+        // Create admin account only on first deploy — never overwrites
+        User::firstOrCreate(
             ['student_id' => 'ADMIN001'],
             [
                 'name'                 => 'System Admin',
