@@ -140,6 +140,8 @@ export default function StudentCompare({ students, all_students, selected_ids })
                         <StatCell label="Total Submissions"   valueA={a.submissions}  valueB={b.submissions} />
                         <StatCell label="Total Pages"         valueA={a.pages}        valueB={b.pages}       unit=" pp" />
                         <StatCell label="Total Minutes"       valueA={a.minutes}      valueB={b.minutes}     unit=" min" />
+                        <StatCell label="Avg Test Score"      valueA={a.avg_test_score} valueB={b.avg_test_score} unit="/10" />
+                        <StatCell label="Tests Taken"         valueA={a.test_count}   valueB={b.test_count} />
                     </div>
 
                     {/* ── Available days ───────────────────────────────────────── */}

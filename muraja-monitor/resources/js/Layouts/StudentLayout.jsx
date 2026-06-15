@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Logo from '@/Components/UI/Logo';
 import {
-    Bell, BookOpen, ClockCounterClockwise, House,
+    Bell, BookOpen, ClockCounterClockwise, DotsThree, House,
     Medal, Megaphone, Mosque, SignOut, UsersThree,
 } from '@phosphor-icons/react';
 
@@ -204,6 +204,7 @@ function HeaderLogoutButton() {
 export default function StudentLayout({ children, title }) {
     const { url } = usePage();
     const { auth } = usePage().props;
+    const [showMore, setShowMore] = useState(false);
 
     const navItems = [
         { href: '/student/dashboard',     icon: House,                  label: 'Dashboard' },
@@ -298,19 +299,7 @@ export default function StudentLayout({ children, title }) {
                         {title}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {/* Badges shortcut — mobile only, since badges isn't in the bottom nav */}
-                        <Link
-                            href="/student/badges"
-                            className="mobile-only"
-                            style={{
-                                display: 'flex', alignItems: 'center', padding: '6px',
-                                color: isActive('/student/badges') ? 'var(--primary)' : 'var(--muted-foreground)',
-                                borderRadius: 'var(--radius-md)',
-                            }}
-                        >
-                            <Medal size={20} weight={isActive('/student/badges') ? 'fill' : 'regular'} />
-                        </Link>
-                        <NotificationBell />
+                            <NotificationBell />
                         <HeaderLogoutButton />
                     </div>
                 </header>
@@ -330,12 +319,58 @@ export default function StudentLayout({ children, title }) {
             }}
                 className="mobile-bottom-nav"
             >
-                {/* Show 5 most important nav items on mobile */}
-                {['/student/dashboard', '/student/announcements', '/student/history', '/student/pair', '/student/halqa', '/student/journal'].map((href) => {
+                {['/student/dashboard', '/student/history', '/student/pair', '/student/announcements'].map((href) => {
                     const item = navItems.find((n) => n.href === href);
                     return item ? <MobileNavItem key={href} {...item} active={isActive(href)} /> : null;
                 })}
+                {/* More button */}
+                <button
+                    onClick={() => setShowMore(v => !v)}
+                    style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                        flex: 1, minWidth: 0, padding: '6px 1px', background: 'none', border: 'none',
+                        color: showMore ? 'var(--primary)' : 'var(--muted-foreground)',
+                        fontSize: '0.5rem', fontWeight: showMore ? 600 : 400, cursor: 'pointer',
+                    }}
+                >
+                    <DotsThree size={18} weight={showMore ? 'fill' : 'regular'} />
+                    <span>More</span>
+                </button>
             </nav>
+
+            {/* More sheet */}
+            {showMore && (
+                <>
+                    <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 148 }} />
+                    <div style={{
+                        position: 'fixed', bottom: 'calc(56px + env(safe-area-inset-bottom))',
+                        right: '12px', background: 'var(--card)', border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)', boxShadow: '0 -4px 20px rgba(0,0,0,.12)',
+                        zIndex: 149, minWidth: '160px', padding: '6px',
+                        display: 'flex', flexDirection: 'column', gap: '2px',
+                    }}
+                        className="mobile-bottom-nav"
+                    >
+                        {['/student/halqa', '/student/badges', '/student/journal'].map((href) => {
+                            const item = navItems.find((n) => n.href === href);
+                            if (!item) return null;
+                            return (
+                                <Link key={href} href={href} onClick={() => setShowMore(false)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    padding: '9px 12px', borderRadius: 'var(--radius-md)',
+                                    textDecoration: 'none',
+                                    background: isActive(href) ? 'var(--secondary)' : 'transparent',
+                                    color: isActive(href) ? 'var(--primary)' : 'var(--foreground)',
+                                    fontSize: '0.875rem', fontWeight: isActive(href) ? 600 : 400,
+                                }}>
+                                    <item.icon size={18} weight={isActive(href) ? 'fill' : 'regular'} />
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
 
             <Toast />
 

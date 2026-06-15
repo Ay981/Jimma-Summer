@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 
@@ -17,7 +18,13 @@ export default function WeeklyReport({
     halqa_name, week_start, week_end, total_members, submitted_count,
     student_rows, nudge_list, pair_rows, pdf_url,
 }) {
+    const [pdfLoading, setPdfLoading] = useState(false);
     const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const handlePdfClick = (e) => {
+        setPdfLoading(true);
+        setTimeout(() => setPdfLoading(false), 3000);
+    };
 
     return (
         <LeaderLayout title="Weekly Report">
@@ -31,24 +38,25 @@ export default function WeeklyReport({
                         {fmt(week_start)} – {fmt(week_end)}
                     </p>
                 </div>
-                <a href={pdf_url} target="_blank" style={{
+                <a href={pdf_url} target="_blank" onClick={handlePdfClick} style={{
                     padding: '7px 16px', background: 'var(--primary)', color: 'var(--primary-foreground)',
                     borderRadius: 'var(--radius-sm)', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem',
+                    opacity: pdfLoading ? 0.7 : 1, pointerEvents: pdfLoading ? 'none' : 'auto',
                 }}>
-                    ↓ Download PDF
+                    {pdfLoading ? 'Generating…' : '↓ Download PDF'}
                 </a>
             </div>
 
             {/* Summary pills */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {[
-                    { label: 'Total Members', value: total_members },
-                    { label: 'Submitted This Week', value: submitted_count, color: submitted_count === total_members ? 'var(--success)' : 'var(--foreground)' },
-                    { label: 'Missed (no excuse)', value: nudge_list.length, color: nudge_list.length > 0 ? 'var(--destructive)' : 'var(--success)' },
-                ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 18px', ...SHADOW }}>
+                    { label: 'Total Members', value: total_members, borderColor: 'var(--foreground)' },
+                    { label: 'Submitted This Week', value: submitted_count, borderColor: submitted_count === total_members ? 'var(--success)' : 'var(--foreground)' },
+                    { label: 'Missed (no excuse)', value: nudge_list.length, borderColor: nudge_list.length > 0 ? 'var(--destructive)' : 'var(--success)' },
+                ].map(({ label, value, borderColor }) => (
+                    <div key={label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderTop: `3px solid ${borderColor}`, borderRadius: 'var(--radius-lg)', padding: '12px 18px', ...SHADOW }}>
                         <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted-foreground)' }}>{label}</p>
-                        <p style={{ margin: '4px 0 0', fontSize: '1.5rem', fontWeight: 700, color: color ?? 'var(--foreground)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+                        <p style={{ margin: '4px 0 0', fontSize: '1.5rem', fontWeight: 700, color: borderColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
                     </div>
                 ))}
             </div>
@@ -57,7 +65,7 @@ export default function WeeklyReport({
             {nudge_list.length > 0 && (
                 <div style={{ background: 'oklch(97% 0.03 30)', border: '1px solid var(--status-at-risk-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '16px', ...SHADOW }}>
                     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-at-risk-border)' }}>
-                        <SectionLabel>⚠ Contact These Students — No Submissions, No Excuse ({nudge_list.length})</SectionLabel>
+                        <SectionLabel>Students to Contact This Week ({nudge_list.length})</SectionLabel>
                     </div>
                     <div>
                         {nudge_list.map((s) => (

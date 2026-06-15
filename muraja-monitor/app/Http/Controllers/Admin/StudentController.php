@@ -11,6 +11,7 @@ use App\Models\Halqa;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\MissedSubmissionExcuse;
+use App\Models\MurajaTest;
 use App\Models\ProgramSetting;
 use App\Models\User;
 use App\Models\Watchlist;
@@ -307,6 +308,23 @@ class StudentController extends Controller
             "makeup_date" => $e->makeup_date->toDateString(),
             "reason" => $e->reason,
             "fulfilled" => $e->fulfilled,
+          ],
+        )
+        ->toArray(),
+      "tests" => MurajaTest::where("student_id", $student->id)
+        ->with("leader:id,name")
+        ->orderByDesc("tested_at")
+        ->get()
+        ->map(
+          fn($t) => [
+            "id"         => $t->id,
+            "from_page"  => $t->from_page,
+            "to_page"    => $t->to_page,
+            "from_juz"   => $t->from_juz,
+            "to_juz"     => $t->to_juz,
+            "score"      => $t->score,
+            "tested_at"  => Carbon::parse($t->tested_at)->toDateString(),
+            "leader"     => $t->leader?->name ?? "—",
           ],
         )
         ->toArray(),
@@ -683,6 +701,11 @@ class StudentController extends Controller
           "memo_level" => $s->memo_level ?? "—",
           "heatmap" => $heatmap,
           "weekly" => $weekly,
+          "avg_test_score" => round(
+            MurajaTest::where("student_id", $s->id)->avg("score") ?? 0,
+            1,
+          ),
+          "test_count" => MurajaTest::where("student_id", $s->id)->count(),
         ];
       })
       ->values()

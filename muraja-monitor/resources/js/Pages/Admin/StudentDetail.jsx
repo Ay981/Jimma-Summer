@@ -170,7 +170,7 @@ function AdminNoteEditor({ studentId, initialNote }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function StudentDetail({ student, heatmap, submissions, timeline, halqas }) {
+export default function StudentDetail({ student, heatmap, submissions, timeline, halqas, tests }) {
     const [section, setSection] = useState('timeline');
     const [showEdit, setShowEdit] = useState(false);
 
@@ -192,6 +192,7 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
     const sections = [
         { key: 'timeline',    label: `Timeline (${timeline.length})` },
         { key: 'submissions', label: `Submissions (${submissions.length})` },
+        { key: 'tests',       label: `Tests${tests?.length ? ` (${tests.length})` : ''}` },
         { key: 'note',        label: 'Admin Note' },
     ];
 
@@ -323,6 +324,37 @@ export default function StudentDetail({ student, heatmap, submissions, timeline,
                                     ? <p style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>No submissions yet.</p>
                                     : submissions.map((s) => <SubmissionCard key={s.id} s={s} />)
                                 }
+                            </div>
+                        )}
+
+                        {section === 'tests' && (
+                            <div>
+                                {(tests ?? []).length === 0 ? (
+                                    <p style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>No tests recorded yet.</p>
+                                ) : (tests ?? []).map((t) => {
+                                    const score = t.score;
+                                    const scoreColor = score >= 8 ? 'oklch(38% 0.14 145)' : score >= 5 ? 'oklch(55% 0.15 75)' : 'var(--destructive)';
+                                    const scoreBg   = score >= 8 ? 'oklch(94% 0.06 145)'  : score >= 5 ? 'oklch(96% 0.06 75)'  : 'oklch(96% 0.06 25)';
+                                    const range = [];
+                                    if (t.from_juz  && t.to_juz)  range.push(`Juz ${t.from_juz}–${t.to_juz}`);
+                                    if (t.from_page && t.to_page)  range.push(`pp. ${t.from_page}–${t.to_page}`);
+                                    return (
+                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ minWidth: '54px', textAlign: 'right' }}>
+                                                <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
+                                                    {new Date(t.tested_at + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                                </p>
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 500 }}>{range.length ? range.join(' · ') : '—'}</p>
+                                                <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>by {t.leader}</p>
+                                            </div>
+                                            <span style={{ fontWeight: 700, fontSize: '0.9375rem', padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: scoreBg, color: scoreColor }}>
+                                                {score}/10
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 

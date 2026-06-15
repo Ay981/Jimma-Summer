@@ -30,13 +30,16 @@ export default function PairChangeRequests({ requests }) {
 
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                 {requests.length === 0 ? (
-                    <p style={{ padding: '40px', textAlign: 'center', color: 'var(--muted-foreground)', margin: 0 }}>
-                        No pair change requests submitted yet.
-                    </p>
+                    <div style={{ padding: '40px', textAlign: 'center' }}>
+                        <p style={{ margin: 0, color: 'var(--muted-foreground)' }}>
+                            No pair change requests submitted yet.
+                        </p>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>You can request a pair change from a student's pair detail page.</p>
+                    </div>
                 ) : (
-                    <>
+                    <div style={{ overflowX: 'auto' }}>
                         {/* Header */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px', gap: '10px', padding: '8px 16px', background: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px', gap: '10px', padding: '8px 16px', background: 'var(--muted)', borderBottom: '1px solid var(--border)', minWidth: '560px' }}>
                             {['Student', 'Partner', 'Requested', 'Type', 'Status', 'Date'].map(h => (
                                 <span key={h} style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted-foreground)' }}>{h}</span>
                             ))}
@@ -48,8 +51,9 @@ export default function PairChangeRequests({ requests }) {
                                 <div key={r.id} style={{
                                     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px 80px 90px',
                                     gap: '10px', padding: '10px 16px', alignItems: 'start',
-                                    background: i % 2 ? 'var(--muted)' : 'transparent',
+                                    background: 'transparent',
                                     borderBottom: i < requests.length - 1 ? '1px solid var(--border)' : 'none',
+                                    minWidth: '560px',
                                 }}>
                                     <div>
                                         <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500 }}>{r.student_name}</p>
@@ -63,7 +67,7 @@ export default function PairChangeRequests({ requests }) {
                                 </div>
                             );
                         })}
-                    </>
+                    </div>
                 )}
             </div>
         </LeaderLayout>

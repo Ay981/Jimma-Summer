@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leader;
 use App\Http\Controllers\Controller;
 use App\Models\ContactLog;
 use App\Models\MissedSubmissionExcuse;
+use App\Models\MurajaTest;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\PrivateNote;
@@ -126,6 +127,18 @@ class PairDetailController extends Controller
                         'makeup_date' => $e->makeup_date->toDateString(),
                         'reason'      => $e->reason,
                         'fulfilled'   => $e->fulfilled,
+                    ])->toArray(),
+                'tests' => MurajaTest::where('student_id', $student->id)
+                    ->orderByDesc('tested_at')
+                    ->get()
+                    ->map(fn ($t) => [
+                        'id'        => $t->id,
+                        'from_page' => $t->from_page,
+                        'to_page'   => $t->to_page,
+                        'from_juz'  => $t->from_juz,
+                        'to_juz'    => $t->to_juz,
+                        'score'     => $t->score,
+                        'tested_at' => Carbon::parse($t->tested_at)->toDateString(),
                     ])->toArray(),
             ];
         })->values()->toArray();

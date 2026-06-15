@@ -122,19 +122,31 @@ function objToCSS(obj) {
 
 // ── Tables ────────────────────────────────────────────────────────────────────
 
+function AvgTestBadge({ score }) {
+    const color = score >= 8 ? 'oklch(38% 0.14 145)' : score >= 5 ? 'oklch(55% 0.15 75)' : score > 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
+    const bg    = score >= 8 ? 'oklch(94% 0.06 145)' : score >= 5 ? 'oklch(96% 0.06 75)'  : score > 0 ? 'oklch(96% 0.06 25)' : 'var(--muted)';
+    return (
+        <span style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: bg, color, fontVariantNumeric: 'tabular-nums', alignSelf: 'center', display: 'inline-block' }}>
+            {score > 0 ? `${score}/10` : '—'}
+        </span>
+    );
+}
+
 function StudentTable({ students }) {
-    // Desktop: rank | name(capped) | consistency | streak | pages | min | halqa | cert
-    // Mobile:  rank | name(capped) | % | pages | cert
-    const COLS        = '36px minmax(100px, 200px) 76px 56px 60px 56px 70px 88px';
-    const COLS_MOBILE = '36px minmax(80px, 130px) 46px 52px 80px';
+    // Desktop (8 cols): rank | name | avg_test | consistency | streak | pages | min | halqa | cert
+    // Mobile  (4 cols): rank | name | avg_test | pages | cert
+    // hide = hidden on mobile only
+    const COLS        = '36px minmax(100px,1fr) 72px 72px 52px 56px 52px 70px 80px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 60px 52px 80px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Student' },
-        { label: 'Consistency', mobileLabel: '%' },
-        { label: 'Streak',  hide: true },
-        { label: 'Pages',   mobileLabel: 'Pgs' },
-        { label: 'Min',     hide: true },
-        { label: 'Halqa',   hide: true },
+        { label: 'Avg Test', mobileLabel: 'Avg' },
+        { label: 'Consistency', hide: true },
+        { label: 'Streak',      hide: true },
+        { label: 'Pages',       hide: true },
+        { label: 'Min',         hide: true },
+        { label: 'Halqa',       hide: true },
         { label: '' },
     ];
 
@@ -147,9 +159,10 @@ function StudentTable({ students }) {
                         <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{s.student_id}</p>
                     </div>
-                    <span style={{ ...NUM, fontWeight: s.rank <= 3 ? 700 : 400 }}>{s.consistency}%</span>
+                    <AvgTestBadge score={s.avg_test_score ?? 0} />
+                    <span className="lb-student-hide" style={{ ...NUM, fontWeight: s.rank <= 3 ? 700 : 400 }}>{s.consistency}%</span>
                     <span className="lb-student-hide" style={NUM}>{s.streak}d</span>
-                    <span style={NUM}>{s.pages}</span>
+                    <span className="lb-student-hide" style={NUM}>{s.pages}</span>
                     <span className="lb-student-hide" style={NUM}>{s.minutes}</span>
                     <span className="lb-student-hide" style={{ ...NUM, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{s.halqa}</span>
                     <a href={`/admin/leaderboard/certificate/${s.id}`} style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
