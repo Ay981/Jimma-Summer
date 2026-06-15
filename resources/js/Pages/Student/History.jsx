@@ -59,8 +59,9 @@ function EditRow({ submission, onCancel }) {
     );
 }
 
-export default function History({ submissions, current_month, months, is_editable, user_id }) {
+export default function History({ submissions, current_month, months, is_editable, user_id, tests }) {
     const [editingId, setEditingId] = useState(null);
+    const [tab, setTab]             = useState('submissions');
 
     function changeMonth(m) {
         router.get('/student/history', { month: m }, { preserveScroll: true });
@@ -69,13 +70,75 @@ export default function History({ submissions, current_month, months, is_editabl
     const th = { padding:'10px 12px',textAlign:'left',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:600,borderBottom:'1px solid var(--border)',whiteSpace:'nowrap' };
     const td = { padding:'10px 12px',fontSize:'0.875rem',color:'var(--foreground)',borderBottom:'1px solid var(--border)' };
 
+    const tabBtn = (key, label) => (
+        <button onClick={() => setTab(key)} style={{
+            padding: '6px 16px', border: 'none', cursor: 'pointer',
+            borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent',
+            background: 'transparent', fontWeight: tab === key ? 600 : 400,
+            color: tab === key ? 'var(--primary)' : 'var(--muted-foreground)',
+            fontSize: '0.875rem',
+        }}>{label}</button>
+    );
+
     return (
         <StudentLayout title="History">
             <Head title="History" />
             <div className="page-content">
 
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'8px'}}>
-                    <h1 style={{margin:0,fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>Submission History</h1>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',flexWrap:'wrap',gap:'8px'}}>
+                    <h1 style={{margin:0,fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>History</h1>
+                </div>
+
+                {/* Tabs */}
+                <div style={{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:'16px'}}>
+                    {tabBtn('submissions', `Submissions (${submissions.total ?? 0})`)}
+                    {tabBtn('tests', `Tests (${(tests ?? []).length})`)}
+                </div>
+
+                {tab === 'tests' && (
+                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+                        {(tests ?? []).length === 0 ? (
+                            <p style={{padding:'40px',textAlign:'center',color:'var(--muted-foreground)',margin:0}}>No tests recorded yet.</p>
+                        ) : (
+                            <div style={{overflowX:'auto'}}>
+                                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                    <thead>
+                                        <tr style={{background:'var(--muted)'}}>
+                                            <th style={th}>Date</th>
+                                            <th style={th}>Range</th>
+                                            <th style={th}>Score</th>
+                                            <th style={th}>Tested by</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tests.map(t => {
+                                            const range = [];
+                                            if (t.from_juz && t.to_juz)   range.push(`Juz ${t.from_juz}–${t.to_juz}`);
+                                            if (t.from_page && t.to_page) range.push(`pp. ${t.from_page}–${t.to_page}`);
+                                            const scoreColor = t.score >= 8 ? 'oklch(38% 0.14 145)' : t.score >= 5 ? 'oklch(55% 0.15 75)' : 'var(--destructive)';
+                                            const scoreBg   = t.score >= 8 ? 'oklch(94% 0.06 145)' : t.score >= 5 ? 'oklch(96% 0.06 75)'  : 'oklch(96% 0.06 25)';
+                                            return (
+                                                <tr key={t.id}>
+                                                    <td style={td}>{t.date}</td>
+                                                    <td style={td}>{range.join(' · ') || '—'}</td>
+                                                    <td style={td}>
+                                                        <span style={{fontWeight:700,padding:'2px 8px',borderRadius:'var(--radius-sm)',background:scoreBg,color:scoreColor}}>
+                                                            {t.score}/10
+                                                        </span>
+                                                    </td>
+                                                    <td style={{...td,color:'var(--muted-foreground)',fontSize:'0.8125rem'}}>{t.leader}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {tab === 'submissions' && (<>
+                <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'12px'}}>
                     <select value={current_month} onChange={e=>changeMonth(e.target.value)}
                         style={{padding:'6px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius-md)',background:'var(--card)',color:'var(--foreground)',fontSize:'0.875rem'}}>
                         {months.map(m=>(
@@ -169,6 +232,7 @@ export default function History({ submissions, current_month, months, is_editabl
                         )}
                     </div>
                 )}
+                </>)}
             </div>
         </StudentLayout>
     );

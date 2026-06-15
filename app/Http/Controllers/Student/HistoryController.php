@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\MurajaTest;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use Carbon\Carbon;
@@ -51,12 +52,28 @@ class HistoryController extends Controller
             $cursor->addMonth();
         }
 
+        $tests = MurajaTest::where('student_id', $user->id)
+            ->with('leader:id,name')
+            ->orderByDesc('tested_at')
+            ->get()
+            ->map(fn ($t) => [
+                'id'        => $t->id,
+                'date'      => Carbon::parse($t->tested_at)->format('M d, Y'),
+                'from_juz'  => $t->from_juz,
+                'to_juz'    => $t->to_juz,
+                'from_page' => $t->from_page,
+                'to_page'   => $t->to_page,
+                'score'     => $t->score,
+                'leader'    => $t->leader?->name ?? '—',
+            ])->toArray();
+
         return Inertia::render('Student/History', [
             'submissions'   => $submissions,
             'current_month' => $month,
             'months'        => array_reverse($months),
             'is_editable'   => $isEditable,
             'user_id'       => $user->id,
+            'tests'         => $tests,
         ]);
     }
 }

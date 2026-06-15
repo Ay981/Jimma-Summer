@@ -20,6 +20,7 @@ use App\Http\Controllers\Leader\BroadcastController as LeaderBroadcast;
 use App\Http\Controllers\Leader\MeetingController as LeaderMeeting;
 use App\Http\Controllers\Leader\OutreachController as LeaderOutreach;
 use App\Http\Controllers\Leader\PairDetailController as LeaderPairDetail;
+use App\Http\Controllers\Leader\TestController as LeaderTest;
 use App\Http\Controllers\Leader\PasswordResetController as LeaderPasswordReset;
 use App\Http\Controllers\Leader\PdfExportController as LeaderPdfExport;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
@@ -160,9 +161,9 @@ Route::middleware(["auth", "role:leader"])
     Route::get("/dashboard", [LeaderDashboard::class, "index"])->name(
       "dashboard",
     );
-    Route::get("/announcements", [LeaderAnnouncements::class, "index"])->name(
-      "announcements",
-    );
+    Route::get("/announcements", [LeaderAnnouncements::class, "index"])->name("announcements");
+    Route::post("/announcements", [LeaderAnnouncements::class, "store"])->name("announcements.store");
+    Route::delete("/announcements/{announcement}", [LeaderAnnouncements::class, "destroy"])->name("announcements.destroy");
 
     // Pair detail & actions
     Route::get("/members/{pair}", [LeaderPairDetail::class, "show"])->name(
@@ -180,6 +181,11 @@ Route::middleware(["auth", "role:leader"])
       LeaderPairDetail::class,
       "toggleWatchlist",
     ])->name("members.watchlist");
+    // Tests
+    Route::post("/members/{pair}/tests", [LeaderTest::class, "store"])->name("members.tests.store");
+    Route::put("/members/{pair}/tests/{test}", [LeaderTest::class, "update"])->name("members.tests.update");
+    Route::delete("/members/{pair}/tests/{test}", [LeaderTest::class, "destroy"])->name("members.tests.destroy");
+
     Route::post("/members/{pair}/submissions/{submission}/flag", [
       LeaderPairDetail::class,
       "flagSubmission",

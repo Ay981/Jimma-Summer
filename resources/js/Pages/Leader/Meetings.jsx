@@ -43,11 +43,12 @@ function ActionItemRow({ item }) {
 // ── Meeting card ──────────────────────────────────────────────────────────────
 
 function MeetingCard({ meeting, allStudents }) {
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded]           = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [confirmFinalise, setConfirmFinalise] = useState(false);
     const isDraft = meeting.state === 'draft';
 
     function del() {
-        if (!confirm('Delete this meeting log? This cannot be undone.')) return;
         router.delete(`/leader/meetings/${meeting.id}`, { preserveScroll: true });
     }
 
@@ -59,6 +60,7 @@ function MeetingCard({ meeting, allStudents }) {
             concerns:    meeting.concerns,
             attendance:  meeting.attendance,
         }, { preserveScroll: true });
+        setConfirmFinalise(false);
     }
 
     const dateStr  = new Date(meeting.meeting_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -66,7 +68,7 @@ function MeetingCard({ meeting, allStudents }) {
     const total    = Object.keys(meeting.attendance ?? {}).length;
 
     return (
-        <div style={{ background: 'var(--card)', border: `1px solid ${isDraft ? 'var(--status-slipping-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)' }}>
+        <div style={{ background: 'var(--card)', border: `1px solid ${isDraft ? 'var(--status-slipping-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)' }}>
             {/* Header */}
             <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '180px' }}>
@@ -84,18 +86,42 @@ function MeetingCard({ meeting, allStudents }) {
                         {meeting.action_items?.length > 0 && ` · ${meeting.action_items.length} action item(s)`}
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    {isDraft && (
-                        <button onClick={finalise} style={{ padding: '4px 10px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {isDraft && !confirmFinalise && (
+                        <button onClick={() => setConfirmFinalise(true)} style={{ padding: '4px 10px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
                             Finalise
                         </button>
                     )}
-                    <button onClick={() => setExpanded(!expanded)} style={{ padding: '4px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                    {isDraft && confirmFinalise && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--foreground)', fontWeight: 500, whiteSpace: 'nowrap' }}>Finalise? Cannot be undone.</span>
+                            <button onClick={finalise} style={{ padding: '4px 10px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                                Confirm
+                            </button>
+                            <button onClick={() => setConfirmFinalise(false)} style={{ padding: '4px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                        </span>
+                    )}
+                    <button onClick={() => setExpanded(!expanded)} aria-label={expanded ? 'Collapse meeting' : 'Expand meeting'} style={{ padding: '4px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
                         {expanded ? 'Collapse' : 'Details'}
                     </button>
-                    <button onClick={del} style={{ padding: '4px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
-                        Delete
-                    </button>
+                    {!confirmDelete && (
+                        <button onClick={() => setConfirmDelete(true)} style={{ padding: '4px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                            Delete
+                        </button>
+                    )}
+                    {confirmDelete && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--foreground)', fontWeight: 500, whiteSpace: 'nowrap' }}>Delete meeting?</span>
+                            <button onClick={del} style={{ padding: '4px 10px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                                Yes, delete
+                            </button>
+                            <button onClick={() => setConfirmDelete(false)} style={{ padding: '4px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -296,24 +322,28 @@ function NewMeetingForm({ suggestedStudents, allStudents, onClose }) {
                     <div>
                         <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Attendance</label>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
-                            {allStudents.map((s) => (
-                                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500 }}>{s.name}</span>
-                                    {['present', 'absent', 'excused'].map((v) => (
-                                        <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.8125rem', color: v === 'present' ? 'var(--success)' : v === 'absent' ? 'var(--destructive)' : 'oklch(55% 0.12 84)' }}>
-                                            <input type="radio" name={`att-${s.id}`} value={v} checked={data.attendance[s.id] === v} onChange={() => setAttendance(s.id, v)} />
-                                            {OUTCOME_LABEL[v]}
-                                        </label>
-                                    ))}
-                                </div>
-                            ))}
+                            {allStudents.map((s) => {
+                                const sel = data.attendance[s.id];
+                                const rowBg = sel === 'present' ? 'oklch(94% 0.06 145)' : sel === 'absent' ? 'oklch(96% 0.06 25)' : sel === 'excused' ? 'oklch(96% 0.06 75)' : 'transparent';
+                                return (
+                                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 6px', borderBottom: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: rowBg, transition: 'background 0.15s' }}>
+                                        <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500 }}>{s.name}</span>
+                                        {['present', 'absent', 'excused'].map((v) => (
+                                            <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.8125rem', color: v === 'present' ? 'var(--success)' : v === 'absent' ? 'var(--destructive)' : 'oklch(55% 0.12 84)' }}>
+                                                <input type="radio" name={`att-${s.id}`} value={v} checked={data.attendance[s.id] === v} onChange={() => setAttendance(s.id, v)} />
+                                                {OUTCOME_LABEL[v]}
+                                            </label>
+                                        ))}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* Action items */}
                     <div>
                         <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Action Items</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 1fr auto', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr)) auto', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
                             <select value={newAction.student_id} onChange={(e) => setNewAction({ ...newAction, student_id: e.target.value })} style={inp}>
                                 <option value="">Student…</option>
                                 {allStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}

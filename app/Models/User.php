@@ -16,6 +16,7 @@ class User extends Authenticatable
     "phone",
     "telegram_username",
     "password",
+    "role",
     "halqa_id",
     "weekly_target",
     "current_juz",
@@ -27,7 +28,6 @@ class User extends Authenticatable
     "is_active",
     "must_change_password",
     "profile_completed",
-    // role remains guarded — never from request input
   ];
 
   protected $hidden = [

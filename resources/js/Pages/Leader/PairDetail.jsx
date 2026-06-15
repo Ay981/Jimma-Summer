@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { Phone, ChatText, UsersFour } from '@phosphor-icons/react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 import Heatmap from '@/Components/UI/Heatmap';
 
@@ -23,7 +24,10 @@ function EscalateModal({ studentId, pairId, onClose }) {
                 style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '380px', maxWidth: '95vw' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <h3 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 700 }}>Escalate to Admin</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Escalate to Admin</h3>
+                    <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted-foreground)', lineHeight: 1 }}>✕</button>
+                </div>
                 <p style={{ margin: '0 0 10px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
                     A flag will appear in admin outreach with your summary. The contact log will not be duplicated.
                 </p>
@@ -127,6 +131,7 @@ function HistoryCard({ entry, pairId }) {
                 <button
                     onClick={toggleFlag}
                     title={entry.is_flagged ? 'Remove flag' : 'Flag for review'}
+                    aria-label={entry.is_flagged ? 'Remove flag' : 'Flag for review'}
                     data-onboard="flag-btn"
                     style={{
                         padding: '4px 7px', borderRadius: 'var(--radius-sm)',
@@ -171,6 +176,11 @@ function HistoryCard({ entry, pairId }) {
 
 function ContactEntry({ entry }) {
     const METHOD_LABEL = { call: 'Call', message: 'Message', in_person: 'In Person' };
+    const METHOD_ICON  = {
+        call:      <Phone size={13} />,
+        message:   <ChatText size={13} />,
+        in_person: <UsersFour size={13} />,
+    };
     return (
         <div style={{
             padding: '10px 12px', borderBottom: '1px solid var(--border)',
@@ -181,7 +191,9 @@ function ContactEntry({ entry }) {
                     fontSize: '0.6875rem', padding: '2px 6px',
                     borderRadius: 'var(--radius-sm)', background: 'var(--secondary)',
                     color: 'var(--secondary-foreground)', fontWeight: 600,
+                    display: 'inline-flex', alignItems: 'center', gap: '3px',
                 }}>
+                    {METHOD_ICON[entry.method]}
                     {METHOD_LABEL[entry.method] ?? entry.method}
                 </span>
             </div>
@@ -426,7 +438,7 @@ function PairChangeModal({ student, partnerName, pairId, allStudents, onClose })
                 {/* Header */}
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>Request Pair Change</p>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted-foreground)' }}>✕</button>
+                    <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted-foreground)' }}>✕</button>
                 </div>
 
                 <form onSubmit={submit} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -517,18 +529,200 @@ function PairChangeModal({ student, partnerName, pairId, allStudents, onClose })
     );
 }
 
+// ── Submit / Edit test modal ──────────────────────────────────────────────────
+
+function TestModal({ student, pairId, test, onClose }) {
+    const isEdit = !!test;
+    const today  = new Date().toISOString().slice(0, 10);
+
+    const { data, setData, post, put, processing, errors } = useForm({
+        student_id: student.id,
+        from_juz:   test?.from_juz  ?? '',
+        to_juz:     test?.to_juz    ?? '',
+        from_page:  test?.from_page ?? '',
+        to_page:    test?.to_page   ?? '',
+        score:      test?.score     ?? '',
+        tested_at:  test?.tested_at ?? today,
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        const opts = { preserveScroll: true, onSuccess: onClose };
+        isEdit
+            ? put(`/leader/members/${pairId}/tests/${test.id}`, opts)
+            : post(`/leader/members/${pairId}/tests`, opts);
+    }
+
+    const inp = {
+        padding: '7px 10px', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)', background: 'var(--background)',
+        color: 'var(--foreground)', fontSize: '0.875rem',
+        width: '100%', boxSizing: 'border-box',
+    };
+
+    const label = (txt) => (
+        <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)', marginBottom: '3px' }}>
+            {txt}
+        </label>
+    );
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: '16px' }}
+            onClick={onClose}
+        >
+            <div
+                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', width: '100%', maxWidth: '420px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+                onClick={e => e.stopPropagation()}
+            >
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>
+                        {isEdit ? 'Edit Test' : `Record Test — ${student.name}`}
+                    </p>
+                    <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted-foreground)' }}>✕</button>
+                </div>
+
+                <form onSubmit={submit} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Date */}
+                    <div>
+                        {label('Date tested')}
+                        <input type="date" value={data.tested_at} onChange={e => setData('tested_at', e.target.value)} required style={inp} />
+                        {errors.tested_at && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.tested_at}</p>}
+                    </div>
+
+                    {/* Juz range */}
+                    <div>
+                        {label('Juz range (optional)')}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <div>
+                                <input type="number" min="1" max="30" placeholder="From juz" value={data.from_juz} onChange={e => setData('from_juz', e.target.value)} style={inp} />
+                                {errors.from_juz && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.from_juz}</p>}
+                            </div>
+                            <div>
+                                <input type="number" min="1" max="30" placeholder="To juz" value={data.to_juz} onChange={e => setData('to_juz', e.target.value)} style={inp} />
+                                {errors.to_juz && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.to_juz}</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Page range */}
+                    <div>
+                        {label('Page range (optional)')}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <div>
+                                <input type="number" min="1" max="604" placeholder="From page" value={data.from_page} onChange={e => setData('from_page', e.target.value)} style={inp} />
+                                {errors.from_page && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.from_page}</p>}
+                            </div>
+                            <div>
+                                <input type="number" min="1" max="604" placeholder="To page" value={data.to_page} onChange={e => setData('to_page', e.target.value)} style={inp} />
+                                {errors.to_page && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.to_page}</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Score */}
+                    <div>
+                        {label('Score (0 – 10)')}
+                        <input type="number" min="0" max="10" placeholder="e.g. 8" value={data.score} onChange={e => setData('score', e.target.value)} required style={inp} />
+                        {errors.score && <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.score}</p>}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', paddingTop: '4px' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '7px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: 'pointer' }}>
+                            Cancel
+                        </button>
+                        <button type="submit" disabled={processing} style={{ padding: '7px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.875rem', cursor: processing ? 'not-allowed' : 'pointer', opacity: processing ? 0.7 : 1 }}>
+                            {processing ? 'Saving…' : isEdit ? 'Save changes' : 'Record test'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Test history card ─────────────────────────────────────────────────────────
+
+function TestCard({ test, pairId, onEdit }) {
+    const [confirming, setConfirming] = useState(false);
+
+    function del() {
+        router.delete(`/leader/members/${pairId}/tests/${test.id}`, { preserveScroll: true });
+        setConfirming(false);
+    }
+
+    const score = test.score;
+    const scoreColor = score >= 8
+        ? 'oklch(38% 0.14 145)'
+        : score >= 5
+        ? 'oklch(55% 0.15 75)'
+        : 'var(--destructive)';
+    const scoreBg = score >= 8
+        ? 'oklch(94% 0.06 145)'
+        : score >= 5
+        ? 'oklch(96% 0.06 75)'
+        : 'oklch(96% 0.06 25)';
+
+    const range = [];
+    if (test.from_juz && test.to_juz) range.push(`Juz ${test.from_juz}–${test.to_juz}`);
+    if (test.from_page && test.to_page) range.push(`pp. ${test.from_page}–${test.to_page}`);
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ minWidth: '46px', textAlign: 'right' }}>
+                <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
+                    {new Date(test.tested_at + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </p>
+            </div>
+            <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 500, color: 'var(--foreground)' }}>
+                    {range.length ? range.join(' · ') : '—'}
+                </p>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '0.9375rem', padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: scoreBg, color: scoreColor }}>
+                {score}/10
+            </span>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                {!confirming ? (
+                    <>
+                        <button onClick={() => onEdit(test)} style={{ padding: '4px 8px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer', color: 'var(--foreground)' }}>
+                            Edit
+                        </button>
+                        <button onClick={() => setConfirming(true)} style={{ padding: '4px 8px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer' }}>
+                            Delete
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>Sure?</span>
+                        <button onClick={del} style={{ padding: '4px 8px', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer', fontWeight: 600 }}>
+                            Yes, delete
+                        </button>
+                        <button onClick={() => setConfirming(false)} style={{ padding: '4px 8px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem', cursor: 'pointer', color: 'var(--foreground)' }}>
+                            Cancel
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ── Student panel ─────────────────────────────────────────────────────────────
 
 function StudentPanel({ student, pairId, partnerName, allStudents }) {
     const [section, setSection]           = useState('history');
     const [showPairChange, setShowPairChange] = useState(false);
+    const [testModal, setTestModal]       = useState(null); // null | 'new' | test-object
+    const [confirmReset, setConfirmReset] = useState(false);
 
     const sections = [
-        { key: 'history',  label: 'History' },
-        { key: 'contact',  label: 'Contact Log' },
-        { key: 'excuses',  label: `Excuses${student.excuses?.length ? ` (${student.excuses.length})` : ''}` },
-        { key: 'notes',    label: 'Private Notes' },
-        { key: 'info',     label: 'Info' },
+        { key: 'history',  label: 'History',    short: 'History' },
+        { key: 'tests',    label: `Tests${student.tests?.length ? ` (${student.tests.length})` : ''}`, short: 'Tests' },
+        { key: 'contact',  label: 'Contact Log', short: 'Contact' },
+        { key: 'excuses',  label: `Excuses${student.excuses?.length ? ` (${student.excuses.length})` : ''}`, short: 'Excuses' },
+        { key: 'notes',    label: 'Notes',       short: 'Notes' },
+        { key: 'info',     label: 'Info',        short: 'Info' },
     ];
 
     function toggleWatchlist() {
@@ -538,9 +732,9 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
     }
 
     function resetPassword() {
-        if (!confirm(`Reset ${student.name}'s password to the default?`)) return;
         router.post(`/leader/students/${student.id}/reset-password`, {}, {
             preserveScroll: true,
+            onSuccess: () => setConfirmReset(false),
         });
     }
 
@@ -550,39 +744,39 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
             border: '1px solid var(--border)', overflow: 'hidden',
         }}>
             {/* Header */}
-            <div style={{
-                padding: '14px 16px', borderBottom: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-                <div>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{student.name}</h3>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
-                        ID: {student.student_id}
-                    </p>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+                {/* Name row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ minWidth: 0 }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</h3>
+                        <p style={{ margin: '1px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
+                            {student.student_id}
+                            {student.on_watchlist && <span style={{ marginLeft: '6px', color: 'oklch(50% 0.12 50)', fontWeight: 600 }}>★ Watchlist</span>}
+                        </p>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                        onClick={toggleWatchlist}
-                        style={{
-                            padding: '5px 10px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)',
-                            background: student.on_watchlist ? 'var(--status-slipping-bg)' : 'transparent',
-                            color: student.on_watchlist ? 'oklch(50% 0.12 50)' : 'var(--foreground)',
-                            fontSize: '0.75rem', cursor: 'pointer', fontWeight: student.on_watchlist ? 600 : 400,
-                        }}
-                    >
-                        {student.on_watchlist ? '★ Watchlist' : '☆ Watchlist'}
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button onClick={() => setTestModal('new')} style={{ padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--primary)', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                        + Test
                     </button>
-                    <button
-                        onClick={resetPassword}
-                        style={{
-                            padding: '5px 10px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)', background: 'transparent',
-                            color: 'var(--muted-foreground)', fontSize: '0.75rem', cursor: 'pointer',
-                        }}
-                    >
-                        Reset password
+                    <button onClick={toggleWatchlist} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: student.on_watchlist ? 'var(--status-slipping-bg)' : 'transparent', color: student.on_watchlist ? 'oklch(50% 0.12 50)' : 'var(--foreground)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: student.on_watchlist ? 600 : 400 }}>
+                        {student.on_watchlist ? '★ Unwatch' : '☆ Watch'}
                     </button>
+                    {!confirmReset ? (
+                        <button onClick={() => setConfirmReset(true)} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-foreground)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                            Reset pwd
+                        </button>
+                    ) : (
+                        <>
+                            <button onClick={resetPassword} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                                Confirm reset
+                            </button>
+                            <button onClick={() => setConfirmReset(false)} style={{ padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--foreground)', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -595,17 +789,18 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
             </div>
 
             {/* Section tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', overflowX: 'auto', scrollbarWidth: 'none' }}>
                 {sections.map((s) => (
                     <button
                         key={s.key}
                         onClick={() => setSection(s.key)}
                         style={{
-                            flex: 1, padding: '9px 8px', border: 'none',
+                            flexShrink: 0, padding: '9px 12px', border: 'none',
                             background: section === s.key ? 'var(--secondary)' : 'transparent',
                             color: section === s.key ? 'var(--primary)' : 'var(--muted-foreground)',
                             fontWeight: section === s.key ? 600 : 400, fontSize: '0.8125rem',
                             cursor: 'pointer', borderBottom: section === s.key ? '2px solid var(--primary)' : '2px solid transparent',
+                            whiteSpace: 'nowrap',
                         }}
                     >
                         {s.label}
@@ -623,6 +818,28 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                     ) : (
                         student.history.map((entry) => (
                             <HistoryCard key={entry.id} entry={entry} pairId={pairId} />
+                        ))
+                    )}
+                </div>
+            )}
+
+            {section === 'tests' && (
+                <div>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            onClick={() => setTestModal('new')}
+                            style={{ padding: '5px 12px', border: '1px solid var(--primary)', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                            + Submit Test
+                        </button>
+                    </div>
+                    {(student.tests ?? []).length === 0 ? (
+                        <p style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>
+                            No tests recorded yet.
+                        </p>
+                    ) : (
+                        student.tests.map((t) => (
+                            <TestCard key={t.id} test={t} pairId={pairId} onEdit={(t) => setTestModal(t)} />
                         ))
                     )}
                 </div>
@@ -739,6 +956,16 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                 </div>
             )}
 
+            {/* Test modal */}
+            {testModal && (
+                <TestModal
+                    student={student}
+                    pairId={pairId}
+                    test={testModal === 'new' ? null : testModal}
+                    onClose={() => setTestModal(null)}
+                />
+            )}
+
             {/* Pair change modal */}
             {showPairChange && (
                 <PairChangeModal
@@ -777,7 +1004,7 @@ export default function PairDetail({ pair, halqa, all_students }) {
 
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
                 gap: '16px',
             }}>
                 {students.map((student) => {

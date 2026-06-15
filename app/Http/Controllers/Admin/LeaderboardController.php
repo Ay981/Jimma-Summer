@@ -184,6 +184,36 @@ class LeaderboardController extends Controller
         $consistency = app(\App\Services\ConsistencyService::class)->getConsistency($student->id);
         $streak      = app(\App\Services\ConsistencyService::class)->getStreak($student->id);
         $badges      = Badge::where('user_id', $student->id)->count();
+        $minutes     = (int) (PairSubmission::where('subject_student_id', $student->id)->sum('minutes_spent') ?? 0);
+        $avgTest     = round(\App\Models\MurajaTest::where('student_id', $student->id)->avg('score') ?? 0, 1);
+        $tests       = \App\Models\MurajaTest::where('student_id', $student->id)
+            ->orderBy('tested_at')
+            ->get()
+            ->map(fn ($t) => [
+                'date'      => Carbon::parse($t->tested_at)->format('d M Y'),
+                'from_juz'  => $t->from_juz,
+                'to_juz'    => $t->to_juz,
+                'from_page' => $t->from_page,
+                'to_page'   => $t->to_page,
+                'score'     => $t->score,
+            ])->toArray();
+
+        // Compute student's rank using same weighted formula as studentBoard()
+        $allStudents = User::where('role', 'student')->where('is_active', true)->get();
+        $cs          = app(\App\Services\ConsistencyService::class);
+        $scores      = $allStudents->map(function ($s) use ($cs) {
+            $p    = (int) (PairSubmission::where('subject_student_id', $s->id)->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0);
+            $c    = $cs->getConsistency($s->id) ?? 0;
+            $t    = (float) (\App\Models\MurajaTest::where('student_id', $s->id)->avg('score') ?? 0);
+            return ['id' => $s->id, 'pages' => $p, 'cons' => $c, 'avg_test' => $t];
+        });
+        $maxPages    = $scores->max('pages') ?: 1;
+        $rankScore   = round(($avgTest / 10 * 50) + ($pages / $maxPages * 30) + ($consistency / 100 * 20), 2);
+        $sorted      = $scores->map(function ($s) use ($maxPages) {
+            return array_merge($s, ['rank_score' => ($s['avg_test'] / 10 * 50) + ($s['pages'] / $maxPages * 30) + ($s['cons'] / 100 * 20)]);
+        })->sortByDesc('rank_score')->values();
+        $rank        = $sorted->search(fn ($s) => $s['id'] === $student->id) + 1;
+        $totalStudents = $allStudents->count();
 
         // Revision partner — the other member of the student's pair
         $pair      = Pair::where('student_a_id', $student->id)->orWhere('student_b_id', $student->id)->first();
@@ -205,7 +235,13 @@ class LeaderboardController extends Controller
             'end'          => $end->format('d M Y'),
             'program_name' => ProgramSetting::get('program_name', "Muraja'a Monitor"),
             'generated'    => $today->format('d F Y'),
-            'award'        => $awardMap[$student->id] ?? null,
+            'award'          => $awardMap[$student->id] ?? null,
+            'avg_test'       => $avgTest,
+            'minutes'        => $minutes,
+            'rank'           => $rank,
+            'total_students' => $totalStudents,
+            'rank_score'     => $rankScore,
+            'tests'          => $tests,
         ];
     }
 
@@ -240,20 +276,32 @@ class LeaderboardController extends Controller
     {
         $consistency = app(\App\Services\ConsistencyService::class);
 
-        return User::where('role', 'student')
+        $students = User::where('role', 'student')
             ->where('is_active', true)
             ->get()
             ->map(function ($s) use ($consistency) {
-                $subs    = PairSubmission::where('subject_student_id', $s->id)->get();
-                $pages   = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
-                $minutes = $subs->sum('minutes_spent');
-                $badges  = Badge::where('user_id', $s->id)->count();
-                $cons    = $consistency->getConsistency($s->id) ?? 0;
-                $streak  = $consistency->getStreak($s->id);
+                $subs       = PairSubmission::where('subject_student_id', $s->id)->get();
+                $pages      = (int) $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
+                $minutes    = (int) $subs->sum('minutes_spent');
+                $badges     = Badge::where('user_id', $s->id)->count();
+                $cons       = $consistency->getConsistency($s->id) ?? 0;
+                $streak     = $consistency->getStreak($s->id);
+                $avgTest    = round(\App\Models\MurajaTest::where('student_id', $s->id)->avg('score') ?? 0, 2);
 
-                return ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa' => $s->halqa?->name ?? '—', 'consistency' => $cons, 'streak' => $streak, 'pages' => (int) $pages, 'minutes' => (int) $minutes, 'badges' => $badges];
+                return ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa' => $s->halqa?->name ?? '—', 'consistency' => $cons, 'streak' => $streak, 'pages' => $pages, 'minutes' => $minutes, 'badges' => $badges, 'avg_test_score' => $avgTest];
+            });
+
+        $maxPages = $students->max('pages') ?: 1;
+
+        return $students
+            ->map(function ($s) use ($maxPages) {
+                $testScore  = ($s['avg_test_score'] / 10) * 50;
+                $pagesScore = ($s['pages'] / $maxPages) * 30;
+                $consScore  = ($s['consistency'] / 100) * 20;
+                $s['rank_score'] = round($testScore + $pagesScore + $consScore, 2);
+                return $s;
             })
-            ->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])
+            ->sortByDesc('rank_score')
             ->values()
             ->map(fn ($s, $i) => array_merge($s, ['rank' => $i + 1]))
             ->toArray();
