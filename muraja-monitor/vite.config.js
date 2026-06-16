@@ -3,11 +3,22 @@ import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
+import { networkInterfaces } from 'os';
+
+function getLanIp() {
+    for (const iface of Object.values(networkInterfaces())) {
+        for (const addr of iface) {
+            if (addr.family === 'IPv4' && !addr.internal) return addr.address;
+        }
+    }
+    return 'localhost';
+}
 
 export default defineConfig(({ mode }) => {
 const env = loadEnv(mode, process.cwd(), '');
-const devUrl = env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
-const hmrHost = new URL(devUrl).hostname;
+const hmrHost = env.VITE_DEV_SERVER_URL
+    ? new URL(env.VITE_DEV_SERVER_URL).hostname
+    : getLanIp();
 
 return {
     plugins: [

@@ -8,141 +8,143 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+  use HasFactory, Notifiable;
 
-    protected $fillable = [
-        'name',
-        'student_id',
-        'phone',
-        'telegram_username',
-        'password',
-        'halqa_id',
-        'weekly_target',
-        'current_juz',
-        'memo_level',
-        'available_times',
-        'available_days',
-        'is_monitored',
-        'is_solo',
-        // role, is_active, must_change_password, profile_completed are set
-        // only through explicit controller assignments — never from request input
+  protected $fillable = [
+    "name",
+    "student_id",
+    "phone",
+    "telegram_username",
+    "password",
+    "halqa_id",
+    "weekly_target",
+    "current_juz",
+    "memo_level",
+    "available_times",
+    "available_days",
+    "is_monitored",
+    "is_solo",
+    "is_active",
+    "must_change_password",
+    "profile_completed",
+    // role remains guarded — never from request input
+  ];
+
+  protected $hidden = [
+    "password",
+    "remember_token",
+    "phone",
+    "telegram_username",
+    "memo_level",
+    "current_juz",
+    "available_times",
+    "available_days",
+    "is_monitored",
+    "role",
+    "is_active",
+    "must_change_password",
+    "profile_completed",
+  ];
+
+  protected function casts(): array
+  {
+    return [
+      "password" => "hashed",
+      "available_times" => "array",
+      "available_days" => "array",
+      "is_active" => "boolean",
+      "is_monitored" => "boolean",
+      "is_solo" => "boolean",
+      "must_change_password" => "boolean",
+      "profile_completed" => "boolean",
     ];
+  }
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-        'phone',
-        'telegram_username',
-        'memo_level',
-        'current_juz',
-        'available_times',
-        'available_days',
-        'is_monitored',
-        'role',
-        'is_active',
-        'must_change_password',
-        'profile_completed',
-    ];
+  // ── Relationships ────────────────────────────────────────────────────────
 
-    protected function casts(): array
-    {
-        return [
-            'password'             => 'hashed',
-            'available_times'      => 'array',
-            'available_days'       => 'array',
-            'is_active'            => 'boolean',
-            'is_monitored'         => 'boolean',
-            'is_solo'              => 'boolean',
-            'must_change_password' => 'boolean',
-            'profile_completed'    => 'boolean',
-        ];
-    }
+  public function halqa()
+  {
+    return $this->belongsTo(Halqa::class);
+  }
 
-    // ── Relationships ────────────────────────────────────────────────────────
+  public function ledHalqa()
+  {
+    return $this->hasOne(Halqa::class, "leader_id");
+  }
 
-    public function halqa()
-    {
-        return $this->belongsTo(Halqa::class);
-    }
+  public function pairAsStudentA()
+  {
+    return $this->hasMany(Pair::class, "student_a_id");
+  }
 
-    public function ledHalqa()
-    {
-        return $this->hasOne(Halqa::class, 'leader_id');
-    }
+  public function pairAsStudentB()
+  {
+    return $this->hasMany(Pair::class, "student_b_id");
+  }
 
-    public function pairAsStudentA()
-    {
-        return $this->hasMany(Pair::class, 'student_a_id');
-    }
+  public function submissionsFiledBy()
+  {
+    return $this->hasMany(PairSubmission::class, "submitted_by");
+  }
 
-    public function pairAsStudentB()
-    {
-        return $this->hasMany(Pair::class, 'student_b_id');
-    }
+  public function submissionsAbout()
+  {
+    return $this->hasMany(PairSubmission::class, "subject_student_id");
+  }
 
-    public function submissionsFiledBy()
-    {
-        return $this->hasMany(PairSubmission::class, 'submitted_by');
-    }
+  public function contactLogs()
+  {
+    return $this->hasMany(ContactLog::class, "student_id");
+  }
 
-    public function submissionsAbout()
-    {
-        return $this->hasMany(PairSubmission::class, 'subject_student_id');
-    }
+  public function watchlistEntries()
+  {
+    return $this->hasMany(Watchlist::class, "student_id");
+  }
 
-    public function contactLogs()
-    {
-        return $this->hasMany(ContactLog::class, 'student_id');
-    }
+  public function badges()
+  {
+    return $this->hasMany(Badge::class, "user_id");
+  }
 
-    public function watchlistEntries()
-    {
-        return $this->hasMany(Watchlist::class, 'student_id');
-    }
+  public function announcements()
+  {
+    return $this->hasMany(Announcement::class, "posted_by");
+  }
 
-    public function badges()
-    {
-        return $this->hasMany(Badge::class, 'user_id');
-    }
+  public function auditLogs()
+  {
+    return $this->hasMany(AuditLog::class, "user_id");
+  }
 
-    public function announcements()
-    {
-        return $this->hasMany(Announcement::class, 'posted_by');
-    }
+  public function pairingRequests()
+  {
+    return $this->hasMany(PairingRequest::class, "student_id");
+  }
 
-    public function auditLogs()
-    {
-        return $this->hasMany(AuditLog::class, 'user_id');
-    }
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
-    public function pairingRequests()
-    {
-        return $this->hasMany(PairingRequest::class, 'student_id');
-    }
+  public function isAdmin(): bool
+  {
+    return $this->role === "admin";
+  }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+  public function isLeader(): bool
+  {
+    return $this->role === "leader";
+  }
 
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
+  public function isStudent(): bool
+  {
+    return $this->role === "student";
+  }
 
-    public function isLeader(): bool
-    {
-        return $this->role === 'leader';
-    }
-
-    public function isStudent(): bool
-    {
-        return $this->role === 'student';
-    }
-
-    public function dashboardRoute(): string
-    {
-        return match ($this->role) {
-            'admin'  => '/admin/dashboard',
-            'leader' => '/leader/dashboard',
-            default  => '/student/dashboard',
-        };
-    }
+  public function dashboardRoute(): string
+  {
+    return match ($this->role) {
+      "admin" => "/admin/dashboard",
+      "leader" => "/leader/dashboard",
+      default => "/student/dashboard",
+    };
+  }
 }

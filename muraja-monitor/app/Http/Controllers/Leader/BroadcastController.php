@@ -14,123 +14,134 @@ use Illuminate\Support\Str;
 
 class BroadcastController extends Controller
 {
-    public function broadcast(Request $request): RedirectResponse
-    {
-        $request->validate(['message' => ['required', 'string', 'max:500']]);
+  public function broadcast(Request $request): RedirectResponse
+  {
+    $request->validate(["message" => ["required", "string", "max:500"]]);
 
-        $leader = auth()->user();
-        $halqa  = $leader->ledHalqa()->with('members')->first();
-        abort_if(!$halqa, 403);
+    $leader = auth()->user();
+    $halqa = $leader->ledHalqa()->with("members")->first();
+    abort_if(!$halqa, 403);
 
-        $students = $halqa->members()->where('role', 'student')->get();
-        $count    = 0;
+    $students = $halqa->members()->where("role", "student")->get();
+    $count = 0;
 
-        foreach ($students as $student) {
-            // In-app notification
-            $student->notifications()->create([
-                'id'              => Str::uuid(),
-                'type'            => 'App\Notifications\LeaderBroadcast',
-                'notifiable_type' => User::class,
-                'notifiable_id'   => $student->id,
-                'data'            => json_encode([
-                    'message' => $request->message,
-                    'from'    => $leader->name,
-                ]),
-                'created_at' => now(),
-            ]);
+    foreach ($students as $student) {
+      // In-app notification
+      $student->notifications()->create([
+        "id" => Str::uuid(),
+        "type" => "App\Notifications\LeaderBroadcast",
+        "notifiable_type" => User::class,
+        "notifiable_id" => $student->id,
+        "data" => json_encode([
+          "message" => $request->message,
+          "from" => $leader->name,
+        ]),
+        "created_at" => now(),
+      ]);
 
-            // Auto-log as contact entry (type: broadcast)
-            ContactLog::create([
-                'student_id'         => $student->id,
-                'contacted_by'       => $leader->id,
-                'method'             => 'message',
-                'note'               => "[Broadcast] {$request->message}",
-                'contacted_at'       => now(),
-                'follow_up_required' => false,
-                'outcome'            => 'pending',
-            ]);
+      // Auto-log as contact entry (type: broadcast)
+      ContactLog::create([
+        "student_id" => $student->id,
+        "contacted_by" => $leader->id,
+        "method" => "message",
+        "note" => "[Broadcast] {$request->message}",
+        "contacted_at" => now(),
+        "follow_up_required" => false,
+        "outcome" => "pending",
+      ]);
 
-            $count++;
-        }
-
-        return back()->with('success', "Broadcast sent to {$count} students.");
+      $count++;
     }
 
-    public function nudge(Request $request, int $studentId): RedirectResponse
-    {
-        $leader  = auth()->user();
-        $halqa   = $leader->ledHalqa;
-        $student = User::findOrFail($studentId);
+    return back()->with("success", "Broadcast sent to {$count} students.");
+  }
 
-        abort_if(!$halqa || $student->halqa_id !== $halqa->id, 403);
+  public function nudge(Request $request, int $studentId): RedirectResponse
+  {
+    $leader = auth()->user();
+    $halqa = $leader->ledHalqa;
+    $student = User::findOrFail($studentId);
 
-        $request->validate(['message' => ['required', 'string', 'max:280']]);
+    abort_if(!$halqa || $student->halqa_id !== $halqa->id, 403);
 
-        $student->notifications()->create([
-            'id'              => Str::uuid(),
-            'type'            => 'App\Notifications\LeaderNudge',
-            'notifiable_type' => User::class,
-            'notifiable_id'   => $student->id,
-            'data'            => json_encode([
-                'message' => $request->message,
-                'from'    => $leader->name,
-            ]),
-            'created_at' => now(),
-        ]);
+    $request->validate(["message" => ["required", "string", "max:280"]]);
 
-        ContactLog::create([
-            'student_id'         => $studentId,
-            'contacted_by'       => $leader->id,
-            'method'             => 'message',
-            'note'               => "[Nudge] {$request->message}",
-            'contacted_at'       => now(),
-            'follow_up_required' => false,
-            'outcome'            => 'pending',
-        ]);
+    $student->notifications()->create([
+      "id" => Str::uuid(),
+      "type" => "App\Notifications\LeaderNudge",
+      "notifiable_type" => User::class,
+      "notifiable_id" => $student->id,
+      "data" => json_encode([
+        "message" => $request->message,
+        "from" => $leader->name,
+      ]),
+      "created_at" => now(),
+    ]);
 
-        return back()->with('success', "Nudge sent to {$student->name}.");
-    }
+    ContactLog::create([
+      "student_id" => $studentId,
+      "contacted_by" => $leader->id,
+      "method" => "message",
+      "note" => "[Nudge] {$request->message}",
+      "contacted_at" => now(),
+      "follow_up_required" => false,
+      "outcome" => "pending",
+    ]);
 
-    public function escalate(Request $request, int $studentId): RedirectResponse
-    {
-        $leader  = auth()->user();
-        $halqa   = $leader->ledHalqa;
-        $student = User::findOrFail($studentId);
+    return back()->with("success", "Nudge sent to {$student->name}.");
+  }
 
-        abort_if(!$halqa || $student->halqa_id !== $halqa->id, 403);
-        $request->validate(['note_summary' => ['required', 'string', 'max:500']]);
+  public function escalate(Request $request, int $studentId): RedirectResponse
+  {
+    $leader = auth()->user();
+    $halqa = $leader->ledHalqa;
+    $student = User::findOrFail($studentId);
 
-        LeaderEscalation::create([
-            'student_id'   => $studentId,
-            'leader_id'    => $leader->id,
-            'note_summary' => $request->note_summary,
-        ]);
+    abort_if(!$halqa || $student->halqa_id !== $halqa->id, 403);
+    $request->validate(["note_summary" => ["required", "string", "max:500"]]);
 
-        return back()->with('success', 'Escalation flagged to admin.');
-    }
+    LeaderEscalation::create([
+      "student_id" => $studentId,
+      "leader_id" => $leader->id,
+      "note_summary" => $request->note_summary,
+    ]);
 
-    public function resetPassword(int $studentId): RedirectResponse
-    {
-        $leader  = auth()->user();
-        $halqa   = $leader->ledHalqa;
-        $student = User::findOrFail($studentId);
+    return back()->with("success", "Escalation flagged to admin.");
+  }
 
-        abort_if(!$halqa || $student->halqa_id !== $halqa->id || $student->role !== 'student', 403);
+  public function resetPassword(int $studentId): RedirectResponse
+  {
+    $leader = auth()->user();
+    $halqa = $leader->ledHalqa;
+    $student = User::findOrFail($studentId);
 
-        $temp = 'Muraja@1446';
-        $student->update([
-            'password'             => \Hash::make($temp),
-            'must_change_password' => true,
-        ]);
+    abort_if(
+      !$halqa ||
+        $student->halqa_id !== $halqa->id ||
+        $student->role !== "student",
+      403,
+    );
 
-        AuditLog::create([
-            'user_id'     => $leader->id,
-            'action'      => 'leader_password_reset',
-            'target_type' => 'user',
-            'target_id'   => $student->id,
-        ]);
+    $defaultPassword = \App\Models\ProgramSetting::get(
+      "default_password",
+      "ChangeMe@" . rand(1000, 9999),
+    );
+    $student->update([
+      "password" => \Hash::make($defaultPassword),
+      "must_change_password" => true,
+    ]);
 
-        // Return the temp password in the flash so the React UI can show it once
-        return back()->with('password_reset', ['student' => $student->name, 'password' => $temp]);
-    }
+    AuditLog::create([
+      "user_id" => $leader->id,
+      "action" => "leader_password_reset",
+      "target_type" => "user",
+      "target_id" => $student->id,
+    ]);
+
+    // Return the default password in the flash so the React UI can show it once
+    return back()->with("password_reset", [
+      "student" => $student->name,
+      "password" => $defaultPassword,
+    ]);
+  }
 }
