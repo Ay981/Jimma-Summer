@@ -47,5 +47,11 @@ COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Switch to non-root user
+USER www-data
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1/up || exit 1
+
 EXPOSE 80
 ENTRYPOINT ["/entrypoint.sh"]

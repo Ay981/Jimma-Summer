@@ -13,3 +13,8 @@ tests
 docker-compose*
 .editorconfig
 .phpunit*
+scripts/
+.npmrc
+playwright.config.js
+*.test.js
+tests/

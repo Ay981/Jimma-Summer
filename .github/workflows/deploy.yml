@@ -7,20 +7,21 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Login to Azure Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
         with:
           registry: murajaregistry.azurecr.io
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@4f58ea79220b3da1e31ca2d3a3fc5e6a5d9f1c45
         with:
           context: .
           push: true
@@ -30,13 +31,22 @@ jobs:
           cache-from: type=registry,ref=murajaregistry.azurecr.io/muraja-monitor:latest
           cache-to: type=inline
 
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
+        with:
+          image-ref: murajaregistry.azurecr.io/muraja-monitor:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
       - name: Login to Azure
-        uses: azure/login@v1
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
+        uses: azure/container-apps-deploy-action@v1 # TODO: pin to commit SHA
         with:
           containerAppName: muraja-monitor
           resourceGroup: muraja-monitor-rg

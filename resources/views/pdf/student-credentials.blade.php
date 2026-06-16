@@ -57,7 +57,7 @@ tbody td { padding: 6px 8px; font-size: 10px; vertical-align: middle; }
                 <td>{{ $n }}</td>
                 <td><strong>{{ $s->name }}</strong></td>
                 <td><span class="badge">{{ $s->student_id }}</span></td>
-                <td>{{ $s->must_change_password ? 'Muraja@1446' : '(changed)' }}</td>
+                <td>{{ $s->must_change_password ? '[default — see admin settings]' : '✓ changed' }}</td>
                 <td>{{ $s->halqa?->name ?? '—' }}</td>
                 <td>{{ $s->must_change_password ? 'First login' : 'Active' }}</td>
             </tr>

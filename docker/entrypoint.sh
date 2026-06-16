@@ -6,7 +6,9 @@ cd /var/www
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-php artisan migrate --force
+
+# NOTE: Migrations are run in the CI/CD pipeline before deployment, not here.
+# Running migrations at container start causes race conditions in multi-replica deployments.
 
 # Only seed on first deploy or when explicitly requested
 if [ "${RUN_SEEDERS}" = "true" ]; then

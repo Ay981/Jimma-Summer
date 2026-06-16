@@ -9,170 +9,205 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AuthController extends Controller
 {
-    // ── Login ────────────────────────────────────────────────────────────────
+  // ── Login ────────────────────────────────────────────────────────────────
 
-    public function showLogin(): Response
-    {
-        return Inertia::render('Auth/Login');
+  public function showLogin(): Response
+  {
+    return Inertia::render("Auth/Login");
+  }
+
+  public function login(
+    Request $request,
+  ): RedirectResponse|\Symfony\Component\HttpFoundation\Response {
+    $credentials = $request->validate([
+      "student_id" => ["required", "string"],
+      "password" => ["required", "string"],
+    ]);
+
+    $user = User::where("student_id", $credentials["student_id"])->first();
+
+    if (!$user || !Hash::check($credentials["password"], $user->password)) {
+      return back()
+        ->withErrors([
+          "student_id" => "Invalid student ID or password.",
+        ])
+        ->onlyInput("student_id");
     }
 
-    public function login(Request $request): RedirectResponse|\Symfony\Component\HttpFoundation\Response
-    {
-        $credentials = $request->validate([
-            'student_id' => ['required', 'string'],
-            'password'   => ['required', 'string'],
-        ]);
-
-        $user = User::where('student_id', $credentials['student_id'])->first();
-
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
-            return back()->withErrors([
-                'student_id' => 'Invalid student ID or password.',
-            ])->onlyInput('student_id');
-        }
-
-        if (! $user->is_active) {
-            return back()->withErrors([
-                'student_id' => 'This account is deactivated. Contact the admin.',
-            ])->onlyInput('student_id');
-        }
-
-        Auth::login($user, remember: false);
-        $request->session()->regenerate();
-
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action'  => 'login',
-        ]);
-
-        // Use Inertia::location() so the browser does a full-page navigation
-        // rather than following the post-login redirect via XHR. This ensures
-        // the session cookie is committed before the next request, which is
-        // required when running behind Cloudflare Tunnel.
-        return Inertia::location($user->dashboardRoute());
+    if (!$user->is_active) {
+      return back()
+        ->withErrors([
+          "student_id" => "This account is deactivated. Contact the admin.",
+        ])
+        ->onlyInput("student_id");
     }
 
-    // ── Logout ───────────────────────────────────────────────────────────────
+    Auth::login($user, remember: false);
+    $request->session()->regenerate();
 
-    public function logout(Request $request): RedirectResponse
-    {
-        AuditLog::create([
-            'user_id' => Auth::id(),
-            'action'  => 'logout',
-        ]);
+    AuditLog::create([
+      "user_id" => $user->id,
+      "action" => "login",
+    ]);
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+    // Use Inertia::location() so the browser does a full-page navigation
+    // rather than following the post-login redirect via XHR. This ensures
+    // the session cookie is committed before the next request, which is
+    // required when running behind Cloudflare Tunnel.
+    return Inertia::location($user->dashboardRoute());
+  }
 
-        return redirect()->route('login');
+  // ── Logout ───────────────────────────────────────────────────────────────
+
+  public function logout(Request $request): RedirectResponse
+  {
+    AuditLog::create([
+      "user_id" => Auth::id(),
+      "action" => "logout",
+    ]);
+
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect()->route("login");
+  }
+
+  // ── Change Password ──────────────────────────────────────────────────────
+
+  public function showChangePassword(): Response
+  {
+    $user = auth()->user();
+    return Inertia::render("Auth/ChangePassword", [
+      "role" => $user->role,
+      "current_name" => $user->name,
+    ]);
+  }
+
+  public function changePassword(Request $request): RedirectResponse
+  {
+    $user = $request->user();
+
+    $rules = [
+      "current_password" => ["required", "string", "current_password"],
+      "password" => [
+        "required",
+        "string",
+        "min:8",
+        "confirmed",
+        "different:current_password",
+      ],
+      "password_confirmation" => ["required", "string"],
+    ];
+
+    if ($user->role === "leader") {
+      $rules["name"] = ["required", "string", "max:255"];
     }
 
-    // ── Change Password ──────────────────────────────────────────────────────
+    $request->validate($rules);
 
-    public function showChangePassword(): Response
-    {
-        $user = auth()->user();
-        return Inertia::render('Auth/ChangePassword', [
-            'role'         => $user->role,
-            'current_name' => $user->name,
-        ]);
+    $updates = [
+      "password" => Hash::make($request->password),
+      "must_change_password" => false,
+    ];
+
+    if ($user->role === "leader" && $request->filled("name")) {
+      $updates["name"] = $request->name;
     }
 
-    public function changePassword(Request $request): RedirectResponse
-    {
-        $user = $request->user();
+    $user->update($updates);
 
-        $rules = [
-            'password'              => ['required', 'string', 'min:8', 'confirmed'],
-            'password_confirmation' => ['required', 'string'],
-        ];
+    AuditLog::create([
+      "user_id" => $user->id,
+      "action" => "password_changed",
+    ]);
 
-        if ($user->role === 'leader') {
-            $rules['name'] = ['required', 'string', 'max:255'];
-        }
+    return redirect($user->dashboardRoute());
+  }
 
-        $request->validate($rules);
+  // ── Leader Onboarding ────────────────────────────────────────────────────
 
-        $updates = [
-            'password'             => Hash::make($request->password),
-            'must_change_password' => false,
-        ];
+  public function showLeaderSetup(): Response
+  {
+    return Inertia::render("Auth/LeaderSetup");
+  }
 
-        if ($user->role === 'leader' && $request->filled('name')) {
-            $updates['name'] = $request->name;
-        }
+  public function leaderSetup(Request $request): RedirectResponse
+  {
+    $request->validate([
+      "code" => ["required", "string", 'regex:/^LDR-[A-Z0-9]{4}$/'],
+      "name" => ["required", "string", "max:255"],
+      "student_id" => [
+        "required",
+        "string",
+        "max:50",
+        "unique:users,student_id",
+      ],
+      "phone" => ["nullable", "string", "max:20"],
+      "password" => ["required", "string", "min:8", "confirmed"],
+    ]);
 
-        $user->update($updates);
+    $user = DB::transaction(function () use ($request) {
+      $leaderCode = LeaderCode::where("code", $request->code)
+        ->where("is_active", true)
+        ->whereNull("used_by")
+        ->where(
+          fn($q) => $q
+            ->whereNull("expires_at")
+            ->orWhere("expires_at", ">", now()),
+        )
+        ->lockForUpdate()
+        ->first();
 
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action'  => 'password_changed',
-        ]);
+      if (!$leaderCode) {
+        return null;
+      }
 
-        return redirect($user->dashboardRoute());
+      $user = User::create([
+        "name" => $request->name,
+        "student_id" => $request->student_id,
+        "phone" => $request->phone,
+        "password" => Hash::make($request->password),
+        "role" => "leader",
+        "halqa_id" => $leaderCode->halqa_id,
+        "is_active" => true,
+        "must_change_password" => false,
+      ]);
+
+      // Assign user as leader of the halqa
+      $leaderCode->halqa->update(["leader_id" => $user->id]);
+
+      // Mark the code as used (stays active so admin can see who used it)
+      $leaderCode->update(["used_by" => $user->id]);
+
+      AuditLog::create([
+        "user_id" => $user->id,
+        "action" => "leader_onboarded",
+        "meta" => [
+          "code" => substr($request->code, 0, 4) . "****",
+          "halqa_id" => $leaderCode->halqa_id,
+        ],
+      ]);
+
+      return $user;
+    });
+
+    if (!$user) {
+      return back()->withErrors([
+        "code" => "Invalid or already-used activation code.",
+      ]);
     }
 
-    // ── Leader Onboarding ────────────────────────────────────────────────────
+    Auth::login($user);
+    $request->session()->regenerate();
 
-    public function showLeaderSetup(): Response
-    {
-        return Inertia::render('Auth/LeaderSetup');
-    }
-
-    public function leaderSetup(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'code'       => ['required', 'string', 'regex:/^LDR-[A-Z0-9]{4}$/'],
-            'name'       => ['required', 'string', 'max:255'],
-            'student_id' => ['required', 'string', 'max:50', 'unique:users,student_id'],
-            'phone'      => ['nullable', 'string', 'max:20'],
-            'password'   => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
-        $leaderCode = LeaderCode::where('code', $request->code)
-            ->where('is_active', true)
-            ->whereNull('used_by')
-            ->first();
-
-        if (! $leaderCode) {
-            return back()->withErrors([
-                'code' => 'Invalid or already-used activation code.',
-            ]);
-        }
-
-        $user = User::create([
-            'name'                 => $request->name,
-            'student_id'           => $request->student_id,
-            'phone'                => $request->phone,
-            'password'             => Hash::make($request->password),
-            'role'                 => 'leader',
-            'halqa_id'             => $leaderCode->halqa_id,
-            'is_active'            => true,
-            'must_change_password' => false,
-        ]);
-
-        // Assign user as leader of the halqa
-        $leaderCode->halqa->update(['leader_id' => $user->id]);
-
-        // Mark the code as used (stays active so admin can see who used it)
-        $leaderCode->update(['used_by' => $user->id]);
-
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action'  => 'leader_onboarded',
-            'meta'    => ['code' => $request->code, 'halqa_id' => $leaderCode->halqa_id],
-        ]);
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        return redirect()->route('leader.dashboard');
-    }
+    return redirect()->route("leader.dashboard");
+  }
 }
