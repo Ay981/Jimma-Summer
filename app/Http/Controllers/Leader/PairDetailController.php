@@ -190,7 +190,7 @@ class PairDetailController extends Controller
         return back()->with('success', 'Contact note added.');
     }
 
-    public function updatePrivateNote(Request $request, Pair $pair, int $studentId): RedirectResponse
+    public function updatePrivateNote(Request $request, Pair $pair, int $studentId): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $leader = auth()->user();
         $halqa  = $leader->ledHalqa;
@@ -203,6 +203,10 @@ class PairDetailController extends Controller
             ['student_id' => $studentId, 'leader_id' => $leader->id],
             ['note' => $request->note ?? '']
         );
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Note saved.']);
+        }
 
         return back()->with('success', 'Note saved.');
     }

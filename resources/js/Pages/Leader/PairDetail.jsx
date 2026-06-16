@@ -347,24 +347,72 @@ function AddContactForm({ studentId, pairId }) {
 // ── Private note editor ───────────────────────────────────────────────────────
 
 function PrivateNoteEditor({ studentId, pairId, initialNote }) {
-    const [note, setNote]     = useState(initialNote ?? '');
-    const [saved, setSaved]   = useState(false);
+    const [savedNote, setSavedNote] = useState(initialNote ?? '');
+    const [draft, setDraft]         = useState('');
+    const [saving, setSaving]       = useState(false);
+    const [error, setError]         = useState('');
 
-    function save() {
-        router.put(`/leader/members/${pairId}/note/${studentId}`, { note }, {
-            preserveScroll: true,
-            onSuccess: () => setSaved(true),
-        });
-        setTimeout(() => setSaved(false), 2000);
+    async function save() {
+        if (!draft.trim()) return;
+        setSaving(true);
+        setError('');
+        try {
+            const xsrf = document.cookie
+                .split(';')
+                .map(c => c.trim())
+                .find(c => c.startsWith('XSRF-TOKEN='))
+                ?.slice('XSRF-TOKEN='.length);
+
+            const res = await fetch(`/leader/members/${pairId}/note/${studentId}`, {
+                method:  'PUT',
+                headers: {
+                    'Content-Type':     'application/json',
+                    'Accept':           'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN':     decodeURIComponent(xsrf ?? ''),
+                },
+                body: JSON.stringify({ note: draft }),
+            });
+
+            if (res.ok) {
+                setSavedNote(draft);
+                setDraft('');
+            } else {
+                setError(`Error ${res.status} — try again.`);
+            }
+        } catch {
+            setError('Could not save — try again.');
+        } finally {
+            setSaving(false);
+        }
     }
 
     return (
-        <div style={{ padding: '12px' }}>
+        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Saved note display */}
+            {savedNote ? (
+                <div style={{
+                    padding: '10px 12px',
+                    background: 'var(--muted)', border: '1px solid var(--border)',
+                    borderLeft: '3px solid var(--primary)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.8125rem', color: 'var(--foreground)',
+                    whiteSpace: 'pre-wrap', lineHeight: 1.6,
+                }}>
+                    {savedNote}
+                </div>
+            ) : (
+                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
+                    No note saved yet.
+                </p>
+            )}
+
+            {/* New / update note input */}
             <textarea
-                value={note}
-                onChange={(e) => { setNote(e.target.value); setSaved(false); }}
-                placeholder="Private notes about this student (only visible to you)..."
-                rows={4}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={savedNote ? 'Write a new note to replace the current one…' : 'Write a private note…'}
+                rows={3}
                 style={{
                     width: '100%', padding: '8px 10px',
                     borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
@@ -373,18 +421,21 @@ function PrivateNoteEditor({ studentId, pairId, initialNote }) {
                     boxSizing: 'border-box',
                 }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                {error && <span style={{ fontSize: '0.75rem', color: 'var(--destructive)' }}>{error}</span>}
                 <button
                     onClick={save}
+                    disabled={saving || !draft.trim()}
                     style={{
                         padding: '5px 14px', borderRadius: 'var(--radius-sm)',
-                        border: 'none', background: saved ? 'var(--success)' : 'var(--primary)',
-                        color: saved ? 'var(--success-foreground)' : 'var(--primary-foreground)',
-                        fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
-                        transition: 'background 0.2s',
+                        border: 'none', background: 'var(--primary)',
+                        color: 'var(--primary-foreground)',
+                        fontSize: '0.8125rem', fontWeight: 600,
+                        cursor: (saving || !draft.trim()) ? 'not-allowed' : 'pointer',
+                        opacity: (saving || !draft.trim()) ? 0.5 : 1,
                     }}
                 >
-                    {saved ? 'Saved ✓' : 'Save'}
+                    {saving ? 'Saving…' : savedNote ? 'Replace Note' : 'Save Note'}
                 </button>
             </div>
         </div>
