@@ -36,10 +36,11 @@ class HalqaDashboardController extends Controller
 
         $today        = Carbon::today();
         $yesterday    = Carbon::yesterday();
-        $programStart = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $programStartRaw = ProgramSetting::get('program_start_date', '');
+        $programStart    = $programStartRaw ? Carbon::parse($programStartRaw) : $today->copy();
 
         // Programme hasn't started — return neutral state
-        if ($today->lt($programStart)) {
+        if ($programStartRaw && $today->toDateString() < $programStart->toDateString()) {
             return Inertia::render('Leader/Dashboard', [
                 'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
                 'pairs'          => $halqa->pairs->map(fn ($p) => [
@@ -65,12 +66,25 @@ class HalqaDashboardController extends Controller
         $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $yesterday, $programStart) {
             $studentIds = [$pair->student_a_id, $pair->student_b_id];
 
+            // Each student's scheduled day names (lowercase). Empty = every day.
+            $scheduleA = array_map('strtolower', $pair->studentA->available_times ?? []);
+            $scheduleB = array_map('strtolower', $pair->studentB?->available_times ?? []);
+
+            // Returns true if the given date is a scheduled day for the pair.
+            // A day is scheduled when BOTH students are expected that day.
+            // A student with no schedule set is expected every day.
+            $isPairScheduled = function (string $date) use ($scheduleA, $scheduleB): bool {
+                $dayName = strtolower(Carbon::parse($date)->format('l'));
+                $aExpected = empty($scheduleA) || in_array($dayName, $scheduleA, true);
+                $bExpected = empty($scheduleB) || in_array($dayName, $scheduleB, true);
+                return $aExpected && $bExpected;
+            };
+
             // Build the 14-day window
             $windowStart14 = $today->copy()->subDays(13);
 
             // Effective window: no earlier than program start
             $effectiveStart = $programStart->gt($windowStart14) ? $programStart->copy() : $windowStart14->copy();
-            $effectiveDays  = max(1, $effectiveStart->diffInDays($today) + 1);
 
             $last14 = collect(range(13, 0))
                 ->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
@@ -84,51 +98,72 @@ class HalqaDashboardController extends Controller
             // Sparkline: 1 if either student submitted that day
             $sparkline = $last14->map(fn ($date) => isset($subs14[$date]) ? 1 : 0)->values()->toArray();
 
-            // Consistency: days where BOTH students submitted in the EFFECTIVE window
-            $effectiveDates = collect(range(0, $effectiveDays - 1))
+            // Effective dates in the window
+            $effectiveDates = collect(range(0, $effectiveStart->diffInDays($today)))
                 ->map(fn ($i) => $effectiveStart->copy()->addDays($i)->toDateString());
 
-            $bothDays = $effectiveDates->filter(function ($date) use ($subs14, $pair) {
+            // Only count days the pair was scheduled (respects available_times)
+            $scheduledDates = $effectiveDates->filter($isPairScheduled);
+            $scheduledCount = max(1, $scheduledDates->count());
+
+            // Consistency: scheduled days where BOTH students submitted
+            $bothDays = $scheduledDates->filter(function ($date) use ($subs14, $pair) {
                 if (!isset($subs14[$date])) return false;
                 $submitters = $subs14[$date]->pluck('subject_student_id')->unique();
                 return $submitters->contains($pair->student_a_id)
                     && $submitters->contains($pair->student_b_id);
             });
-            $consistency = round(($bothDays->count() / $effectiveDays) * 100, 1);
+            $consistency = round(($bothDays->count() / $scheduledCount) * 100, 1);
 
             // Last submission ever
             $lastSub = PairSubmission::whereIn('subject_student_id', $studentIds)
                 ->orderByDesc('submission_date')
                 ->value('submission_date');
 
-            // Today status
-            $todayCount = PairSubmission::whereIn('subject_student_id', $studentIds)
-                ->where('submission_date', $today->toDateString())
-                ->distinct('subject_student_id')
-                ->count('subject_student_id');
+            // Today — only flag if today is a scheduled day
+            $todayScheduled = $isPairScheduled($today->toDateString());
+            $todayCount     = $todayScheduled
+                ? PairSubmission::whereIn('subject_student_id', $studentIds)
+                    ->where('submission_date', $today->toDateString())
+                    ->distinct('subject_student_id')
+                    ->count('subject_student_id')
+                : null;
             $todayStatus = match (true) {
-                $todayCount >= 2 => 'both',
-                $todayCount === 1 => 'one',
-                default => 'none',
+                !$todayScheduled    => 'none',   // not a scheduled day — show neutral dot
+                $todayCount >= 2    => 'both',
+                $todayCount === 1   => 'one',
+                default             => 'none',
             };
 
-            // Absence queue
-            $yesterdayCount = PairSubmission::whereIn('subject_student_id', $studentIds)
-                ->where('submission_date', $yesterday->toDateString())
-                ->count();
+            // Absence: only flag if yesterday was a scheduled day AND at least one student missed
+            $yesterdayStr    = $yesterday->toDateString();
+            $submittedYday   = isset($subs14[$yesterdayStr])
+                ? $subs14[$yesterdayStr]->pluck('subject_student_id')->unique()
+                : collect();
+            $aSubmittedYday  = $submittedYday->contains($pair->student_a_id);
+            $bSubmittedYday  = $submittedYday->contains($pair->student_b_id);
+            $missedYesterday = $isPairScheduled($yesterdayStr) && (!$aSubmittedYday || !$bSubmittedYday);
 
-            $status = $this->computeStatus($sparkline, $consistency, $lastSub, $effectiveDays);
+            $status = $this->computeStatus($sparkline, $consistency, $lastSub, $scheduledCount);
 
             return [
                 'id'               => $pair->id,
-                'student_a'        => ['id' => $pair->student_a_id, 'name' => $pair->studentA->name],
-                'student_b'        => ['id' => $pair->student_b_id, 'name' => $pair->studentB->name],
+                'student_a'        => [
+                    'id'                 => $pair->student_a_id,
+                    'name'               => $pair->studentA->name,
+                    'submitted_yesterday' => $aSubmittedYday,
+                ],
+                'student_b'        => [
+                    'id'                 => $pair->student_b_id,
+                    'name'               => $pair->studentB?->name,
+                    'submitted_yesterday' => $bSubmittedYday,
+                ],
                 'consistency'      => $consistency,
                 'last_submission'  => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
                 'status'           => $status,
                 'sparkline'        => $sparkline,
                 'today_submitted'  => $todayStatus,
-                'missed_yesterday' => $yesterdayCount === 0,
+                'missed_yesterday' => $missedYesterday,
             ];
         });
 
@@ -207,11 +242,13 @@ class HalqaDashboardController extends Controller
 
     private function buildStudentRows(\App\Models\Halqa $halqa, Carbon $today, Carbon $programStart): array
     {
-        // Include every student whose halqa_id points here, not just paired ones
-        $memberIds = \App\Models\User::where('halqa_id', $halqa->id)
-            ->where('role', 'student')
-            ->where('is_active', true)
-            ->pluck('id');
+        // Pull student IDs from pairs directly — avoids missing students whose
+        // halqa_id column wasn't set (e.g. inactive or manually imported students)
+        $memberIds = $halqa->pairs
+            ->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))
+            ->unique()
+            ->values();
+
         if ($memberIds->isEmpty()) return [];
 
         $window14      = $today->copy()->subDays(13);
@@ -236,32 +273,38 @@ class HalqaDashboardController extends Controller
         }
 
         return \App\Models\User::whereIn('id', $memberIds)->get()
-            ->map(function ($student) use ($subs14, $lastSubs, $last14, $effectiveDays, $effectiveStart, $today, $pairMap) {
+            ->map(function ($student) use ($subs14, $lastSubs, $last14, $effectiveStart, $today, $pairMap) {
+                $schedule    = array_map('strtolower', $student->available_times ?? []);
+                $isScheduled = fn (string $date): bool =>
+                    empty($schedule) || in_array(strtolower(Carbon::parse($date)->format('l')), $schedule, true);
+
                 $studentSubs = ($subs14[$student->id] ?? collect())->keyBy(
                     fn ($s) => Carbon::parse($s->submission_date)->toDateString()
                 );
                 $sparkline = $last14->map(fn ($d) => isset($studentSubs[$d]) ? 1 : 0)->values()->toArray();
 
-                $effDates  = collect(range(0, $effectiveDays - 1))
+                $effDates      = collect(range(0, $effectiveStart->diffInDays($today)))
                     ->map(fn ($i) => $effectiveStart->copy()->addDays($i)->toDateString());
-                $submitted  = $effDates->filter(fn ($d) => isset($studentSubs[$d]))->count();
-                $consistency = round(($submitted / $effectiveDays) * 100, 1);
+                $scheduledDates = $effDates->filter($isScheduled);
+                $scheduledCount = max(1, $scheduledDates->count());
+                $submitted      = $scheduledDates->filter(fn ($d) => isset($studentSubs[$d]))->count();
+                $consistency    = round(($submitted / $scheduledCount) * 100, 1);
 
-                $lastSub   = $lastSubs[$student->id] ?? null;
-                $status    = $this->computeStatus($sparkline, $consistency, $lastSub, $effectiveDays);
-                $todaySub  = isset($studentSubs[$today->toDateString()]);
+                $lastSub  = $lastSubs[$student->id] ?? null;
+                $status   = $this->computeStatus($sparkline, $consistency, $lastSub, $scheduledCount);
+                $todaySub = $isScheduled($today->toDateString()) && isset($studentSubs[$today->toDateString()]);
 
                 return [
-                    'id'           => $student->id,
-                    'name'         => $student->name,
-                    'student_id'   => $student->student_id,
-                    'consistency'  => $consistency,
-                    'sparkline'    => $sparkline,
-                    'status'       => $status,
+                    'id'              => $student->id,
+                    'name'            => $student->name,
+                    'student_id'      => $student->student_id,
+                    'consistency'     => $consistency,
+                    'sparkline'       => $sparkline,
+                    'status'          => $status,
                     'last_submission' => $lastSub ? Carbon::parse($lastSub)->toDateString() : null,
                     'today_submitted' => $todaySub,
-                    'pair_id'      => $pairMap[$student->id] ?? null,
-                    'is_solo'      => $student->is_solo ?? false,
+                    'pair_id'         => $pairMap[$student->id] ?? null,
+                    'is_solo'         => $student->is_solo ?? false,
                 ];
             })->values()->toArray();
     }

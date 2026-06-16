@@ -424,6 +424,14 @@ Route::middleware(["auth", "role:admin"])
       AdminLeaderboard::class,
       "certificate",
     ])->name("leaderboard.certificate");
+    Route::get("/leaderboard/leader-certificate/{leader}", [
+      AdminLeaderboard::class,
+      "leaderCertificate",
+    ])->name("leaderboard.leader.certificate");
+    Route::get("/leaderboard/halqa-certificate/{halqa}", [
+      AdminLeaderboard::class,
+      "halqaCertificate",
+    ])->name("leaderboard.halqa.certificate");
     Route::get("/leaderboard/snapshots/compare", [
       AdminLeaderboard::class,
       "compare",

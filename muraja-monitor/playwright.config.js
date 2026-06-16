@@ -15,7 +15,7 @@ export default defineConfig({
       name: 'mobile',
       use: {
         ...devices['iPhone 14'],
-        browserName: 'chromium',  // use installed chromium instead of webkit
+        browserName: 'chromium',
       },
     },
   ],

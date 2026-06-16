@@ -1,13 +1,18 @@
 /**
  * VIDEO: Leader Walkthrough
  *
- * Leader: LDR-0001 (leader-01) — Halqa 1 (Halqa ID 27)
- * Halqa members: Pair 46 — Fatima Ahmed (JUMU-2026-001) + Mariam Hassan (JUMU-2026-002)
+ * Leader: LDR-0001 — Halqa 1
  *
- * Flows:
- *   Login → Dashboard (pairs view + students view) → Pair Detail →
- *   Flag Submission → Add Contact Note → Add Private Note →
- *   Log Meeting → Outreach → Weekly Report → Pair Change Request
+ * Flow:
+ *   Login → Change Password → Dashboard → Pairs View →
+ *   Pair Detail (heatmap · tests · contact · notes) →
+ *   Announcements (broadcast modal) → Meetings → Weekly Report
+ *
+ * Reset before recording:
+ *   php artisan tinker --execute="
+ *     \$l = App\Models\User::where('student_id','LDR-0001')->first();
+ *     \$l->update(['name'=>'leader-01','password'=>Hash::make('Muraja@1446'),'must_change_password'=>true]);
+ *   "
  *
  * Run: npx playwright test tests/videos/leader.spec.js --headed
  */
@@ -15,282 +20,431 @@
 import { test } from '@playwright/test';
 import {
   injectCursor, caption, hideCaption,
-  moveThenClick, liveType, pause,
+  annotate, annotateLocator, clearAnnotations,
+  moveThenClick, liveType, scrollTo, pause,
 } from './helpers.js';
 
-const LEADER = { id: 'LDR-0001', pw: 'Muraja@1446', halqa: 'Halqa 1' };
-const PAIR_ID = 46;
-const STUDENT_A = { id: 'JUMU-2026-001', name: 'Fatima Ahmed' };
-const STUDENT_B = { id: 'JUMU-2026-002', name: 'Mariam Hassan' };
-
-async function leaderLogin(page) {
-  await page.goto('/login');
-  await injectCursor(page);
-  await caption(page, 'Logging in as Leader LDR-0001 — responsible for Halqa 1', 3000);
-  await liveType(page, 'input[name="student_id"], input[name="login_id"], #student_id, #login_id', LEADER.id);
-  await pause(page, 400);
-  await liveType(page, 'input[type="password"]', LEADER.pw);
-  await moveThenClick(page, 'button[type="submit"]');
-  await page.waitForTimeout(2000);
-}
+const LEADER = {
+  id:        'LDR-0001',
+  defaultPw: 'Muraja@1446',
+  newPw:     'Leader@2026!',
+  realName:  'Demo Leader',
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 test('Leader full walkthrough', async ({ page }) => {
 
   // ── 1. Login ──────────────────────────────────────────────────────────────
-  await leaderLogin(page);
+  await page.goto('/login');
+  await injectCursor(page);
+  await caption(page, 'STEP 1 — Leaders log in at the same page as students', 2500);
+
+  await annotate(page, '#student_id', 'Leader ID');
+  await caption(page, 'Enter the leader code provided by the admin', 1800);
+  await liveType(page, '#student_id', LEADER.id);
+  await clearAnnotations(page);
+  await pause(page, 400);
+
+  await annotate(page, 'input[type="password"]', 'Password');
+  await caption(page, 'Default password set by admin on registration', 1800);
+  await liveType(page, 'input[type="password"]', LEADER.defaultPw);
+  await clearAnnotations(page);
+  await pause(page, 400);
+
+  await moveThenClick(page, 'button[type="submit"]');
+  await page.waitForTimeout(2000);
+
+  // ── 2. Change password ────────────────────────────────────────────────────
+  await page.waitForURL('**/change-password', { timeout: 10000 });
+  await injectCursor(page);
+  await caption(page, 'STEP 2 — First login: set your real name and a personal password', 3000);
+
+  const nameInput = page.locator('#name, input[name="name"]').first();
+  if (await nameInput.count() > 0) {
+    await annotateLocator(page, nameInput, 'Full Name');
+    await caption(page, 'Enter your full name — appears on reports and certificates', 2500);
+    await scrollTo(page, nameInput);
+    await nameInput.fill('');
+    await nameInput.pressSequentially(LEADER.realName, { delay: 70 });
+    await clearAnnotations(page);
+    await pause(page, 400);
+  }
+
+  const currentPwInput = page.locator('#current_password, input[name="current_password"]').first();
+  await annotateLocator(page, currentPwInput, 'Current Password');
+  await caption(page, 'Enter the admin-provided default password', 2000);
+  await scrollTo(page, currentPwInput);
+  await currentPwInput.pressSequentially(LEADER.defaultPw, { delay: 70 });
+  await clearAnnotations(page);
+  await pause(page, 400);
+
+  // Fill new password field (not current, not confirmation)
+  const allPwInputs = await page.locator('input[type="password"]').all();
+  for (const inp of allPwInputs) {
+    const id = (await inp.getAttribute('id') ?? '') + (await inp.getAttribute('name') ?? '');
+    if (id.includes('password') && !id.includes('current') && !id.includes('confirm')) {
+      await annotateLocator(page, inp, 'New Password');
+      await caption(page, 'Choose a strong personal password', 2000);
+      await scrollTo(page, inp);
+      await inp.fill(LEADER.newPw);
+      await clearAnnotations(page);
+      await pause(page, 400);
+      break;
+    }
+  }
+
+  const confirmInput = page.locator('#password_confirmation, input[name="password_confirmation"]').first();
+  if (await confirmInput.count() > 0) {
+    await annotateLocator(page, confirmInput, 'Confirm Password');
+    await caption(page, 'Confirm your new password', 1800);
+    await scrollTo(page, confirmInput);
+    await confirmInput.fill(LEADER.newPw);
+    await clearAnnotations(page);
+    await pause(page, 400);
+  }
+
+  await moveThenClick(page, 'button[type="submit"]');
+  await page.waitForTimeout(2500);
+
+  // ── 3. Dashboard ──────────────────────────────────────────────────────────
   await page.waitForURL('**/leader/dashboard', { timeout: 10000 });
   await injectCursor(page);
+  await caption(page, 'STEP 3 — Leader Dashboard: your halqa at a glance', 2800);
+  await pause(page, 1200);
 
-  // ── 2. Dashboard — default view ───────────────────────────────────────────
-  await caption(page, 'STEP 1 — Leader Dashboard: overview of your halqa\'s current status', 3000);
-  await pause(page, 2000);
-  await caption(page, 'You can see all pairs, their last submission date, streak, and consistency %', 3000);
-  await pause(page, 2000);
+  // Stat cards
+  await annotate(page, '.stat-cards', 'Halqa Health');
+  await caption(page, 'Four cards show how many pairs are on track, slipping, at risk, or inactive', 3000);
+  await clearAnnotations(page);
+  await pause(page, 800);
 
-  // ── 3. Switch to Pairs view ───────────────────────────────────────────────
-  await caption(page, 'STEP 2 — Pairs View: detailed submission trends per pair', 3000);
-  const pairsViewLink = page.locator('a[href*="view=pairs"], button:has-text("Pairs")').first();
-  if (await pairsViewLink.count() > 0) {
-    await moveThenClick(page, 'a[href*="view=pairs"], button:has-text("Pairs")');
-    await page.waitForTimeout(1500);
-    await injectCursor(page);
+  // Summary info card (first row)
+  const infoCard = page.locator('div').filter({ hasText: 'pairs submitted today' }).first();
+  if (await infoCard.count() > 0) {
+    await annotateLocator(page, infoCard, 'Live Summary');
+    await caption(page, 'A live summary shows submissions today, attention pairs, and any follow-ups overdue', 3200);
+    await clearAnnotations(page);
+    await pause(page, 800);
   }
-  await pause(page, 2000);
-  await caption(page, 'Each pair card shows both members, days active, and submission consistency', 3000);
-  await pause(page, 2000);
 
-  // ── 4. Switch to Students view ────────────────────────────────────────────
-  await caption(page, 'STEP 3 — Students View: see each student individually across the halqa', 3000);
-  const studentsViewLink = page.locator('a[href*="view=students"], button:has-text("Students")').first();
-  if (await studentsViewLink.count() > 0) {
-    await moveThenClick(page, 'a[href*="view=students"], button:has-text("Students")');
-    await page.waitForTimeout(1500);
+  // Broadcast button
+  const broadcastBtn = page.locator('button:has-text("Broadcast to Halqa")').first();
+  if (await broadcastBtn.count() > 0) {
+    await scrollTo(page, broadcastBtn);
+    await annotateLocator(page, broadcastBtn, 'Broadcast');
+    await caption(page, 'One tap to post an announcement directly to all students in your halqa', 2800);
+    await clearAnnotations(page);
+    await pause(page, 600);
+
+    // Open broadcast modal
+    await broadcastBtn.tap();
+    await page.waitForTimeout(800);
     await injectCursor(page);
-  }
-  await pause(page, 2000);
-
-  // ── 5. Open Pair Detail ───────────────────────────────────────────────────
-  await caption(page, `STEP 4 — Open Pair Detail for Pair ${PAIR_ID}: ${STUDENT_A.name} & ${STUDENT_B.name}`, 3200);
-  const pairDetailLink = page.locator(
-    `a[href*="/leader/members/${PAIR_ID}"], a:has-text("${STUDENT_A.name}"), a:has-text("Pair ${PAIR_ID}")`
-  ).first();
-  if (await pairDetailLink.count() > 0) {
-    await moveThenClick(page, `a[href*="/leader/members/${PAIR_ID}"], a:has-text("${STUDENT_A.name}")`);
-  } else {
-    await page.goto(`/leader/members/${PAIR_ID}`);
-  }
-  await page.waitForTimeout(2000);
-  await injectCursor(page);
-
-  await caption(page, `Pair Detail for ${STUDENT_A.name} and ${STUDENT_B.name} — full submission history below`, 3200);
-  await pause(page, 2000);
-  await caption(page, 'You can see juz, pages read, time spent, and flag status for each submission', 3000);
-  await pause(page, 2000);
-
-  // ── 6. Flag a submission ──────────────────────────────────────────────────
-  await caption(page, 'STEP 5 — Flag a submission that looks suspicious or has a data error', 3200);
-  const flagBtn = page.locator('button:has-text("Flag"), button[data-action="flag"]').first();
-  if (await flagBtn.count() > 0) {
-    await moveThenClick(page, 'button:has-text("Flag"), button[data-action="flag"]');
-    await page.waitForTimeout(1200);
-    await injectCursor(page);
-
-    await caption(page, 'Enter the reason for flagging — this goes to the admin for review', 2800);
-    const flagReason = page.locator('textarea[name="flag_reason"], input[name="flag_reason"], textarea').first();
-    if (await flagReason.count() > 0) {
-      await flagReason.click();
-      await flagReason.pressSequentially(
-        'Pages reported (89–200) seem unusually high for the time spent (12 minutes). Needs admin review.',
-        { delay: 50 }
+    const titleField = page.locator('input[placeholder="Title…"]').first();
+    if (await titleField.count() > 0) {
+      await annotateLocator(page, titleField, 'Announcement Title');
+      await caption(page, 'Give the announcement a clear title', 2000);
+      await titleField.pressSequentially('Weekly Reminder — Submit by Thursday', { delay: 50 });
+      await clearAnnotations(page);
+      await pause(page, 400);
+      const bodyField = page.locator('textarea[placeholder="Write your announcement…"]').first();
+      await bodyField.pressSequentially(
+        "Assalamu alaykum. Please complete your muraja'a by Thursday. Contact me if you need help.",
+        { delay: 38 }
       );
-      await pause(page, 600);
-      await moveThenClick(page, 'button[type="submit"]');
-      await page.waitForTimeout(1500);
-      await caption(page, 'Submission flagged. Admin will review it on the Integrity page.', 3000);
+      await pause(page, 500);
+      await annotate(page, 'button:has-text("Post & Notify Students")', 'Notify All');
+      await caption(page, 'Post & Notify — all students get an instant in-app notification', 2800);
+      await clearAnnotations(page);
+      await moveThenClick(page, 'button:has-text("Post & Notify Students")');
+      await page.waitForTimeout(1800);
+      await injectCursor(page);
+      await caption(page, 'Announcement posted — students are notified right away', 2500);
+      await pause(page, 1200);
     }
-  } else {
-    await caption(page, 'Flag button appears next to each submission row — sends it to admin for review', 3000);
   }
+
+  // ── 4. Pairs view ─────────────────────────────────────────────────────────
+  await caption(page, 'STEP 4 — Pairs View: full list of every pair with activity detail', 3000);
+  await moveThenClick(page, 'a[href*="view=pairs"]');
+  await page.waitForTimeout(1500);
+  await injectCursor(page);
+  await pause(page, 800);
+
+  const firstPairRow = page.locator('a[href*="/leader/members/"]').first();
+  if (await firstPairRow.count() > 0) {
+    await annotateLocator(page, firstPairRow, 'Pair Row');
+    await caption(page, 'Each row shows both student names, 7-day activity strip, consistency %, and today\'s dot', 3500);
+    await clearAnnotations(page);
+    await pause(page, 1000);
+  }
+
+  // ── 5. Pair Detail ────────────────────────────────────────────────────────
+  await caption(page, 'STEP 5 — Tap any pair to open the full detail view', 2500);
+  const pairHref = await firstPairRow.getAttribute('href').catch(() => null);
+  if (pairHref) {
+    await moveThenClick(page, `a[href="${pairHref}"]`);
+  } else {
+    await firstPairRow.tap();
+  }
+  await page.waitForURL('**/leader/members/**', { timeout: 10000 });
+  await injectCursor(page);
   await pause(page, 1500);
 
-  // ── 7. Add contact note ───────────────────────────────────────────────────
-  await caption(page, `STEP 6 — Add a contact note for ${STUDENT_A.name}`, 3000);
-  const contactNoteBtn = page.locator('button:has-text("Contact"), button:has-text("Add Note"), a:has-text("Contact")').first();
-  if (await contactNoteBtn.count() > 0) {
-    await moveThenClick(page, 'button:has-text("Contact"), button:has-text("Add Note")');
-    await page.waitForTimeout(1200);
+  // Heatmap
+  const heatmap = page.locator('[data-onboard="student-heatmap"]').first();
+  if (await heatmap.count() > 0) {
+    await annotateLocator(page, heatmap, '30-Day Heatmap');
+    await caption(page, '30-day submission heatmap — green squares are days the student submitted', 3000);
+    await clearAnnotations(page);
+    await pause(page, 800);
+  }
+
+  // History tab
+  await caption(page, 'History tab — every submission with flag option for admin review', 2800);
+  const historyTab = page.locator('button:has-text("History")').first();
+  if (await historyTab.count() > 0) {
+    await annotateLocator(page, historyTab, 'History');
+    await clearAnnotations(page);
+    await moveThenClick(page, 'button:has-text("History")');
+    await page.waitForTimeout(800);
+  }
+
+  const flagBtn = page.locator('[data-onboard="flag-btn"]').first();
+  if (await flagBtn.count() > 0) {
+    await scrollTo(page, flagBtn);
+    await annotateLocator(page, flagBtn, 'Flag for Review');
+    await caption(page, 'Flag any suspicious submission — admin sees it on the Integrity page', 3000);
+    await clearAnnotations(page);
+    await pause(page, 800);
+  }
+
+  // Tests tab
+  await caption(page, 'Tests tab — record a muraja\'a test result for this student', 2800);
+  const testsTab = page.locator('button:has-text("Tests")').first();
+  if (await testsTab.count() > 0) {
+    await annotateLocator(page, testsTab, 'Tests');
+    await clearAnnotations(page);
+    await moveThenClick(page, 'button:has-text("Tests")');
+    await page.waitForTimeout(800);
+  }
+
+  const testBtn = page.locator('button:has-text("+ Test")').first();
+  if (await testBtn.count() > 0) {
+    await scrollTo(page, testBtn);
+    await annotateLocator(page, testBtn, '+ Test');
+    await caption(page, 'Tap + Test to open the test form', 2000);
+    await clearAnnotations(page);
+    await testBtn.tap();
+    await page.waitForTimeout(800);
     await injectCursor(page);
+
+    const fromJuz = page.locator('input[placeholder="From juz"]').first();
+    const toJuz   = page.locator('input[placeholder="To juz"]').first();
+    const score   = page.locator('input[placeholder="e.g. 8"]').first();
+
+    if (await fromJuz.count() > 0) {
+      await annotateLocator(page, fromJuz, 'Juz Range');
+      await caption(page, 'Enter the juz range that was tested', 2000);
+      await fromJuz.fill('1');
+      await toJuz.fill('3');
+      await clearAnnotations(page);
+      await pause(page, 400);
+    }
+    if (await score.count() > 0) {
+      await annotateLocator(page, score, 'Score / 10');
+      await caption(page, 'Give a score out of 10 — feeds into the leaderboard ranking', 2200);
+      await score.fill('8');
+      await clearAnnotations(page);
+      await pause(page, 400);
+    }
+    await moveThenClick(page, 'button:has-text("Record test")');
+    await page.waitForTimeout(1500);
+    await injectCursor(page);
+    await caption(page, 'Test recorded — student gets a notification with their score', 2800);
+    await pause(page, 1200);
   }
 
-  const contactType = page.locator('select[name="contact_type"]').first();
-  if (await contactType.count() > 0) {
-    await caption(page, 'Select contact method — phone call, message, or in-person', 2500);
-    await contactType.selectOption('call');
-    await pause(page, 500);
+  // Contact tab
+  await caption(page, 'Contact tab — log every interaction you have with a student', 2800);
+  const contactTab = page.locator('button:has-text("Contact")').first();
+  if (await contactTab.count() > 0) {
+    await annotateLocator(page, contactTab, 'Contact Log');
+    await clearAnnotations(page);
+    await moveThenClick(page, 'button:has-text("Contact")');
+    await page.waitForTimeout(800);
   }
 
-  const noteText = page.locator('textarea[name="notes"], textarea[name="note"]').first();
-  if (await noteText.count() > 0) {
-    await caption(page, 'Log what was discussed during this contact', 2500);
-    await noteText.click();
-    await noteText.pressSequentially(
-      `Called ${STUDENT_A.name} to check on missed submission. She confirmed she was unwell but is back on track now.`,
-      { delay: 50 }
+  const contactLog = page.locator('[data-onboard="contact-log"]').first();
+  if (await contactLog.count() > 0) {
+    await annotateLocator(page, contactLog, 'Contact History');
+    await caption(page, 'Full timestamped contact history — method, note, and follow-up status', 3000);
+    await clearAnnotations(page);
+    await pause(page, 800);
+  }
+
+  const noteField = page.locator('textarea[placeholder="Contact note..."]').first();
+  if (await noteField.count() > 0) {
+    await scrollTo(page, noteField);
+    await annotateLocator(page, noteField, 'New Contact Note');
+    await caption(page, 'Log a contact note — call, message, or in-person', 2200);
+    await noteField.tap();
+    await noteField.pressSequentially(
+      'Called student after missed submission. Was unwell — back on track now.',
+      { delay: 42 }
     );
-    await pause(page, 600);
-    const contactSubmit = page.locator('button[type="submit"]').last();
+    await clearAnnotations(page);
+    await pause(page, 500);
+    const contactedAt = page.locator('input[name="contacted_at"]').first();
+    if (await contactedAt.count() > 0) {
+      await contactedAt.fill(new Date().toISOString().slice(0, 10));
+    }
     await moveThenClick(page, 'button[type="submit"]');
     await page.waitForTimeout(1500);
-    await caption(page, 'Contact note saved with timestamp — visible in the audit trail.', 3000);
+    await caption(page, 'Contact note saved — creates a full audit trail per student', 2800);
+    await pause(page, 1000);
   }
-  await pause(page, 1500);
 
-  // ── 8. Add private note ───────────────────────────────────────────────────
-  await caption(page, 'STEP 7 — Private notes are only visible to you as the leader, not the student', 3200);
-  const privateNoteInput = page.locator('textarea[name="private_note"], input[name="private_note"]').first();
-  if (await privateNoteInput.count() > 0) {
-    await privateNoteInput.click();
-    await privateNoteInput.pressSequentially(
-      'Fatima tends to underreport time. Watch for inflated page counts in future submissions.',
-      { delay: 55 }
-    );
+  // Notes tab
+  await caption(page, 'Notes tab — private notes visible only to you, never shown to students', 2800);
+  const notesTab = page.locator('button:has-text("Notes")').first();
+  if (await notesTab.count() > 0) {
+    await annotateLocator(page, notesTab, 'Private Notes');
+    await clearAnnotations(page);
+    await moveThenClick(page, 'button:has-text("Notes")');
+    await page.waitForTimeout(800);
+  }
+
+  // Private note textarea (placeholder changed — match broadly)
+  const privateNote = page.locator('textarea[placeholder*="Write a"]').first();
+  if (await privateNote.count() > 0) {
+    await scrollTo(page, privateNote);
+    await annotateLocator(page, privateNote, 'Private Note');
+    await caption(page, 'Write anything — context, concerns, reminders — stays between you and the system', 2800);
+    await privateNote.tap();
+    await privateNote.fill('Watch page counts — tends to underreport. Follow up next week.');
+    await clearAnnotations(page);
     await pause(page, 600);
-    const savePrivateBtn = page.locator('button:has-text("Save"), button:has-text("Note")').last();
-    if (await savePrivateBtn.count() > 0) {
-      await moveThenClick(page, 'button:has-text("Save"), button:has-text("Note")');
+
+    const saveNote = page.locator('button:has-text("Save Note"), button:has-text("Replace Note")').first();
+    if (await saveNote.count() > 0) {
+      await scrollTo(page, saveNote);
+      await annotateLocator(page, saveNote, 'Save Note');
+      await clearAnnotations(page);
+      await saveNote.tap();
       await page.waitForTimeout(1500);
     }
-    await caption(page, 'Private note saved — students cannot see this.', 3000);
+    await caption(page, 'Note saved — field clears and note appears above for reference', 2500);
+    await pause(page, 1200);
   }
-  await pause(page, 1500);
 
-  // ── 9. Log a meeting ─────────────────────────────────────────────────────
-  await caption(page, 'STEP 8 — Meetings: log your halqa group sessions with notes and action items', 3200);
+  // ── 6. Meetings ───────────────────────────────────────────────────────────
+  await caption(page, 'STEP 6 — Meetings: log your halqa group sessions', 2800);
   await moveThenClick(page, 'a[href*="/leader/meetings"]');
   await page.waitForURL('**/leader/meetings', { timeout: 8000 });
   await injectCursor(page);
-  await pause(page, 1500);
+  await pause(page, 1200);
 
-  await caption(page, 'Create a new meeting log', 2500);
-  const newMeetingBtn = page.locator('button:has-text("New Meeting"), button:has-text("Log Meeting"), a:has-text("New Meeting")').first();
+  const newMeetingBtn = page.locator('[data-onboard="new-meeting-btn"]').first();
   if (await newMeetingBtn.count() > 0) {
-    await moveThenClick(page, 'button:has-text("New Meeting"), button:has-text("Log Meeting"), a:has-text("New Meeting")');
-    await page.waitForTimeout(1200);
+    await scrollTo(page, newMeetingBtn);
+    await annotateLocator(page, newMeetingBtn, 'New Meeting');
+    await caption(page, 'Log a new group session — date, attendance, notes, and action items', 2800);
+    await clearAnnotations(page);
+    await newMeetingBtn.tap();
+    await page.waitForTimeout(1000);
     await injectCursor(page);
   }
 
-  const meetingDate = page.locator('input[name="meeting_date"], input[type="date"]').first();
+  // Date
+  const meetingDate = page.locator('input[type="date"]').first();
   if (await meetingDate.count() > 0) {
-    await caption(page, 'Set the meeting date', 2000);
-    await meetingDate.fill('2026-06-14');
+    await annotateLocator(page, meetingDate, 'Meeting Date');
+    await caption(page, 'Set the date of the session', 1800);
+    await scrollTo(page, meetingDate);
+    await meetingDate.evaluate((el) => {
+      el.value = new Date().toISOString().slice(0, 10);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await clearAnnotations(page);
     await pause(page, 500);
   }
 
-  const meetingTime = page.locator('input[name="meeting_time"], input[type="time"]').first();
-  if (await meetingTime.count() > 0) {
-    await meetingTime.fill('16:30');
+  // Notes textarea (first of the three text areas — notes / highlights / concerns)
+  const textareas = page.locator('textarea');
+  const notesTA   = textareas.first();
+  if (await notesTA.count() > 0) {
+    await scrollTo(page, notesTA);
+    await annotateLocator(page, notesTA, 'General Notes');
+    await caption(page, 'Summarise what happened — feeds directly into the weekly report', 2800);
+    await notesTA.tap();
+    await notesTA.fill('Weekly halqa check-in. Two students need follow-up next week. Group is on target overall.');
+    await clearAnnotations(page);
     await pause(page, 400);
   }
 
-  const attendanceCount = page.locator('input[name="attendance_count"]').first();
-  if (await attendanceCount.count() > 0) {
-    await attendanceCount.fill('8');
+  // Highlights textarea (second)
+  const highlightsTA = textareas.nth(1);
+  if (await highlightsTA.count() > 0) {
+    await scrollTo(page, highlightsTA);
+    await annotateLocator(page, highlightsTA, 'Highlights');
+    await caption(page, 'Note any wins — the admin sees this in the weekly overview', 2200);
+    await highlightsTA.tap();
+    await highlightsTA.fill('Three students completed Juz 5 this week. Great progress overall.');
+    await clearAnnotations(page);
     await pause(page, 400);
   }
 
-  const meetingNotes = page.locator('textarea[name="notes"]').first();
-  if (await meetingNotes.count() > 0) {
-    await caption(page, 'Write the meeting summary and any concerns discussed', 2800);
-    await meetingNotes.click();
-    await meetingNotes.pressSequentially(
-      'Weekly halqa check-in. Discussed submission consistency. Two students flagged for follow-up next week. Reminded group about pairing window deadline.',
-      { delay: 45 }
-    );
-    await pause(page, 700);
-  }
-
-  const highlights = page.locator('textarea[name="highlights"]').first();
-  if (await highlights.count() > 0) {
-    await caption(page, 'Note any highlights from the session', 2500);
-    await highlights.click();
-    await highlights.pressSequentially('Mariam Hassan achieved 7-day streak badge. Celebrated with group.', { delay: 55 });
-    await pause(page, 500);
-  }
-
-  await caption(page, 'Saving meeting log…', 2000);
-  await moveThenClick(page, 'button[type="submit"]');
-  await page.waitForTimeout(2000);
-  await caption(page, 'Meeting logged with attendance, notes, and highlights. Visible in weekly report.', 3200);
-  await pause(page, 2000);
-
-  // ── 10. Outreach ──────────────────────────────────────────────────────────
-  await caption(page, 'STEP 9 — Outreach: the system automatically flags pairs with no recent submissions', 3200);
-  const outreachLink = page.locator('a[href*="outreach"]').first();
-  if (await outreachLink.count() > 0) {
-    await moveThenClick(page, 'a[href*="outreach"]');
-    await page.waitForTimeout(1500);
+  // Finalise — scroll into view within the modal then tap
+  const finaliseBtn = page.locator('button:has-text("Finalise")').first();
+  await finaliseBtn.waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
+  if (await finaliseBtn.isVisible().catch(() => false)) {
+    await finaliseBtn.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400);
+    await annotateLocator(page, finaliseBtn, 'Finalise');
+    await caption(page, 'Finalise the meeting — locks the record and notifies admin', 2500);
+    await clearAnnotations(page);
+    await finaliseBtn.tap();
+    await page.waitForTimeout(2000);
     await injectCursor(page);
-    await pause(page, 2000);
-    await caption(page, 'Absent pairs are sorted by days since last check-in — most urgent at the top', 3000);
-    await pause(page, 2000);
-
-    const followupBtn = page.locator('button:has-text("Follow"), button:has-text("Mark")').first();
-    if (await followupBtn.count() > 0) {
-      await caption(page, 'After contacting a student, mark them as followed-up to clear them from the queue', 3000);
-      await moveThenClick(page, 'button:has-text("Follow"), button:has-text("Mark")');
-      await page.waitForTimeout(1500);
-    }
+    await caption(page, 'Meeting finalised — visible in the weekly report and admin dashboard', 3000);
+    await pause(page, 1200);
+  } else {
+    await moveThenClick(page, 'button:has-text("Save Draft")');
+    await page.waitForTimeout(1800);
+    await caption(page, 'Meeting saved — visible in the weekly report and admin dashboard', 2800);
+    await pause(page, 1200);
   }
 
-  // ── 11. Weekly Report ─────────────────────────────────────────────────────
-  await caption(page, 'STEP 10 — Weekly Report: a full summary of your halqa\'s performance this week', 3200);
+  // ── 7. Weekly Report ──────────────────────────────────────────────────────
+  await caption(page, 'STEP 7 — Weekly Report: full performance summary for your halqa', 2800);
+  // Weekly Report is behind the "More" sheet on mobile
+  const moreBtn = page.locator('button:has-text("More")').first();
+  if (await moreBtn.count() > 0) {
+    await annotateLocator(page, moreBtn, 'More');
+    await caption(page, 'Tap More to access Weekly Report and other pages', 2000);
+    await clearAnnotations(page);
+    await moreBtn.tap();
+    await page.waitForTimeout(600);
+    await injectCursor(page);
+  }
   await moveThenClick(page, 'a[href*="weekly-report"]');
   await page.waitForURL('**/leader/weekly-report', { timeout: 8000 });
   await injectCursor(page);
-  await pause(page, 2000);
-  await caption(page, 'Report includes pair breakdown, attendance, consistency, meetings, and action items', 3200);
-  await pause(page, 2000);
-
-  const pdfBtn = page.locator('a[href*="pdf"], button:has-text("PDF"), button:has-text("Download")').first();
-  if (await pdfBtn.count() > 0) {
-    await caption(page, 'Click Download PDF to export the full report as a printable document', 3000);
-    await moveThenClick(page, 'a[href*="pdf"], button:has-text("PDF"), button:has-text("Download")');
-    await page.waitForTimeout(2000);
-    await caption(page, 'PDF generated and downloading — ready to share with the admin.', 3000);
-  }
   await pause(page, 1500);
 
-  // ── 12. Pair Change Request ───────────────────────────────────────────────
-  await caption(page, 'STEP 11 — Pair Change Requests: request a reassignment if a pair is not working out', 3200);
-  await page.goto(`/leader/members/${PAIR_ID}`);
-  await page.waitForTimeout(1500);
-  await injectCursor(page);
-
-  const pairChangeBtn = page.locator('button:has-text("Pair Change"), button:has-text("Change Pair"), a:has-text("Pair Change")').first();
-  if (await pairChangeBtn.count() > 0) {
-    await moveThenClick(page, 'button:has-text("Pair Change"), button:has-text("Change Pair")');
-    await page.waitForTimeout(1200);
-    await injectCursor(page);
-
-    const changeReason = page.locator('textarea[name="reason"]').first();
-    if (await changeReason.count() > 0) {
-      await caption(page, 'Explain why a pair change is needed — admin reviews all requests', 2800);
-      await changeReason.click();
-      await changeReason.pressSequentially(
-        'The two students have conflicting schedules and have not been able to revise together. Requesting reassignment to compatible partners.',
-        { delay: 50 }
-      );
-      await pause(page, 700);
-      await caption(page, 'Submitting change request to admin…', 2000);
-      await moveThenClick(page, 'button[type="submit"]');
-      await page.waitForTimeout(1500);
-      await caption(page, 'Request submitted. Admin will approve or reject from the Pair Changes page.', 3200);
-    }
+  const pdfLink = page.locator('a:has-text("Download PDF"), a:has-text("↓ Download PDF")').first();
+  if (await pdfLink.count() > 0) {
+    await scrollTo(page, pdfLink);
+    await annotateLocator(page, pdfLink, 'Download PDF');
+    await caption(page, 'Download as PDF to submit to admin or keep for records', 2800);
+    await clearAnnotations(page);
+    await pause(page, 1000);
   }
-  await pause(page, 2000);
 
+  // ── End ───────────────────────────────────────────────────────────────────
   await hideCaption(page);
-  await caption(page, 'That covers the complete leader experience in Muraja\'a Monitor.', 3500);
-  await pause(page, 2000);
+  await caption(page, 'That is the complete leader experience in Muraja\'a Monitor.', 3200);
+  await pause(page, 2500);
 });

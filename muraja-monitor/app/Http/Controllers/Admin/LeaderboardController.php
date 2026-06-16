@@ -326,103 +326,248 @@ class LeaderboardController extends Controller
         })->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])->values()->map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]))->toArray();
     }
 
-    private function halqaBoard(): array
+    public function halqaBoard(): array
     {
         $consistency = app(\App\Services\ConsistencyService::class);
 
-        return Halqa::with(['pairs', 'members' => fn ($q) => $q->where('role', 'student')])->get()->map(function ($halqa) use ($consistency) {
+        $halqas = Halqa::with(['pairs', 'members'])->get()->map(function ($halqa) use ($consistency) {
             $ids = $halqa->members->pluck('id');
             if ($ids->isEmpty()) return null;
+
             $subs      = PairSubmission::whereIn('subject_student_id', $ids)->get();
-            $pages     = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
+            $pages     = (int) $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
             $cons      = round($ids->map(fn ($id) => $consistency->getConsistency($id) ?? 0)->average(), 1);
             $avgStreak = round($ids->map(fn ($id) => $consistency->getStreak($id))->average(), 1);
+            $avgTest   = round(\App\Models\MurajaTest::whereIn('student_id', $ids)->avg('score') ?? 0, 2);
+            $leaderName = $halqa->leader?->name ?? '—';
 
-            return ['id' => $halqa->id, 'name' => $halqa->name, 'pair_count' => $halqa->pairs->count(), 'member_count' => $ids->count(), 'consistency' => $cons, 'pages' => (int) $pages, 'avg_streak' => $avgStreak];
-        })->filter()->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])->values()->map(fn ($h, $i) => array_merge($h, ['rank' => $i + 1]))->toArray();
+            return [
+                'id'           => $halqa->id,
+                'name'         => $halqa->name,
+                'leader_name'  => $leaderName,
+                'pair_count'   => $halqa->pairs->count(),
+                'member_count' => $ids->count(),
+                'consistency'  => $cons,
+                'avg_test_score' => $avgTest,
+                'pages'        => $pages,
+                'avg_streak'   => $avgStreak,
+            ];
+        })->filter()->values();
+
+        $maxPages = $halqas->max('pages') ?: 1;
+
+        return $halqas->map(function ($h) use ($maxPages) {
+            $score = round(
+                ($h['consistency'] / 100 * 40) +
+                ($h['avg_test_score'] / 10 * 30) +
+                ($h['pages'] / $maxPages * 20) +
+                (min($h['avg_streak'], 30) / 30 * 10),
+                2
+            );
+            return array_merge($h, ['score' => $score]);
+        })->sortByDesc('score')->values()->map(fn ($h, $i) => array_merge($h, ['rank' => $i + 1]))->toArray();
     }
 
-    /**
-     * Part 6 — Best halqa leader leaderboard.
-     * Scoring: meetings, attendance rate, contact notes, follow-ups resolved,
-     * nudges, login frequency, members moved from at-risk to on-track.
-     */
     public function leaderBoard(): array
     {
         $today = Carbon::today();
         $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $daysSinceStart = max(1, $start->diffInDays($today));
+        $programWeeks   = max(1, $daysSinceStart / 7);
+
+        $cs = app(\App\Services\ConsistencyService::class);
 
         $leaders = User::where('role', 'leader')->where('is_active', true)->with('ledHalqa')->get();
 
-        return $leaders->map(function ($leader) use ($today, $start) {
+        return $leaders->map(function ($leader) use ($today, $start, $programWeeks, $cs) {
             $halqa = $leader->ledHalqa;
             if (!$halqa) return null;
 
-            // Meetings held (finalised only — state = 'final')
-            $meetings = MeetingLog::where('halqa_id', $halqa->id)->where('state', 'final')->get();
-            $meetingCount = $meetings->count();
+            $studentIds   = User::where('halqa_id', $halqa->id)->where('role', 'student')->pluck('id');
+            $studentsCount = $studentIds->count();
 
-            // Average attendance rate across meetings
-            $studentCount = \App\Models\User::where('halqa_id', $halqa->id)->where('role', 'student')->count();
-            $avgAttendance = $meetingCount > 0 && $studentCount > 0
-                ? round($meetings->avg('attendance_count') / max(1, $studentCount) * 100, 1)
+            // ── Group Output (0–60 pts) ───────────────────────────────────────
+
+            // avg_consistency / 100 × 30
+            $avgConsistency = $studentsCount > 0
+                ? round($studentIds->map(fn ($id) => $cs->getConsistency($id) ?? 0)->average(), 2)
                 : 0;
+            $groupConsScore = $avgConsistency / 100 * 30;
 
-            // Contact notes written
-            $contactNotes = ContactLog::where('contacted_by', $leader->id)->count();
+            // avg_test_score / 10 × 20
+            $avgTestScore = $studentsCount > 0
+                ? round(\App\Models\MurajaTest::whereIn('student_id', $studentIds)->avg('score') ?? 0, 2)
+                : 0;
+            $groupTestScore = $avgTestScore / 10 * 20;
 
-            // Follow-ups: action items resolved vs created
-            $totalActions   = MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))->count();
-            $resolvedActions= MeetingActionItem::whereHas('meeting', fn ($q) => $q->where('halqa_id', $halqa->id))->where('status', 'resolved')->count();
+            // consistency delta: early (first 14 days) vs late (last 14 days)
+            $earlyFrom = $start->copy();
+            $earlyTo   = $start->copy()->addDays(13);
+            $lateFrom  = $today->copy()->subDays(13);
+            $lateTo    = $today->copy();
 
-            // Nudges sent
-            $nudges = ContactLog::where('contacted_by', $leader->id)
-                ->where('note', 'like', '[Nudge]%')
+            $earlyConsistencies = $studentIds->map(fn ($id) => $this->consistencyInWindow($id, $earlyFrom, $earlyTo));
+            $lateConsistencies  = $studentIds->map(fn ($id) => $this->consistencyInWindow($id, $lateFrom, $lateTo));
+
+            $earlyAvg = $studentsCount > 0 ? $earlyConsistencies->average() : 0;
+            $lateAvg  = $studentsCount > 0 ? $lateConsistencies->average()  : 0;
+            $deltaPct = max(0, $lateAvg - $earlyAvg);
+            $deltaScore = $deltaPct / 100 * 10;
+
+            $groupOutput = round($groupConsScore + $groupTestScore + $deltaScore, 2);
+
+            // ── Leader Activity (0–40 pts) ────────────────────────────────────
+
+            // Tests per student (0–15)
+            $testsCount   = \App\Models\MurajaTest::where('leader_id', $leader->id)->count();
+            $testsScore   = min(1, $testsCount / max(1, $studentsCount * 2)) * 15;
+
+            // Meetings finalised (0–10)
+            $finalMeetings   = MeetingLog::where('halqa_id', $halqa->id)->where('state', 'final')->count();
+            $meetingsScore   = min(1, $finalMeetings / max(1, $programWeeks)) * 10;
+
+            // Contact notes (0–10)
+            $contactNotes    = ContactLog::where('contacted_by', $leader->id)->count();
+            $contactScore    = min(1, $contactNotes / max(1, $studentsCount)) * 10;
+
+            // Flags reviewed (0–5)
+            $flagsReviewed   = PairSubmission::where('flag_reviewed_by', $leader->id)
+                ->whereNotNull('flag_verdict')
                 ->count();
+            $flagsScore      = min(5, $flagsReviewed);
 
-            // Login frequency during program
-            $loginCount = \App\Models\AuditLog::where('user_id', $leader->id)
-                ->where('action', 'login')
-                ->where('created_at', '>=', $start->toDateString())
-                ->count();
+            $activityScore = round($testsScore + $meetingsScore + $contactScore + $flagsScore, 2);
 
-            // Members recovered: students who had at-risk contact and later improved
-            $contactedAtRiskIds = ContactLog::where('contacted_by', $leader->id)
-                ->pluck('student_id')
-                ->unique();
-            $recoveredCount = 0;
-            foreach ($contactedAtRiskIds as $sid) {
-                $student = \App\Models\User::find($sid);
-                if (!$student) continue;
-                $preCons  = $this->consistencyInWindow($sid, $start->copy(), $start->copy()->addDays(6));
-                $postCons = $this->consistencyInWindow($sid, $today->copy()->subDays(6), $today->copy());
-                if ($preCons < 40 && $postCons >= 70) $recoveredCount++;
-            }
-
-            // Weighted score
-            $score = ($meetingCount * 10)
-                   + ($avgAttendance * 0.5)
-                   + ($contactNotes * 2)
-                   + ($resolvedActions * 5)
-                   + ($nudges * 1)
-                   + ($loginCount * 0.5)
-                   + ($recoveredCount * 15);
+            $score = round($groupOutput + $activityScore, 2);
 
             return [
-                'id'               => $leader->id,
-                'name'             => $leader->name,
-                'halqa'            => $halqa->name,
-                'meetings'         => $meetingCount,
-                'avg_attendance'   => $avgAttendance,
-                'contact_notes'    => $contactNotes,
-                'resolved_actions' => $resolvedActions,
-                'total_actions'    => $totalActions,
-                'nudges'           => $nudges,
-                'logins'           => $loginCount,
-                'recovered'        => $recoveredCount,
-                'score'            => round($score, 1),
+                'id'                 => $leader->id,
+                'name'               => $leader->name,
+                'halqa'              => $halqa->name,
+                'score'              => $score,
+                'group_output'       => $groupOutput,
+                'activity_score'     => $activityScore,
+                'avg_consistency'    => round($avgConsistency, 1),
+                'avg_test_score'     => round($avgTestScore, 1),
+                'consistency_delta'  => round($deltaPct, 1),
+                'tests_count'        => $testsCount,
+                'meetings'           => $finalMeetings,
+                'contact_notes'      => $contactNotes,
+                'flags_reviewed'     => $flagsReviewed,
+                'students_count'     => $studentsCount,
             ];
         })->filter()->sortByDesc('score')->values()->map(fn ($l, $i) => array_merge($l, ['rank' => $i + 1]))->toArray();
+    }
+
+    public function leaderCertificate(User $leader)
+    {
+        $data = $this->buildLeaderCertificateData($leader);
+        $pdf  = Pdf::loadView('pdf.leader-certificate', $data)->setPaper('a4', 'landscape');
+        return $pdf->download("leader-certificate-{$leader->id}.pdf");
+    }
+
+    public function buildLeaderCertificateData(User $leader): array
+    {
+        $today       = Carbon::today();
+        $board       = $this->leaderBoard();
+        $allLeaders  = count($board);
+        $entry       = collect($board)->firstWhere('id', $leader->id);
+
+        if (!$entry) {
+            // Leader has no halqa — return minimal data
+            return [
+                'leader'            => $leader,
+                'rank'              => 0,
+                'score'             => 0,
+                'group_output'      => 0,
+                'activity_score'    => 0,
+                'avg_consistency'   => 0,
+                'avg_test_score'    => 0,
+                'consistency_delta' => 0,
+                'tests_count'       => 0,
+                'meetings'          => 0,
+                'contact_notes'     => 0,
+                'flags_reviewed'    => 0,
+                'students_count'    => 0,
+                'halqa'             => '—',
+                'is_best'           => false,
+                'program_name'      => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+                'all_leaders_count' => $allLeaders,
+                'generated'         => $today->format('d F Y'),
+            ];
+        }
+
+        return [
+            'leader'            => $leader,
+            'rank'              => $entry['rank'],
+            'score'             => $entry['score'],
+            'group_output'      => $entry['group_output'],
+            'activity_score'    => $entry['activity_score'],
+            'avg_consistency'   => $entry['avg_consistency'],
+            'avg_test_score'    => $entry['avg_test_score'],
+            'consistency_delta' => $entry['consistency_delta'],
+            'tests_count'       => $entry['tests_count'],
+            'meetings'          => $entry['meetings'],
+            'contact_notes'     => $entry['contact_notes'],
+            'flags_reviewed'    => $entry['flags_reviewed'],
+            'students_count'    => $entry['students_count'],
+            'halqa'             => $entry['halqa'],
+            'is_best'           => $entry['rank'] === 1,
+            'program_name'      => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+            'all_leaders_count' => $allLeaders,
+            'generated'         => $today->format('d F Y'),
+        ];
+    }
+
+    public function halqaCertificate(Halqa $halqa)
+    {
+        $today = Carbon::today();
+        $board = $this->halqaBoard();
+        $entry = collect($board)->firstWhere('id', $halqa->id);
+
+        $cs = app(\App\Services\ConsistencyService::class);
+        $allStudents = User::where('role', 'student')->where('is_active', true)->get();
+        $maxPages    = $allStudents->map(function ($s) {
+            return (int) (PairSubmission::where('subject_student_id', $s->id)
+                ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0);
+        })->max() ?: 1;
+
+        $students = $halqa->members->map(function ($s) use ($cs, $maxPages) {
+            $pages   = (int) (PairSubmission::where('subject_student_id', $s->id)
+                ->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0);
+            $cons    = $cs->getConsistency($s->id) ?? 0;
+            $avgTest = round(\App\Models\MurajaTest::where('student_id', $s->id)->avg('score') ?? 0, 1);
+            $rankScore = round(($avgTest / 10 * 50) + ($pages / $maxPages * 30) + ($cons / 100 * 20), 2);
+
+            return [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'student_id' => $s->student_id,
+                'consistency'=> round($cons, 1),
+                'avg_test'   => $avgTest,
+                'pages'      => $pages,
+                'rank_score' => $rankScore,
+            ];
+        })->sortByDesc('rank_score')->values()->toArray();
+
+        $data = [
+            'halqa'        => $halqa,
+            'name'         => $halqa->name,
+            'leader_name'  => $entry['leader_name'] ?? ($halqa->leader?->name ?? '—'),
+            'rank'         => $entry['rank'] ?? 0,
+            'score'        => $entry['score'] ?? 0,
+            'consistency'  => $entry['consistency'] ?? 0,
+            'avg_test_score' => $entry['avg_test_score'] ?? 0,
+            'pages'        => $entry['pages'] ?? 0,
+            'avg_streak'   => $entry['avg_streak'] ?? 0,
+            'is_best'      => ($entry['rank'] ?? 0) === 1,
+            'students'     => $students,
+            'program_name' => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+            'generated'    => $today->format('d F Y'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.halqa-certificate', $data)->setPaper('a4', 'landscape');
+        return $pdf->download("halqa-certificate-{$halqa->id}.pdf");
     }
 
     private function consistencyInWindow(int $userId, Carbon $from, Carbon $to): float

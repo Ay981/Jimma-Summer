@@ -11,10 +11,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Request-scoped so its in-request caches are shared across the many
-        // app(ConsistencyService::class) resolutions (leaderboard, badges, …)
-        // and reset between requests (incl. under Octane).
         $this->app->scoped(\App\Services\ConsistencyService::class);
+
+        $this->app->bind(
+            \Illuminate\Routing\Middleware\ThrottleRequests::class,
+            \App\Http\Middleware\ThrottleRequests::class,
+        );
     }
 
     /**
