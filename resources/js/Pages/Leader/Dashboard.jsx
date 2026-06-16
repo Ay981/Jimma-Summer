@@ -1,74 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import {
-    MegaphoneSimple, FileArrowDown, ClipboardText,
+    FileArrowDown, ClipboardText,
     CaretRight, Warning, CheckCircle, TrendDown,
     MagnifyingGlass, UsersThree,
 } from '@phosphor-icons/react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 import Sparkline from '@/Components/UI/Sparkline';
 import StatusTag from '@/Components/UI/StatusTag';
-
-// ── Broadcast modal ───────────────────────────────────────────────────────────
-
-function BroadcastModal({ onClose }) {
-    const [msg, setMsg] = useState('');
-    const [sending, setSending] = useState(false);
-
-    function handleSend() {
-        if (!msg.trim() || sending) return;
-        setSending(true);
-        router.post('/leader/broadcast', { message: msg }, {
-            onSuccess: () => { setSending(false); onClose(); },
-            onError:   () => setSending(false),
-        });
-    }
-
-    return (
-        <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
-            onClick={onClose}
-        >
-            <div
-                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '380px', maxWidth: '95vw' }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <h3 style={{ margin: '0 0 8px', fontSize: '1rem', fontWeight: 700 }}>Broadcast to Halqa</h3>
-                <p style={{ margin: '0 0 10px', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
-                    All students in your halqa will receive this notification.
-                </p>
-                <textarea
-                    value={msg}
-                    onChange={(e) => setMsg(e.target.value)}
-                    placeholder="Your message…"
-                    rows={3}
-                    style={{
-                        width: '100%', boxSizing: 'border-box', padding: '8px 10px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        background: 'var(--background)', color: 'var(--foreground)',
-                        fontSize: '0.875rem', resize: 'none', fontFamily: 'inherit', marginBottom: '10px',
-                    }}
-                />
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={onClose}
-                        disabled={sending}
-                        style={{ padding: '6px 14px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', cursor: sending ? 'default' : 'pointer' }}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSend}
-                        disabled={sending}
-                        style={{ padding: '6px 14px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.7 : 1 }}
-                    >
-                        {sending ? 'Sending…' : 'Send'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ── Absence follow-up item ────────────────────────────────────────────────────
 
@@ -325,18 +264,14 @@ export default function LeaderDashboard({
     halqa, pairs, students, summary, today_subs,
     absence_queue, follow_up_queue, group_identity,
 }) {
-    const [view, setView] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const p = new URLSearchParams(window.location.search).get('view');
-            if (p === 'students') return 'students';
-        }
-        return 'pairs';
-    });
+    const view = typeof window !== 'undefined'
+        ? (new URLSearchParams(window.location.search).get('view') ?? 'overview')
+        : 'overview';
+
     const [search, setSearch]             = useState('');
     const [sortBy, setSortBy]             = useState('consistency');
     const [statusFilter, setStatusFilter] = useState('');
     const [showAbsence, setShowAbsence]   = useState(true);
-    const [showBroadcast, setShowBroadcast] = useState(false);
 
     const totalStudents = (pairs ?? []).reduce((acc, p) => acc + (p.student_b ? 2 : 1), 0);
 
@@ -395,22 +330,8 @@ export default function LeaderDashboard({
 
                 {/* Right: action buttons */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-                    <ActionIconButton
-                        onClick={() => setShowBroadcast(true)}
-                        icon={MegaphoneSimple}
-                        label="Broadcast"
-                        primary
-                    />
-                    <ActionIconButton
-                        href="/leader/export/pdf"
-                        icon={FileArrowDown}
-                        label="Export PDF"
-                    />
-                    <ActionIconButton
-                        href="/leader/meetings"
-                        icon={ClipboardText}
-                        label="Log Meeting"
-                    />
+                    <ActionIconButton href="/leader/export/pdf" icon={FileArrowDown} label="Export PDF" />
+                    <ActionIconButton href="/leader/meetings"   icon={ClipboardText} label="Log Meeting" />
                 </div>
             </div>
 
@@ -528,100 +449,54 @@ export default function LeaderDashboard({
                 </div>
             )}
 
-            {/* ── FILTER BAR ──────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
-                {/* Pairs / Students toggle */}
-                <div style={{ display: 'flex', background: 'var(--muted)', borderRadius: 'var(--radius-md)', padding: '3px', flexShrink: 0 }}>
-                    {[['pairs', 'Pairs', (pairs ?? []).length], ['students', 'Students', (students ?? []).length]].map(([key, label, count]) => (
-                        <button
-                            key={key}
-                            onClick={() => setView(key)}
-                            style={{
-                                padding: '5px 16px', borderRadius: 'calc(var(--radius-md) - 2px)',
-                                border: 'none', cursor: 'pointer', fontSize: '0.875rem',
-                                fontWeight: view === key ? 700 : 400,
-                                background: view === key ? 'var(--card)' : 'transparent',
-                                color: view === key ? 'var(--foreground)' : 'var(--muted-foreground)',
-                                boxShadow: view === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                                transition: 'all 0.1s',
-                                display: 'flex', alignItems: 'center', gap: '5px',
-                            }}
-                        >
-                            {label}
-                            <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
-                                {count}
-                            </span>
-                        </button>
-                    ))}
+            {/* ── PAIRS / STUDENTS VIEWS ──────────────────────────────────── */}
+            {(view === 'pairs' || view === 'students') && (<>
+
+                {/* Filter bar */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}>
+                        <option value="">All statuses</option>
+                        <option value="on_track">On Track</option>
+                        <option value="slipping">Slipping</option>
+                        <option value="at_risk">At Risk</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}>
+                        <option value="consistency">Sort: Consistency</option>
+                        <option value="last_seen">Sort: Last Seen</option>
+                        <option value="name">Sort: Name</option>
+                    </select>
+                    <div style={{ position: 'relative', flex: '1 1 160px', minWidth: '120px' }}>
+                        <MagnifyingGlass size={14} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)', pointerEvents: 'none' }} />
+                        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                            placeholder={view === 'pairs' ? 'Search pairs…' : 'Search students…'}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px 6px 28px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }} />
+                    </div>
                 </div>
 
-                {/* Status filter */}
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}
-                >
-                    <option value="">All statuses</option>
-                    <option value="on_track">On Track</option>
-                    <option value="slipping">Slipping</option>
-                    <option value="at_risk">At Risk</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-
-                {/* Sort */}
-                <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem', flex: '1 1 auto', minWidth: '120px' }}
-                >
-                    <option value="consistency">Sort: Consistency</option>
-                    <option value="last_seen">Sort: Last Seen</option>
-                    <option value="name">Sort: Name</option>
-                </select>
-
-                {/* Search */}
-                <div style={{ position: 'relative', flex: '1 1 160px', minWidth: '120px' }}>
-                    <MagnifyingGlass size={14} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)', pointerEvents: 'none' }} />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder={view === 'pairs' ? 'Search pairs…' : 'Search students…'}
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px 6px 28px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: '0.8125rem' }}
-                    />
-                </div>
-            </div>
-
-            {/* ── PAIRS VIEW ──────────────────────────────────────────────── */}
-            {view === 'pairs' && (
-                <>
+                {view === 'pairs' && (<>
                     <div className="pair-row-header" style={{ padding: '4px 14px', paddingLeft: '17px' }}>
                         {['Pair', 'Consistency', 'Last Seen', 'Status', '14 days', 'Today', ''].map((h, i) => (
                             <span key={i} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
                         ))}
                     </div>
                     <div data-onboard="pair-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {filteredPairs.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted-foreground)', fontSize: '0.875rem', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-                                No pairs match the current filters.
-                            </div>
-                        ) : filteredPairs.map((pair) => <PairRow key={pair.id} pair={pair} />)}
+                        {filteredPairs.length === 0
+                            ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted-foreground)', fontSize: '0.875rem', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>No pairs match the current filters.</div>
+                            : filteredPairs.map((pair) => <PairRow key={pair.id} pair={pair} />)}
                     </div>
-                </>
-            )}
+                </>)}
 
-            {/* ── STUDENTS VIEW ────────────────────────────────────────────── */}
-            {view === 'students' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-                    {filteredStudents.length === 0 ? (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--muted-foreground)', fontSize: '0.875rem', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-                            No students match the current filters.
-                        </div>
-                    ) : filteredStudents.map((s) => <StudentCard key={s.id} student={s} />)}
-                </div>
-            )}
-
-            {showBroadcast && <BroadcastModal onClose={() => setShowBroadcast(false)} />}
+                {view === 'students' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+                        {filteredStudents.length === 0
+                            ? <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--muted-foreground)', fontSize: '0.875rem', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>No students match the current filters.</div>
+                            : filteredStudents.map((s) => <StudentCard key={s.id} student={s} />)}
+                    </div>
+                )}
+            </>)}
 
             <style>{`
                 @media (max-width: 480px) {
