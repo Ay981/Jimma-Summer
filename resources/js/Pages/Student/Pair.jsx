@@ -123,7 +123,7 @@ export default function Pair({ pair, pairing }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                         {/* Partner info card */}
-                        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                        <div data-onboard="partner-card" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
                                 <div style={{
                                     width: '48px', height: '48px', borderRadius: '50%',
@@ -172,7 +172,7 @@ export default function Pair({ pair, pairing }) {
                         </div>
 
                         {/* Partner history */}
-                        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <div data-onboard="partner-history" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
                                 <h2 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: 'var(--foreground)' }}>Partner's Submission History</h2>
                             </div>

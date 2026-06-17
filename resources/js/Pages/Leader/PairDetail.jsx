@@ -127,6 +127,7 @@ function HistoryCard({ entry, pairId }) {
                 <button
                     onClick={toggleFlag}
                     title={entry.is_flagged ? 'Remove flag' : 'Flag for review'}
+                    data-onboard="flag-btn"
                     style={{
                         padding: '4px 7px', borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border)', background: 'transparent',
@@ -447,7 +448,7 @@ function StudentPanel({ student, pairId }) {
             </div>
 
             {/* Heatmap */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+            <div data-onboard="student-heatmap" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
                 <p style={{ margin: '0 0 10px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)' }}>
                     30-Day Activity
                 </p>
@@ -489,7 +490,7 @@ function StudentPanel({ student, pairId }) {
             )}
 
             {section === 'contact' && (
-                <div>
+                <div data-onboard="contact-log">
                     <AddContactForm studentId={student.id} pairId={pairId} />
                     <div style={{ borderTop: '1px solid var(--border)' }}>
                         {student.contact_logs.length === 0 ? (

@@ -29,6 +29,7 @@ export default function Journal({ entries, can_add, today_sub }) {
                         )}
                         <form onSubmit={handleSubmit}>
                             <textarea
+                                data-onboard="journal-textarea"
                                 value={data.text}
                                 onChange={e=>setData('text',e.target.value)}
                                 placeholder="Write your reflection here… What did you revise? How did it feel? Any areas to improve?"
@@ -45,7 +46,7 @@ export default function Journal({ entries, can_add, today_sub }) {
                                 }}
                             />
                             {errors.text && <p style={{color:'var(--destructive)',fontSize:'0.8125rem',margin:'4px 0 0'}}>{errors.text}</p>}
-                            <button type="submit" disabled={processing} style={{
+                            <button data-onboard="journal-submit" type="submit" disabled={processing} style={{
                                 marginTop:'10px',padding:'9px 20px',
                                 background:'var(--primary)',color:'var(--primary-foreground)',
                                 border:'none',borderRadius:'var(--radius-md)',

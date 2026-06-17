@@ -119,7 +119,7 @@ export default function ProfileComplete({ user }) {
                     {/* Memorization level */}
                     <div>
                         <label style={lbl}>Memorization level <span style={{ color: 'var(--destructive)' }}>*</span></label>
-                        <select value={data.memo_level} onChange={(e) => setData('memo_level', e.target.value)} style={inp} required>
+                        <select data-onboard="memo-level" value={data.memo_level} onChange={(e) => setData('memo_level', e.target.value)} style={inp} required>
                             <option value="">Select level…</option>
                             {MEMO_LEVELS.map((l) => (
                                 <option key={l.value} value={l.value}>{l.label}</option>
@@ -145,12 +145,14 @@ export default function ProfileComplete({ user }) {
                             Days you can do muraja'a <span style={{ color: 'var(--destructive)' }}>*</span>
                         </label>
                         <p style={hint}>These set your streak schedule — you'll only be counted absent on days you've selected.</p>
+                        <div data-onboard="available-days">
                         <PillToggle
                             items={DAYS}
                             selected={data.available_days}
                             onToggle={(v) => toggle('available_days', v)}
                             cols={7}
                         />
+                        </div>
                         {errors.available_days && <p style={err}>{errors.available_days}</p>}
                     </div>
 
@@ -180,6 +182,7 @@ export default function ProfileComplete({ user }) {
                                 color: 'var(--muted-foreground)', fontSize: '0.9rem', pointerEvents: 'none',
                             }}>@</span>
                             <input
+                                data-onboard="telegram-input"
                                 value={data.telegram_username}
                                 onChange={(e) => setData('telegram_username', e.target.value.replace(/^@/, ''))}
                                 placeholder="yourhandle"
@@ -239,6 +242,7 @@ export default function ProfileComplete({ user }) {
                     </div>
 
                     <button
+                        data-onboard="complete-btn"
                         type="submit"
                         disabled={processing || !canSubmit}
                         style={{

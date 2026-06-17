@@ -34,6 +34,7 @@ use App\Http\Controllers\Admin\AnnouncementsController as AdminAnnouncements;
 use App\Http\Controllers\Admin\ReportsController as AdminReports;
 use App\Http\Controllers\Admin\SettingsController as AdminSettings;
 use App\Http\Controllers\Admin\AuditController as AdminAudit;
+use App\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 
 // ── Public: Auth ─────────────────────────────────────────────────────────────
@@ -86,6 +87,9 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
         Route::post('/notifications/{id}/read', [StudentNotification::class, 'markRead'])->name('notifications.read');
         Route::post('/notifications/{id}/seen', [StudentNotification::class, 'markSeen'])->name('notifications.seen');
         Route::post('/notifications/read-all', [StudentNotification::class, 'markAllRead'])->name('notifications.readAll');
+
+        // Onboarding guide PDF
+        Route::get('/onboarding/guide', [OnboardingController::class, 'downloadStudent'])->name('onboarding.guide');
     });
 });
 
@@ -128,6 +132,9 @@ Route::middleware(['auth', 'role:leader'])->prefix('leader')->name('leader.')->g
     // Weekly report
     Route::get('/weekly-report',       [App\Http\Controllers\Leader\WeeklyReportController::class, 'index'])->name('weekly-report');
     Route::get('/weekly-report/pdf',   [App\Http\Controllers\Leader\WeeklyReportController::class, 'pdf'])->name('weekly-report.pdf');
+
+    // Onboarding guide PDF
+    Route::get('/onboarding/guide', [OnboardingController::class, 'downloadLeader'])->name('onboarding.guide');
 });
 
 // ── Admin Routes ───────────────────────────────────────────────────────────────
@@ -230,6 +237,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Audit
     Route::get('/audit',                                     [AdminAudit::class, 'index'])->name('audit');
+
+    // Onboarding screenshot recapture
+    Route::post('/onboarding/recapture', [OnboardingController::class, 'recapture'])->name('onboarding.recapture');
 });
 
 // ── Root Redirect ──────────────────────────────────────────────────────────────
