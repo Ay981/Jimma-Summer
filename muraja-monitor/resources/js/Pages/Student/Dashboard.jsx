@@ -45,7 +45,7 @@ function SubmissionForm({ pairId }) {
             style={{display:'flex',flexDirection:'column',gap:'12px'}}>
             <div>
                 <label style={{fontSize:'0.8125rem',fontWeight:500,color:'var(--foreground)',display:'block',marginBottom:'4px'}}>Juz</label>
-                <select value={data.juz} onChange={e=>setData('juz',e.target.value)} style={inp()}>
+                <select data-onboard="juz-field" value={data.juz} onChange={e=>setData('juz',e.target.value)} style={inp()}>
                     <option value="">Select juz…</option>
                     {Array.from({length:30},(_,i)=>i+1).map(j=>(
                         <option key={j} value={j}>Juz {j} — {JUZ_LABELS[j]}</option>
@@ -74,7 +74,7 @@ function SubmissionForm({ pairId }) {
                 {errors.minutes_spent && <p style={{color:'var(--destructive)',fontSize:'0.75rem',margin:'2px 0 0'}}>{errors.minutes_spent}</p>}
             </div>
             {errors.submit && <p style={{color:'var(--destructive)',fontSize:'0.8125rem',margin:0}}>{errors.submit}</p>}
-            <button type="submit" disabled={processing} style={{
+            <button data-onboard="submit-btn" type="submit" disabled={processing} style={{
                 padding:'10px',background:'var(--primary)',color:'var(--primary-foreground)',
                 border:'none',borderRadius:'var(--radius-md)',fontWeight:600,fontSize:'0.9375rem',
                 cursor:processing?'not-allowed':'pointer',opacity:processing?0.7:1,
@@ -217,6 +217,23 @@ export default function Dashboard({
 
             <div className="page-content" style={{display:'flex',flexDirection:'column',gap:'20px'}}>
 
+                {/* ── Onboarding banner ─────────────────────────────────── */}
+                <div style={{
+                    background:'oklch(97% 0.03 145)',border:'1px solid oklch(85% 0.08 145)',
+                    borderRadius:'var(--radius-lg)',padding:'12px 16px',
+                    display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
+                }}>
+                    <div>
+                        <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'oklch(35% 0.1 145)'}}>New to Muraja Monitor?</p>
+                        <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'oklch(45% 0.08 145)'}}>Download the visual step-by-step onboarding guide.</p>
+                    </div>
+                    <a href="/student/onboarding/guide" target="_blank" rel="noreferrer" style={{
+                        padding:'7px 16px',background:'oklch(40% 0.12 145)',color:'#fff',
+                        borderRadius:'var(--radius-sm)',fontWeight:600,fontSize:'0.8125rem',
+                        textDecoration:'none',whiteSpace:'nowrap',flexShrink:0,
+                    }}>Download Guide (PDF)</a>
+                </div>
+
                 {/* ── Greeting ──────────────────────────────────────────── */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'8px'}}>
                     <div>
@@ -248,7 +265,7 @@ export default function Dashboard({
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
 
                 {/* ── Stat Cards ────────────────────────────────────────── */}
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'12px'}}>
+                <div data-onboard="stat-cards" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'12px'}}>
                     <StatCard label="Consistency" value={`${Math.round(consistency)}%`} sub="Overall program" />
                     <StatCard label="Current Streak" value={streak} sub="days in a row" />
                     <StatCard label="Total Pages" value={pages_total.toLocaleString()} sub="submitted" />
@@ -270,9 +287,9 @@ export default function Dashboard({
                 <div className="grid-2col" style={{gap:'16px'}}>
 
                     {/* Submission card */}
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
+                    <div data-onboard="submission-form" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
                         <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
-                            Today's Revision
+                            {partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
                         </h2>
                         {today_submitted ? (
                             <div>
@@ -281,7 +298,7 @@ export default function Dashboard({
                                     background:'var(--success)',color:'var(--success-foreground)',
                                     fontSize:'0.875rem',fontWeight:500,marginBottom:'12px',
                                 }}>
-                                    ✓ Already submitted today
+                                    ✓ {partner ? `${partner.name}'s session recorded` : 'Already submitted today'}
                                 </div>
                                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
                                     {[
@@ -379,7 +396,7 @@ export default function Dashboard({
                 )}
 
                 {/* ── 30-day Heatmap ─────────────────────────────────────── */}
-                <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
+                <div data-onboard="heatmap" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
                     <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
                         Last 30 Days
                     </h2>

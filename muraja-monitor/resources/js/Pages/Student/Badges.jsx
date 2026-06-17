@@ -49,7 +49,7 @@ export default function Badges({ earned, locked, defs }) {
                 {earned.length > 0 && (
                     <div style={{marginBottom:'20px'}}>
                         <h2 style={{margin:'0 0 10px',fontSize:'0.875rem',fontWeight:600,color:'var(--muted-foreground)',letterSpacing:'0.05em'}}>EARNED</h2>
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'10px'}}>
+                        <div data-onboard="badge-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'10px'}}>
                             {earned.map(b=>(
                                 <div key={b.type} style={{
                                     background:'var(--card)',border:'1px solid var(--success)',

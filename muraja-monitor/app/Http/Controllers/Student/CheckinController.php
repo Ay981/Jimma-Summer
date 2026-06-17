@@ -32,18 +32,31 @@ class CheckinController extends Controller
         $user  = $request->user();
         $today = now()->toDateString();
 
-        if (PairSubmission::where('subject_student_id', $user->id)->where('submission_date', $today)->exists()) {
-            return back()->withErrors(['submit' => 'You have already submitted today.']);
-        }
-
         $pair = Pair::where(function ($q) use ($user) {
             $q->where('student_a_id', $user->id)->orWhere('student_b_id', $user->id);
-        })->first();
+        })->with(['studentA', 'studentB'])->first();
+
+        $partner = $pair
+            ? ($pair->student_a_id === $user->id ? $pair->studentB : $pair->studentA)
+            : null;
+
+        // Subject is the partner (paired) or self (solo / no pair yet)
+        $subject = $partner ?? $user;
+
+        if (PairSubmission::where('submitted_by', $user->id)
+            ->where('subject_student_id', $subject->id)
+            ->where('submission_date', $today)
+            ->exists()) {
+            $msg = $partner
+                ? "You have already recorded {$partner->name}'s session for today."
+                : 'You have already submitted today.';
+            return back()->withErrors(['submit' => $msg]);
+        }
 
         $submission = PairSubmission::create([
             'pair_id'            => $pair?->id,
             'submitted_by'       => $user->id,
-            'subject_student_id' => $user->id,
+            'subject_student_id' => $subject->id,
             'juz'                => $request->juz,
             'page_from'          => $request->page_from,
             'page_to'            => $request->page_to,
@@ -59,20 +72,19 @@ class CheckinController extends Controller
             'target_id'   => $submission->id,
         ]);
 
-        // Check and award badges (recomputes streaks — drop any cached values first)
-        $this->consistency->forget($user->id);
-        $this->badges->checkAndAward($user);
+        // Recompute consistency and badges for the subject (partner or self)
+        $this->consistency->forget($subject->id);
+        $this->badges->checkAndAward($subject);
 
-        // Mark any unfulfilled excuse whose makeup_date is today as fulfilled
-        MissedSubmissionExcuse::where('student_id', $user->id)
+        // Mark any unfulfilled excuse for the subject
+        MissedSubmissionExcuse::where('student_id', $subject->id)
             ->where('makeup_date', $today)
             ->where('fulfilled', false)
             ->update(['fulfilled' => true]);
 
-        // Notify partner
-        if ($pair) {
-            $partner = $pair->student_a_id === $user->id ? $pair->studentB : $pair->studentA;
-            $partner?->notify(new PartnerSubmitted($submission, $user->name));
+        // Notify the subject (partner) that their session was recorded
+        if ($partner) {
+            $partner->notify(new PartnerSubmitted($submission, $user->name));
         }
 
         return redirect()->route('student.dashboard')->with('success', 'JazakAllah khayran! Recorded.');
@@ -82,10 +94,9 @@ class CheckinController extends Controller
     {
         $user = $request->user();
 
-        // Only the subject student (or submitter) can edit
-        abort_if($submission->subject_student_id !== $user->id && $submission->submitted_by !== $user->id, 403);
+        // Only the submitter (the one who filed it) or the subject can edit
+        abort_if($submission->submitted_by !== $user->id && $submission->subject_student_id !== $user->id, 403);
 
-        // Check edit window: editable before program end date
         $endDate = \App\Models\ProgramSetting::get('program_end_date');
         if ($endDate && now()->gt(\Carbon\Carbon::parse($endDate))) {
             return back()->withErrors(['edit' => 'The edit window has closed for this program.']);

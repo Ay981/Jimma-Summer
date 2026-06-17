@@ -91,7 +91,7 @@ export default function History({ submissions, current_month, months, is_editabl
                         <p style={{color:'var(--muted-foreground)',margin:0}}>No submissions for this month.</p>
                     </div>
                 ) : (
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+                    <div data-onboard="history-table" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
                         <div style={{overflowX:'auto'}}>
                             <table style={{width:'100%',borderCollapse:'collapse'}}>
                                 <thead>
@@ -128,7 +128,7 @@ export default function History({ submissions, current_month, months, is_editabl
                                                 {is_editable && (
                                                     <td style={td}>
                                                         {s.filed_by_self && editingId !== s.id && (
-                                                            <button onClick={()=>setEditingId(s.id)}
+                                                            <button data-onboard="edit-btn" onClick={()=>setEditingId(s.id)}
                                                                 style={{padding:'4px 10px',background:'none',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontSize:'0.75rem',cursor:'pointer',color:'var(--foreground)'}}>
                                                                 Edit
                                                             </button>

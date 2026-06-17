@@ -381,7 +381,7 @@ export default function Meetings({ meetings, open_actions, halqa, suggested_stud
 
             {/* Open action items from previous meetings */}
             {open_actions?.length > 0 && (
-                <div style={{ marginBottom: '16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <div data-onboard="action-items-list" style={{ marginBottom: '16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                     <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Open Action Items ({open_actions.length})</span>
                         <span style={{ fontSize: '0.75rem', color: open_actions.some((a) => a.overdue) ? 'var(--destructive)' : 'var(--muted-foreground)' }}>
@@ -395,7 +395,7 @@ export default function Meetings({ meetings, open_actions, halqa, suggested_stud
             {/* Header + new button */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Meeting Log ({meetings.length})</h2>
-                <button onClick={() => setShowNew(true)}
+                <button data-onboard="new-meeting-btn" onClick={() => setShowNew(true)}
                     style={{ padding: '7px 16px', border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
                     + Log Meeting
                 </button>

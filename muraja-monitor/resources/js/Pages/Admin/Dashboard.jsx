@@ -421,6 +421,19 @@ export default function AdminDashboard({
                                 )}
                             </div>
                         ))}
+                        <div style={{ marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+                            <button
+                                onClick={() => router.post('/admin/onboarding/recapture')}
+                                style={{
+                                    width: '100%', padding: '7px 10px', border: '1px solid var(--border)',
+                                    background: 'var(--muted)', color: 'var(--foreground)',
+                                    borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem',
+                                    cursor: 'pointer', textAlign: 'left',
+                                }}
+                            >
+                                📸 Regenerate onboarding screenshots
+                            </button>
+                        </div>
                     </div>
                 </div>
 

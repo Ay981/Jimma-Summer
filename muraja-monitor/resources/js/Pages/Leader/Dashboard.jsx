@@ -280,13 +280,31 @@ export default function LeaderDashboard({
         <LeaderLayout title={halqa ? `${halqa.name}` : 'Leader Dashboard'}>
             <Head title="Leader Dashboard" />
 
+            {/* ── Onboarding banner ──────────────────────────────────────── */}
+            <div style={{
+                background:'oklch(97% 0.03 145)',border:'1px solid oklch(85% 0.08 145)',
+                borderRadius:'var(--radius-lg)',padding:'12px 16px',
+                display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
+                marginBottom:'16px',
+            }}>
+                <div>
+                    <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'oklch(35% 0.1 145)'}}>New to Muraja Monitor?</p>
+                    <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'oklch(45% 0.08 145)'}}>Download the visual leader onboarding guide.</p>
+                </div>
+                <a href="/leader/onboarding/guide" target="_blank" rel="noreferrer" style={{
+                    padding:'7px 16px',background:'oklch(40% 0.12 145)',color:'#fff',
+                    borderRadius:'var(--radius-sm)',fontWeight:600,fontSize:'0.8125rem',
+                    textDecoration:'none',whiteSpace:'nowrap',flexShrink:0,
+                }}>Download Guide (PDF)</a>
+            </div>
+
             {/* ── Top: Pulse + stats + suggested actions ─────────────────── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '12px', marginBottom: '16px', alignItems: 'start' }} className="top-grid">
 
                 {/* Pulse + quick counts */}
-                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 20px', display: 'flex', gap: '24px', alignItems: 'center' }}>
+                <div data-onboard="pulse-meter" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 20px', display: 'flex', gap: '24px', alignItems: 'center' }}>
                     <PulseMeter score={pulse} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
+                    <div data-onboard="summary-pills" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
                         {[
                             { label: 'Submitted today',  value: today_subs,      sub: `of ${totalStudents}` },
                             { label: 'On Track',          value: summary?.on_track ?? 0, color: 'var(--success)' },
@@ -367,7 +385,7 @@ export default function LeaderDashboard({
 
             {/* ── Absence queue (collapsible) ────────────────────────────── */}
             {absence_queue?.length > 0 && (
-                <div style={{ marginBottom: '14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <div data-onboard="absence-queue" style={{ marginBottom: '14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                     <button onClick={() => setShowAbsence(!showAbsence)}
                         style={{ width: '100%', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'oklch(83% 0.08 84 / 0.15)', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
                         <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
@@ -445,7 +463,7 @@ export default function LeaderDashboard({
                             <span key={h} style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
                         ))}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div data-onboard="pair-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {filteredPairs.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted-foreground)', fontSize: '0.875rem', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
                                 No pairs match the current filters.
