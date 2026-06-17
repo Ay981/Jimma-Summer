@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Logo from '@/Components/UI/Logo';
 import {
-    Bell, ClipboardText, CalendarBlank, DotsThree, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
+    Bell, BookOpen, ClipboardText, CalendarBlank, DotsThree, FilePdf, GitBranch, House, Megaphone, SignOut, UsersThree,
 } from '@phosphor-icons/react';
 
 function Toast() {
@@ -147,6 +147,7 @@ export default function LeaderLayout({ children, title }) {
         { href: '/leader/meetings',                icon: ClipboardText, label: 'Meetings' },
         { href: '/leader/weekly-report',           icon: CalendarBlank, label: 'Weekly Report' },
         { href: '/leader/export/pdf',              icon: FilePdf,       label: 'Export PDF',    external: true },
+        { href: '/leader/onboarding/guide',        icon: BookOpen,      label: 'Onboarding Guide', external: true },
     ];
 
     function isActive(item) {
@@ -298,7 +299,8 @@ export default function LeaderLayout({ children, title }) {
                         {[
                             { href: '/leader/dashboard?view=students', icon: UsersThree, label: 'Students' },
                             { href: '/leader/weekly-report',           icon: CalendarBlank, label: 'Weekly Report' },
-                            { href: '/leader/export/pdf',              icon: FilePdf, label: 'Export PDF', external: true },
+                            { href: '/leader/export/pdf',              icon: FilePdf,   label: 'Export PDF',       external: true },
+                            { href: '/leader/onboarding/guide',        icon: BookOpen,  label: 'Onboarding Guide', external: true },
                         ].map(item => (
                             item.external
                                 ? <a key={item.href} href={item.href} target="_blank" rel="noreferrer" onClick={() => setShowMore(false)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)', textDecoration: 'none', color: 'var(--foreground)', fontSize: '0.875rem' }}>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Logo from '@/Components/UI/Logo';
 import {
     Bell, BookOpen, ClockCounterClockwise, DotsThree, House,
-    Medal, Megaphone, Mosque, SignOut, UsersThree,
+    Medal, Megaphone, Mosque, SignOut, UsersThree, UserCircle,
 } from '@phosphor-icons/react';
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -60,6 +60,7 @@ function NotificationBell({ compact = false }) {
     return (
         <div ref={ref} style={{ position: 'relative' }}>
             <button
+                data-onboard="notif-bell"
                 onClick={() => setOpen(!open)}
                 style={{
                     position: 'relative', background: 'none', border: 'none',
@@ -214,6 +215,7 @@ export default function StudentLayout({ children, title }) {
         { href: '/student/halqa',         icon: Mosque,                 label: 'My Halqa' },
         { href: '/student/badges',        icon: Medal,                  label: 'Badges' },
         { href: '/student/journal',       icon: BookOpen,               label: 'Journal' },
+        { href: '/student/profile',       icon: UserCircle,             label: 'My Profile' },
     ];
 
     function isActive(href) {
@@ -221,7 +223,7 @@ export default function StudentLayout({ children, title }) {
     }
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--background)' }}>
+        <div className="layout-root" style={{ display: 'flex', minHeight: '100vh', background: 'var(--background)' }}>
 
             {/* ── Sidebar (desktop) ───────────────────────────────────────── */}
             <aside style={{
@@ -351,7 +353,7 @@ export default function StudentLayout({ children, title }) {
                     }}
                         className="mobile-bottom-nav"
                     >
-                        {['/student/halqa', '/student/badges', '/student/journal'].map((href) => {
+                        {['/student/halqa', '/student/badges', '/student/journal', '/student/profile'].map((href) => {
                             const item = navItems.find((n) => n.href === href);
                             if (!item) return null;
                             return (
@@ -381,12 +383,14 @@ export default function StudentLayout({ children, title }) {
                 .mobile-header-action { display: none !important; }
                 .desktop-only { display: block !important; }
                 .mobile-bottom-nav { display: none !important; }
+                .layout-root { background: linear-gradient(to right, var(--sidebar) 220px, var(--background) 220px) !important; }
                 @media (max-width: 768px) {
                     .sidebar-desktop { display: none !important; }
                     .mobile-only { display: block !important; }
                     .mobile-header-action { display: flex !important; }
                     .desktop-only { display: none !important; }
                     .mobile-bottom-nav { display: flex !important; }
+                    .layout-root { background: var(--background) !important; }
                 }
             `}</style>
         </div>

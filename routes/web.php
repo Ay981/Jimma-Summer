@@ -88,6 +88,9 @@ Route::middleware(["auth", "role:student", "throttle:30,1"])
       Route::get("/dashboard", [StudentDashboard::class, "index"])->name(
         "dashboard",
       );
+
+      Route::get("/profile", [StudentProfile::class, "edit"])->name("profile.edit");
+      Route::put("/profile", [StudentProfile::class, "update"])->name("profile.update");
       Route::put("/settings/weekly-target", [
         StudentDashboard::class,
         "updateWeeklyTarget",
