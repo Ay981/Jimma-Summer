@@ -238,25 +238,22 @@ class LeaderboardController extends Controller
 
     public function studentBoard(): array
     {
-        $today = Carbon::today();
-        $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $programDays = max(1, $start->diffInDays($today) + 1);
+        $consistency = app(\App\Services\ConsistencyService::class);
 
         return User::where('role', 'student')
             ->where('is_active', true)
             ->get()
-            ->map(function ($s) use ($programDays) {
+            ->map(function ($s) use ($consistency) {
                 $subs    = PairSubmission::where('subject_student_id', $s->id)->get();
                 $pages   = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
                 $minutes = $subs->sum('minutes_spent');
-                $total   = $subs->count();
-                $cons    = round(($total / $programDays) * 100, 1);
                 $badges  = Badge::where('user_id', $s->id)->count();
-                $streak  = app(\App\Services\ConsistencyService::class)->getStreak($s->id);
+                $cons    = $consistency->getConsistency($s->id) ?? 0;
+                $streak  = $consistency->getStreak($s->id);
 
                 return ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa' => $s->halqa?->name ?? '—', 'consistency' => $cons, 'streak' => $streak, 'pages' => (int) $pages, 'minutes' => (int) $minutes, 'badges' => $badges];
             })
-            ->sortByDesc('consistency')
+            ->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])
             ->values()
             ->map(fn ($s, $i) => array_merge($s, ['rank' => $i + 1]))
             ->toArray();
@@ -264,41 +261,37 @@ class LeaderboardController extends Controller
 
     public function pairBoard(): array
     {
-        $today = Carbon::today();
-        $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $programDays = max(1, $start->diffInDays($today) + 1);
+        $consistency = app(\App\Services\ConsistencyService::class);
 
-        return Pair::with(['studentA', 'studentB', 'halqa'])->get()->map(function ($pair) use ($programDays) {
-            $ids = array_filter([$pair->student_a_id, $pair->student_b_id]);
-            $subs = PairSubmission::whereIn('subject_student_id', $ids)->get();
+        return Pair::with(['studentA', 'studentB', 'halqa'])->get()->map(function ($pair) use ($consistency) {
+            $ids     = array_filter([$pair->student_a_id, $pair->student_b_id]);
+            $subs    = PairSubmission::whereIn('subject_student_id', $ids)->get();
             $pages   = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
             $minutes = $subs->sum('minutes_spent');
-            $total   = $subs->count();
-            $cons    = round(($total / (count($ids) * $programDays)) * 100, 1);
-            $streakA = app(\App\Services\ConsistencyService::class)->getStreak($pair->student_a_id);
-            $streakB = $pair->student_b_id ? app(\App\Services\ConsistencyService::class)->getStreak($pair->student_b_id) : 0;
+            $consA   = $consistency->getConsistency($pair->student_a_id) ?? 0;
+            $consB   = $pair->student_b_id ? ($consistency->getConsistency($pair->student_b_id) ?? 0) : 0;
+            $cons    = count($ids) > 1 ? round(($consA + $consB) / 2, 1) : $consA;
+            $streakA = $consistency->getStreak($pair->student_a_id);
+            $streakB = $pair->student_b_id ? $consistency->getStreak($pair->student_b_id) : 0;
 
             return ['id' => $pair->id, 'student_a' => $pair->studentA?->name ?? '—', 'student_b' => $pair->studentB?->name ?? '—', 'halqa' => $pair->halqa?->name ?? '—', 'consistency' => $cons, 'pages' => (int) $pages, 'minutes' => (int) $minutes, 'streak' => max($streakA, $streakB)];
-        })->sortByDesc('consistency')->values()->map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]))->toArray();
+        })->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])->values()->map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]))->toArray();
     }
 
     private function halqaBoard(): array
     {
-        $today = Carbon::today();
-        $start = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $programDays = max(1, $start->diffInDays($today) + 1);
+        $consistency = app(\App\Services\ConsistencyService::class);
 
-        return Halqa::with(['pairs', 'members' => fn ($q) => $q->where('role', 'student')])->get()->map(function ($halqa) use ($programDays) {
+        return Halqa::with(['pairs', 'members' => fn ($q) => $q->where('role', 'student')])->get()->map(function ($halqa) use ($consistency) {
             $ids = $halqa->members->pluck('id');
             if ($ids->isEmpty()) return null;
-            $subs    = PairSubmission::whereIn('subject_student_id', $ids)->get();
-            $pages   = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
-            $total   = $subs->count();
-            $cons    = round(($total / ($ids->count() * $programDays)) * 100, 1);
-            $avgStreak = $ids->map(fn ($id) => app(\App\Services\ConsistencyService::class)->getStreak($id))->average();
+            $subs      = PairSubmission::whereIn('subject_student_id', $ids)->get();
+            $pages     = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
+            $cons      = round($ids->map(fn ($id) => $consistency->getConsistency($id) ?? 0)->average(), 1);
+            $avgStreak = round($ids->map(fn ($id) => $consistency->getStreak($id))->average(), 1);
 
-            return ['id' => $halqa->id, 'name' => $halqa->name, 'pair_count' => $halqa->pairs->count(), 'member_count' => $ids->count(), 'consistency' => $cons, 'pages' => (int) $pages, 'avg_streak' => round($avgStreak, 1)];
-        })->filter()->sortByDesc('consistency')->values()->map(fn ($h, $i) => array_merge($h, ['rank' => $i + 1]))->toArray();
+            return ['id' => $halqa->id, 'name' => $halqa->name, 'pair_count' => $halqa->pairs->count(), 'member_count' => $ids->count(), 'consistency' => $cons, 'pages' => (int) $pages, 'avg_streak' => $avgStreak];
+        })->filter()->sort(fn ($a, $b) => $b['pages'] <=> $a['pages'] ?: $b['consistency'] <=> $a['consistency'])->values()->map(fn ($h, $i) => array_merge($h, ['rank' => $i + 1]))->toArray();
     }
 
     /**

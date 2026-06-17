@@ -60,6 +60,6 @@ class ExcuseController extends Controller
             ['reason' => $request->reason, 'makeup_date' => $makeup->toDateString(), 'fulfilled' => false]
         );
 
-        return back()->with('success', 'Excuse filed. Submit your makeup on ' . $makeup->format('M d, Y') . ' to protect your streak.');
+        return back()->with('success', 'Excuse filed. Ask your partner to record your makeup session on ' . $makeup->format('M d, Y') . ' to protect your streak.');
     }
 }

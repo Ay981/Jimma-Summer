@@ -205,6 +205,7 @@ export default function Dashboard({
     name, streak, consistency, pages_total, minutes_total,
     weekly_target, week_pages, today_submitted, today_submission,
     pair_id, partner, halqa, ayat, checkins_30_days,
+    program_started, program_ended, server_date,
     earned_badges, locked_badges, weekly_summary, personal_best,
     excusable_missed, pending_excuses,
 }) {
@@ -240,7 +241,7 @@ export default function Dashboard({
                         <h1 style={{margin:0,fontSize:'1.375rem',fontWeight:700,color:'var(--foreground)'}}>
                             Assalamu Alaykum, {name} 👋
                         </h1>
-                        <p style={{margin:'2px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{today}</p>
+                        <p style={{margin:'2px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{server_date}</p>
                     </div>
                     {streak > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
@@ -289,9 +290,43 @@ export default function Dashboard({
                     {/* Submission card */}
                     <div data-onboard="submission-form" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
                         <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
-                            {partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
+                            {partner?.makeup_today
+                                ? `Makeup — ${partner.name}'s Session`
+                                : partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
                         </h2>
-                        {today_submitted ? (
+                        {partner?.makeup_today && (
+                            <div style={{
+                                padding:'8px 12px',borderRadius:'var(--radius-md)',marginBottom:'12px',
+                                background:'oklch(97% 0.04 75)',border:'1px solid oklch(82% 0.1 75)',
+                                fontSize:'0.8125rem',color:'oklch(42% 0.1 75)',fontWeight:500,
+                            }}>
+                                Today is a makeup day for {partner.name}. Record their session to protect their streak.
+                            </div>
+                        )}
+                        {program_ended ? (
+                            <p style={{color:'var(--muted-foreground)',fontSize:'0.875rem'}}>
+                                The program has ended. No further submissions are accepted.
+                            </p>
+                        ) : !program_started ? (
+                            <p style={{color:'var(--muted-foreground)',fontSize:'0.875rem'}}>
+                                Submissions are not open yet. Check back on the program start date.
+                            </p>
+                        ) : partner && !partner.scheduled_today ? (
+                            <div style={{
+                                padding:'14px',borderRadius:'var(--radius-md)',
+                                background:'oklch(97% 0.02 60)',
+                                border:'1px solid oklch(85% 0.06 60)',
+                            }}>
+                                <p style={{margin:'0 0 4px',fontSize:'0.875rem',fontWeight:600,color:'oklch(40% 0.1 60)'}}>
+                                    {partner.name} is not available today
+                                </p>
+                                <p style={{margin:0,fontSize:'0.8125rem',color:'oklch(50% 0.08 60)'}}>
+                                    {partner.next_available
+                                        ? `Next available day: ${partner.next_available}`
+                                        : 'No scheduled days set — ask them to complete their profile.'}
+                                </p>
+                            </div>
+                        ) : today_submitted ? (
                             <div>
                                 <div style={{
                                     padding:'12px',borderRadius:'var(--radius-md)',
@@ -360,7 +395,7 @@ export default function Dashboard({
                                         background: partner.today_submitted ? 'var(--success-foreground)' : 'var(--muted-foreground)',
                                         flexShrink:0,
                                     }} />
-                                    {partner.today_submitted ? 'Submitted today' : 'Not yet submitted'}
+                                    {partner.today_submitted ? 'Confirmed your session' : 'Hasn\'t confirmed yet'}
                                 </div>
                             </div>
                         ) : (

@@ -7,9 +7,11 @@ use App\Models\AuditLog;
 use App\Models\MissedSubmissionExcuse;
 use App\Models\Pair;
 use App\Models\PairSubmission;
+use App\Models\ProgramSetting;
 use App\Notifications\PartnerSubmitted;
 use App\Services\BadgeService;
 use App\Services\ConsistencyService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -32,6 +34,18 @@ class CheckinController extends Controller
         $user  = $request->user();
         $today = now()->toDateString();
 
+        // ── Program window guard ─────────────────────────────────────────────
+        $startDate = Carbon::parse(ProgramSetting::get('program_start_date', $today));
+        if (Carbon::today()->lt($startDate)) {
+            return back()->withErrors(['submit' => 'Submissions open on ' . $startDate->format('l, M d Y') . '.']);
+        }
+
+        $endDate = ProgramSetting::get('program_end_date');
+        if ($endDate && Carbon::today()->gt(Carbon::parse($endDate))) {
+            return back()->withErrors(['submit' => 'The program has ended. No further submissions are accepted.']);
+        }
+
+        // ── Resolve pair / partner / subject ─────────────────────────────────
         $pair = Pair::where(function ($q) use ($user) {
             $q->where('student_a_id', $user->id)->orWhere('student_b_id', $user->id);
         })->with(['studentA', 'studentB'])->first();
@@ -43,12 +57,32 @@ class CheckinController extends Controller
         // Subject is the partner (paired) or self (solo / no pair yet)
         $subject = $partner ?? $user;
 
-        if (PairSubmission::where('submitted_by', $user->id)
-            ->where('subject_student_id', $subject->id)
+        // ── Schedule guard ───────────────────────────────────────────────────
+        $scheduledDays = array_map('strtolower', $subject->available_days ?? []);
+        $todayName     = strtolower(now()->format('l'));
+
+        if (!empty($scheduledDays) && !in_array($todayName, $scheduledDays, true)) {
+            // Allow if today is an active makeup date for the subject
+            $hasMakeup = MissedSubmissionExcuse::where('student_id', $subject->id)
+                ->where('makeup_date', $today)
+                ->where('fulfilled', false)
+                ->exists();
+
+            if (!$hasMakeup) {
+                $next = $this->nextScheduledDay($scheduledDays);
+                $msg  = $partner
+                    ? "{$partner->name} is not available today. Next available day: {$next}."
+                    : "Today is not in your schedule. Your next available day is {$next}.";
+                return back()->withErrors(['submit' => $msg]);
+            }
+        }
+
+        // ── Duplicate guard ──────────────────────────────────────────────────
+        if (PairSubmission::where('subject_student_id', $subject->id)
             ->where('submission_date', $today)
             ->exists()) {
             $msg = $partner
-                ? "You have already recorded {$partner->name}'s session for today."
+                ? "{$partner->name}'s session has already been recorded for today."
                 : 'You have already submitted today.';
             return back()->withErrors(['submit' => $msg]);
         }
@@ -76,7 +110,7 @@ class CheckinController extends Controller
         $this->consistency->forget($subject->id);
         $this->badges->checkAndAward($subject);
 
-        // Mark any unfulfilled excuse for the subject
+        // Mark any unfulfilled excuse for the subject whose makeup is today
         MissedSubmissionExcuse::where('student_id', $subject->id)
             ->where('makeup_date', $today)
             ->where('fulfilled', false)
@@ -94,7 +128,6 @@ class CheckinController extends Controller
     {
         $user = $request->user();
 
-        // Only the submitter (the one who filed it) or the subject can edit
         abort_if($submission->submitted_by !== $user->id && $submission->subject_student_id !== $user->id, 403);
 
         $endDate = \App\Models\ProgramSetting::get('program_end_date');
@@ -126,5 +159,18 @@ class CheckinController extends Controller
         ]);
 
         return back()->with('success', 'Submission updated.');
+    }
+
+    private function nextScheduledDay(array $scheduledDays): string
+    {
+        $week  = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+        $today = now()->dayOfWeek; // 0 = Sunday
+        for ($i = 1; $i <= 7; $i++) {
+            $day = $week[($today + $i) % 7];
+            if (in_array($day, $scheduledDays, true)) {
+                return ucfirst($day);
+            }
+        }
+        return 'a scheduled day';
     }
 }
