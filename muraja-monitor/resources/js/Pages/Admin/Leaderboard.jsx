@@ -213,17 +213,17 @@ function PairTable({ pairs }) {
 }
 
 function HalqaTable({ halqas }) {
-    // Desktop: rank | name | pairs | consistency | pages | avg streak
+    // Desktop: rank | name | consistency | avg_test | score | cert
     // Mobile:  rank | name | consistency
-    const COLS        = '36px minmax(80px,180px) 56px 76px 60px 70px';
+    const COLS        = '36px minmax(80px,180px) 76px 70px 60px 60px';
     const COLS_MOBILE = '36px minmax(80px,1fr) 76px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Halqa' },
-        { label: 'Pairs',      hide: true },
         { label: 'Consistency' },
-        { label: 'Pages',      hide: true },
-        { label: 'Avg Streak', hide: true },
+        { label: 'Avg Test', hide: true },
+        { label: 'Score',    hide: true },
+        { label: '',         hide: true },
     ];
 
     return (
@@ -232,10 +232,12 @@ function HalqaTable({ halqas }) {
                 <div key={h.id} className="lb-halqa-row" style={{ background: h.rank <= 3 ? 'var(--gold-50)' : 'transparent' }}>
                     <RankBadge rank={h.rank} />
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, alignSelf: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
-                    <span className="lb-halqa-hide" style={NUM}>{h.pair_count}</span>
                     <span style={{ ...NUM, fontWeight: h.rank <= 3 ? 700 : 400 }}>{h.consistency}%</span>
-                    <span className="lb-halqa-hide" style={NUM}>{h.pages}</span>
-                    <span className="lb-halqa-hide" style={NUM}>{h.avg_streak}d</span>
+                    <span className="lb-halqa-hide" style={NUM}>{h.avg_test_score ?? '—'}/10</span>
+                    <span className="lb-halqa-hide" style={{ ...NUM, fontWeight: 700 }}>{h.score}</span>
+                    <a className="lb-halqa-hide" href={`/admin/leaderboard/halqa-certificate/${h.id}`} target="_blank" style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+                        Cert ↓
+                    </a>
                 </div>
             ))
         } />
@@ -247,20 +249,19 @@ function LeaderTable({ leaders }) {
         <p style={{ padding: '32px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>No leader data yet.</p>
     );
 
-    // Desktop: rank | leader | halqa | meetings | attendance | notes | resolved | recovered | score
+    // Desktop: rank | leader | consistency | avg_test | meetings | contacts | score | cert
     // Mobile:  rank | leader | score
-    const COLS        = '36px minmax(80px,180px) 80px 66px 72px 56px 72px 68px 60px';
+    const COLS        = '36px minmax(80px,1fr) 76px 66px 56px 60px 60px 60px';
     const COLS_MOBILE = '36px minmax(80px,1fr) 60px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Leader' },
-        { label: 'Halqa',      hide: true },
+        { label: 'Grp Cons.',  hide: true },
+        { label: 'Avg Test',   hide: true },
         { label: 'Meetings',   hide: true },
-        { label: 'Attendance', hide: true },
-        { label: 'Notes',      hide: true },
-        { label: 'Resolved',   hide: true },
-        { label: 'Recovered',  hide: true },
+        { label: 'Contacts',   hide: true },
         { label: 'Score' },
+        { label: '',           hide: true },
     ];
 
     return (
@@ -272,13 +273,14 @@ function LeaderTable({ leaders }) {
                         <Link href={`/admin/leaders/${l.id}`} style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</Link>
                         <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.halqa}</p>
                     </div>
-                    <span className="lb-leader-hide" style={{ ...NUM, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{l.halqa}</span>
+                    <span className="lb-leader-hide" style={NUM}>{l.avg_consistency}%</span>
+                    <span className="lb-leader-hide" style={NUM}>{l.avg_test_score}/10</span>
                     <span className="lb-leader-hide" style={NUM}>{l.meetings}</span>
-                    <span className="lb-leader-hide" style={NUM}>{l.avg_attendance}%</span>
                     <span className="lb-leader-hide" style={NUM}>{l.contact_notes}</span>
-                    <span className="lb-leader-hide" style={NUM}>{l.resolved_actions}<span style={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>/{l.total_actions}</span></span>
-                    <span className="lb-leader-hide" style={NUM}>{l.recovered}</span>
                     <span style={{ ...NUM, fontWeight: l.rank <= 3 ? 700 : 400 }}>{l.score}</span>
+                    <a className="lb-leader-hide" href={`/admin/leaderboard/leader-certificate/${l.id}`} target="_blank" style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+                        Cert ↓
+                    </a>
                 </div>
             ))
         } />

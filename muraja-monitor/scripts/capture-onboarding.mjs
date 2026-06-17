@@ -512,29 +512,78 @@ async function captureLeader(browser) {
   await rmLDash();
 
   // 4. Pair detail — click first pair link
-  await page.goto(`${BASE_URL}/leader/dashboard`, { waitUntil: "networkidle" });
-  await waitFor(page, '[data-onboard="pair-list"]');
-  const firstLink = page.locator('[data-onboard="pair-list"] a').first();
-  if ((await firstLink.count()) > 0) {
-    await firstLink.click();
-    await page.waitForLoadState("networkidle");
+  // 4. Pair detail — all tabs
+  // Try ?view=pairs to surface the full pair list, then fall back to overview
+  await page.goto(`${BASE_URL}/leader/dashboard?view=pairs`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1000);
+  // Find any link to /leader/members/
+  const firstLink = page.locator('a[href*="/leader/members/"]').first();
+  const pairDetailUrl = (await firstLink.count()) > 0
+    ? await firstLink.getAttribute("href")
+    : null;
+
+  if (pairDetailUrl) {
+    // 4a. History tab (default) — heatmap visible
+    await page.goto(`${BASE_URL}${pairDetailUrl}`, { waitUntil: "networkidle" });
     await waitFor(page, '[data-onboard="student-heatmap"]', 10000);
-    // Switch to Contact Log tab so the contact-log section is visible
-    const contactTab = page
-      .locator("button", { hasText: "Contact Log" })
-      .first();
-    if ((await contactTab.count()) > 0) {
-      await contactTab.click();
-      await page.waitForTimeout(400);
-    }
     const rmDetail = await annotate(page, [
       '[data-onboard="student-heatmap"]',
-      '[data-onboard="contact-log"]',
+      '[data-onboard="flag-btn"]',
     ]);
     await shot(page, "leader-pair-detail");
     await rmDetail();
+
+    // helper: click a tab by its visible label text
+    async function clickTab(label) {
+      // tabs are buttons with that text (may have a count suffix)
+      const tab = page.locator(`button:has-text("${label}")`).first();
+      if ((await tab.count()) > 0) {
+        await tab.click();
+        await page.waitForTimeout(400);
+        return true;
+      }
+      return false;
+    }
+
+    // 4b. Tests tab
+    if (await clickTab("Tests")) {
+      await shot(page, "leader-pair-detail-tests");
+    } else {
+      skipped.push("leader-pair-detail-tests (Tests tab not found)");
+    }
+
+    // 4c. Contact Log tab
+    if (await clickTab("Contact Log")) {
+      await waitFor(page, '[data-onboard="contact-log"]', 5000);
+      const rmContact = await annotate(page, ['[data-onboard="contact-log"]']);
+      await shot(page, "leader-pair-detail-contact");
+      await rmContact();
+    } else {
+      skipped.push("leader-pair-detail-contact (Contact Log tab not found)");
+    }
+
+    // 4d. Excuses tab
+    if (await clickTab("Excuses")) {
+      await shot(page, "leader-pair-detail-excuses");
+    } else {
+      skipped.push("leader-pair-detail-excuses (Excuses tab not found)");
+    }
+
+    // 4e. Notes tab
+    if (await clickTab("Notes")) {
+      await shot(page, "leader-pair-detail-notes");
+    } else {
+      skipped.push("leader-pair-detail-notes (Notes tab not found)");
+    }
+
+    // 4f. Info tab
+    if (await clickTab("Info")) {
+      await shot(page, "leader-pair-detail-info");
+    } else {
+      skipped.push("leader-pair-detail-info (Info tab not found)");
+    }
   } else {
-    skipped.push("leader-pair-detail (no pair links found)");
+    skipped.push("leader-pair-detail + tabs (no pair links found)");
     console.warn("  [skip] leader-pair-detail — no pair links");
   }
 
@@ -561,6 +610,16 @@ async function captureLeader(browser) {
   const rmMeet = await annotate(page, meetSels);
   await shot(page, "leader-meetings");
   await rmMeet();
+
+  // 7. Weekly Report
+  await page.goto(`${BASE_URL}/leader/weekly-report`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  await shot(page, "leader-weekly-report");
+
+  // 8. Announcements
+  await page.goto(`${BASE_URL}/leader/announcements`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(600);
+  await shot(page, "leader-announcements");
 
   await ctx.close();
 }
@@ -972,30 +1031,112 @@ const LEADER_SCREENS = [
   {
     num: 4,
     file: "leader-pair-detail",
-    title: "Pair Detail",
-    desc: "Click any pair row to open their detail panel. Review their 30-day activity heatmap, log a note for every contact you make, and flag suspicious submissions for the admin to review. Each panel shows both students side by side.",
+    title: "Pair Detail — History",
+    desc: "Click any pair row to open their detail panel. The History tab is the default view: it shows each student&rsquo;s 30-day activity heatmap and every submission entry with flag and verify controls. Use the flag button to mark a suspicious entry for admin review; once flagged, Verify and Reject buttons appear.",
     callouts: [
-      "30-day heatmap &mdash; each cell is one day; colour indicates whether they submitted",
-      "Contact log &mdash; record every call, message, or in-person check-in here; use this diligently",
+      "30-day heatmap &mdash; each cell is one day; green means a submission was recorded",
+      "Flag button &mdash; mark a submission as suspicious; admin is notified for review",
+      "Verify / Reject &mdash; appear after flagging; resolve the review directly from this tab",
     ],
   },
   {
     num: 5,
-    file: "leader-outreach",
-    title: "Absence Follow-up",
-    desc: "When pairs miss a session, the absence queue appears at the top of your dashboard. It lists pairs who missed yesterday, ordered by priority. Reach out to each one, mark them as done, or use the Notify all button to send a group reminder in one tap.",
+    file: "leader-pair-detail-tests",
+    title: "Pair Detail — Tests",
+    desc: "The Tests tab lets you record and review muraja&rsquo;a test results for each student. Enter the juz range, page range (optional), date tested, and a score from 0 to 10. Test scores feed into the leaderboard ranking formula. Past tests are listed below the form with edit and delete controls.",
     callouts: [
-      "Absence queue &mdash; pairs who missed their session yesterday, sorted by priority",
+      "Submit Test button &mdash; opens the test form for this student",
+      "Juz / page range &mdash; the material covered in the test session",
+      "Score field &mdash; enter 0 – 10; feeds directly into the leaderboard ranking",
     ],
   },
   {
     num: 6,
+    file: "leader-pair-detail-contact",
+    title: "Pair Detail — Contact Log",
+    desc: "The Contact Log tab is where you record every follow-up with a student. Choose the method (Call, Message, In Person), set the outcome (Pending, Responded, No Response, Resolved, Escalated), and write a note. Use Snooze to defer the follow-up, or Escalate to flag the case to admin with a summary.",
+    callouts: [
+      "Method selector &mdash; Call, Message, or In Person",
+      "Outcome selector &mdash; track whether the student responded or the issue was resolved",
+      "Escalate button &mdash; sends a flag to admin outreach with your summary note",
+      "Request Pair Change &mdash; submit a formal pair-change request to admin from this tab",
+    ],
+  },
+  {
+    num: 7,
+    file: "leader-pair-detail-excuses",
+    title: "Pair Detail — Excuses",
+    desc: "The Excuses tab shows all absence excuse requests filed by this student. Each card shows the missed date, the reason given, the makeup date chosen, and whether the makeup session was recorded (fulfilled). Use this tab to verify students are following through on their makeup commitments.",
+    callouts: [
+      "Missed date &mdash; the scheduled day the student could not attend",
+      "Makeup date &mdash; the extra day the partner should record their session",
+      "Status badge &mdash; Pending until the partner records the makeup; then shown as Made Up",
+    ],
+  },
+  {
+    num: 8,
+    file: "leader-pair-detail-notes",
+    title: "Pair Detail — Notes",
+    desc: "The Notes tab holds your private leader note for this student. This note is only visible to you — not to the student or other leaders. Use it to record sensitive context, patterns you have noticed, or reminders to yourself. The note is replaced entirely each time you save a new one.",
+    callouts: [
+      "Saved note &mdash; displayed above the input; only visible to you as leader",
+      "Replace Note &mdash; saves the new draft as the current note; previous note is overwritten",
+    ],
+  },
+  {
+    num: 9,
+    file: "leader-pair-detail-info",
+    title: "Pair Detail — Info",
+    desc: "The Info tab shows the student&rsquo;s last login time and a log of every in-app notification sent to them, with delivery and seen timestamps. Use this to confirm whether students are receiving and reading your reminders before escalating to a direct contact.",
+    callouts: [
+      "Last login &mdash; when the student last signed into the app",
+      "Notification log &mdash; every notification sent, with Seen / Unseen status",
+    ],
+  },
+  {
+    num: 10,
+    file: "leader-outreach",
+    title: "Absence Follow-up",
+    desc: "When pairs miss a session, the absence queue appears automatically on the dashboard. It lists pairs who missed yesterday, ordered by priority. Reach out to each one, optionally add a note, and mark as Done. Use the Notify all button to send a group reminder in one tap.",
+    callouts: [
+      "Absence queue &mdash; pairs who missed their session yesterday, sorted by priority",
+      "Note button &mdash; add a quick follow-up note before marking done",
+      "Notify all &mdash; broadcasts a reminder to every absent pair at once",
+    ],
+  },
+  {
+    num: 11,
     file: "leader-meetings",
     title: "Meeting Log",
     desc: "Keep a structured record of every halqa meeting. Log meeting notes, assign follow-up action items to specific students, and track which items are still open. Unresolved action items from past meetings surface at the top of this page so nothing slips through.",
     callouts: [
       "Log Meeting &mdash; opens the form to record a new halqa meeting and its notes",
       "Action items list &mdash; open tasks from previous meetings still awaiting follow-up",
+    ],
+  },
+  {
+    num: 12,
+    file: "leader-weekly-report",
+    title: "Weekly Report",
+    desc: "The weekly report summarises your halqa&rsquo;s activity for the current Sunday–Saturday week. Three summary pills show total members, how many submitted, and how many missed without an excuse. The student table shows this-week vs last-week counts, the delta, total pages, and streak. Download a formatted PDF with the button in the header.",
+    callouts: [
+      "Summary pills &mdash; total members, submitted this week, missed without excuse",
+      "Students to Contact &mdash; zero-submission students who need a nudge",
+      "Student table &mdash; this week vs last week, delta, pages, and streak per student",
+      "Pair Activity table &mdash; joint submission days and individual counts per pair",
+      "Download PDF &mdash; export the report as a formatted PDF",
+    ],
+  },
+  {
+    num: 13,
+    file: "leader-announcements",
+    title: "Announcements",
+    desc: "The Announcements page is your halqa noticeboard. Post a title and body to notify all students in your halqa instantly. Admin announcements appear here too. Dismiss items you have read to keep the list clean; delete your own posts when they are no longer relevant.",
+    callouts: [
+      "Post to my halqa &mdash; expand to write an announcement title and body",
+      "Post & Notify Students &mdash; sends an in-app notification to every student in your halqa",
+      "Admin announcements &mdash; messages from admin appear with a different colour accent",
+      "Dismiss &mdash; hides an item locally without deleting it",
     ],
   },
 ];

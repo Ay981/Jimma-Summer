@@ -10,7 +10,7 @@ use App\Models\Watchlist;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Str;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -81,7 +81,7 @@ class OutreachController extends Controller
                 'type'            => 'App\Notifications\AdminOutreach',
                 'notifiable_type' => User::class,
                 'notifiable_id'   => $sid,
-                'data'            => json_encode(['message' => 'Reminder from admin: please log your muraja\'a for today.']),
+                'data'            => ['message' => 'Reminder from admin: please log your muraja\'a for today.'],
                 'created_at'      => now(),
             ]);
             $notified++;

@@ -28,11 +28,11 @@ const TIMES = [
     { value: 'after_isha',    label: 'After Isha' },
 ];
 
-function PillToggle({ items, selected, onToggle, cols }) {
+function PillToggle({ items, selected, onToggle, gridCols }) {
     return (
         <div style={{
             display: 'grid',
-            gridTemplateColumns: cols ? `repeat(${cols}, 1fr)` : 'repeat(auto-fill, minmax(100px, 1fr))',
+            gridTemplateColumns: gridCols ?? 'repeat(auto-fill, minmax(72px, 1fr))',
             gap: '8px',
         }}>
             {items.map((item) => {
@@ -43,7 +43,7 @@ function PillToggle({ items, selected, onToggle, cols }) {
                         type="button"
                         onClick={() => onToggle(item.value)}
                         style={{
-                            padding: '8px 4px',
+                            padding: '9px 6px',
                             borderRadius: 'var(--radius-md)',
                             border: `1px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
                             background: active ? 'var(--secondary)' : 'var(--background)',
@@ -104,17 +104,18 @@ export default function ProfileComplete({ user }) {
         <StudentLayout title="Complete Your Profile">
             <Head title="Complete Your Profile" />
 
-            <div style={{ maxWidth: '540px', margin: '0 auto', padding: '0 4px' }}>
-                <div style={{ marginBottom: '24px' }}>
-                    <h1 style={{ margin: '0 0 6px', fontSize: '1.375rem', fontWeight: 700 }}>
-                        Welcome, {user.name} 👋
+            <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+                <div style={{ marginBottom: '16px' }}>
+                    <h1 style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 700 }}>
+                        Welcome, {user.name}
                     </h1>
-                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted-foreground)' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
                         Complete your profile so your leader can match you with the right partner.
                     </p>
                 </div>
 
-                <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' }}>
+                <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                     {/* Memorization level */}
                     <div>
@@ -150,7 +151,7 @@ export default function ProfileComplete({ user }) {
                             items={DAYS}
                             selected={data.available_days}
                             onToggle={(v) => toggle('available_days', v)}
-                            cols={7}
+                            gridCols="repeat(7, 1fr)"
                         />
                         </div>
                         {errors.available_days && <p style={err}>{errors.available_days}</p>}
@@ -166,6 +167,7 @@ export default function ProfileComplete({ user }) {
                             items={TIMES}
                             selected={data.available_times}
                             onToggle={(v) => toggle('available_times', v)}
+                            gridCols="repeat(auto-fill, minmax(130px, 1fr))"
                         />
                         {errors.available_times && <p style={err}>{errors.available_times}</p>}
                     </div>
@@ -255,11 +257,13 @@ export default function ProfileComplete({ user }) {
                             fontSize: '1rem',
                             cursor: processing ? 'not-allowed' : 'pointer',
                             opacity: !canSubmit ? 0.6 : 1,
+                            width: '100%',
                         }}
                     >
-                        {processing ? 'Saving…' : 'Complete Profile & Continue'}
+                        {processing ? 'Saving…' : 'Complete Profile & Continue →'}
                     </button>
                 </form>
+                </div>
             </div>
         </StudentLayout>
     );

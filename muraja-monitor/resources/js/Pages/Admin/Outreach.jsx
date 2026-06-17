@@ -97,7 +97,7 @@ export default function Outreach({ logs, notToday }) {
                             : filtered.map((l) => (
                                 <div key={l.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 80px 100px auto', gap: '10px', alignItems: 'center' }}>
                                     <div>
-                                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500 }}>{l.student.name}</p>
+                                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500 }}>{l.student.name} <span style={{ fontWeight: 400, color: 'var(--muted-foreground)', fontSize: '0.8125rem' }}>· {l.student.student_id}</span></p>
                                         <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{l.note.slice(0, 80)}{l.note.length > 80 ? '…' : ''}</p>
                                         <p style={{ margin: '1px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>by {l.by} · {l.contacted_at}</p>
                                     </div>
@@ -121,7 +121,7 @@ export default function Outreach({ logs, notToday }) {
                             {notToday.map((s) => (
                                 <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', cursor: 'pointer' }}>
                                     <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggleSelect(s.id)} />
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{s.name}</span>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{s.name} <span style={{ fontWeight: 400, color: 'var(--muted-foreground)', fontSize: '0.8125rem' }}>· {s.student_id}</span></span>
                                 </label>
                             ))}
                             {notToday.length === 0 && <p style={{ padding: '16px', textAlign: 'center', color: 'var(--success)', fontSize: '0.875rem', margin: 0 }}>All students submitted today!</p>}

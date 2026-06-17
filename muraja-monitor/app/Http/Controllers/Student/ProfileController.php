@@ -26,6 +26,48 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function edit(): Response
+    {
+        $user = auth()->user();
+        return Inertia::render('Student/Profile', [
+            'profile' => [
+                'memo_level'         => $user->memo_level,
+                'current_juz'        => $user->current_juz,
+                'available_times'    => $user->available_times ?? [],
+                'available_days'     => $user->available_days  ?? [],
+                'telegram_username'  => $user->telegram_username ?? '',
+            ],
+            'student' => [
+                'name'       => $user->name,
+                'student_id' => $user->student_id,
+                'halqa'      => $user->halqa?->name,
+            ],
+        ]);
+    }
+
+    public function update(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'memo_level'         => ['required', 'string', 'in:less_than_1,1_5,6_10,11_20,21_29,full_hifz'],
+            'current_juz'        => ['required', 'integer', 'min:1', 'max:30'],
+            'available_times'    => ['required', 'array', 'min:1'],
+            'available_times.*'  => ['in:after_subhi,after_zuhr,after_asr,after_maghrib,after_isha'],
+            'available_days'     => ['required', 'array', 'min:1'],
+            'available_days.*'   => ['in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
+            'telegram_username'  => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]*$/'],
+        ]);
+
+        $request->user()->update([
+            'memo_level'         => $request->memo_level,
+            'current_juz'        => $request->current_juz,
+            'available_times'    => $request->available_times,
+            'available_days'     => $request->available_days,
+            'telegram_username'  => $request->telegram_username ? ltrim($request->telegram_username, '@') : null,
+        ]);
+
+        return back()->with('success', 'Profile updated.');
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $request->validate([

@@ -290,6 +290,38 @@ export default function Dashboard({
     const isFriday = new Date().getDay() === 5;
     const [editingSubmission, setEditingSubmission] = useState(false);
 
+    if (!program_started) {
+        const startDate = server_date
+            ? new Date(server_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+            : null;
+        return (
+            <StudentLayout title="Dashboard">
+                <Head title="Dashboard" />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '40px 20px', textAlign: 'center', gap: '20px' }}>
+                    <div style={{ fontSize: '3rem', lineHeight: 1 }}>🌙</div>
+                    <div>
+                        <h1 style={{ margin: '0 0 8px', fontSize: '1.5rem', fontWeight: 700, color: 'var(--foreground)' }}>Program starts soon</h1>
+                        <p style={{ margin: 0, fontSize: '0.9375rem', color: 'var(--muted-foreground)', maxWidth: '360px', lineHeight: 1.6 }}>
+                            {startDate
+                                ? <>The program begins on <strong style={{ color: 'var(--foreground)' }}>{startDate}</strong>. Check back then to start submitting your muraja&apos;a.</>
+                                : "The admin hasn't set a start date yet. You'll be notified when the program begins."
+                            }
+                        </p>
+                    </div>
+                    <div style={{ background: 'var(--green-50)', border: '1px solid var(--green-200)', borderRadius: 'var(--radius-lg)', padding: '16px 24px', maxWidth: '360px' }}>
+                        <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--green-800)', fontSize: '0.9375rem' }}>Use this time to prepare</p>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--green-700)' }}>Revise your memorisation and review your schedule. Your profile and pair assignment are ready.</p>
+                    </div>
+                    {halqa && (
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            You are in <strong>{halqa.name}</strong> · Leader: {halqa.leader_name ?? '—'}
+                        </p>
+                    )}
+                </div>
+            </StudentLayout>
+        );
+    }
+
     return (
         <StudentLayout title="Dashboard">
             <Head title="Dashboard" />
