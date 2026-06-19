@@ -34,21 +34,24 @@ class IntegrityController extends Controller
                 'flag_verdict'    => $s->flag_verdict,
             ])->toArray();
 
-        // Submissions filed by someone other than the subject (might be proxies)
-        $proxySubs = PairSubmission::whereRaw('submitted_by != subject_student_id')
-            ->with(['subject:id,name', 'submitter:id,name'])
+        // Self-filed submissions — a student recorded their OWN muraja instead of
+        // their partner's, which breaks the cross-submission rule. This is only
+        // expected when the student had no pair (the `?? $user` fallback in
+        // CheckinController); a self-filing with a pair attached is a real anomaly.
+        $selfSubs = PairSubmission::whereColumn('submitted_by', 'subject_student_id')
+            ->with(['subject:id,name', 'pair.halqa:id,name'])
             ->orderByDesc('submission_date')
             ->take(50)
             ->get()
             ->map(fn ($s) => [
-                'id'          => $s->id,
-                'student'     => $s->subject?->name ?? '—',
-                'filed_by'    => $s->submitter?->name ?? '—',
-                'date'        => Carbon::parse($s->submission_date)->toDateString(),
-                'is_same'     => $s->submitted_by === $s->subject_student_id,
-            ])->filter(fn ($s) => !$s['is_same'])->values()->toArray();
+                'id'       => $s->id,
+                'student'  => $s->subject?->name ?? '—',
+                'halqa'    => $s->pair?->halqa?->name ?? '—',
+                'date'     => Carbon::parse($s->submission_date)->toDateString(),
+                'has_pair' => $s->pair_id !== null,
+            ])->toArray();
 
-        return Inertia::render('Admin/Integrity', compact('flagged', 'proxySubs'));
+        return Inertia::render('Admin/Integrity', compact('flagged', 'selfSubs'));
     }
 
     public function reviewFlag(Request $request, PairSubmission $submission): RedirectResponse
