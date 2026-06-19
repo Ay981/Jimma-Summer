@@ -18,11 +18,11 @@ const JUZ_LABELS = {
 function StatCard({ label, value, sub }) {
     return (
         <div style={{
-            background:'var(--card)',border:'1px solid var(--border)',
-            borderRadius:'var(--radius-lg)',padding:'16px',
+            background:'var(--card)',border:'1px solid var(--border-subtle)',
+            borderRadius:'var(--radius-lg)',padding:'18px',boxShadow:'var(--shadow-sm)',
         }}>
-            <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>{label}</p>
-            <p style={{margin:'4px 0 2px',fontSize:'1.75rem',fontWeight:700,color:'var(--foreground)',lineHeight:1}}>{value}</p>
+            <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500,letterSpacing:'0.01em'}}>{label}</p>
+            <p style={{margin:'6px 0 2px',fontSize:'1.875rem',fontWeight:700,color:'var(--foreground)',lineHeight:1,letterSpacing:'-0.01em'}}>{value}</p>
             {sub && <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)'}}>{sub}</p>}
         </div>
     );
@@ -326,12 +326,12 @@ export default function Dashboard({
         <StudentLayout title="Dashboard">
             <Head title="Dashboard" />
 
-            <div className="page-content" style={{display:'flex',flexDirection:'column',gap:'20px'}}>
+            <div className="page-content" style={{display:'flex',flexDirection:'column',gap:'24px'}}>
 
                 {/* ── Onboarding banner ─────────────────────────────────── */}
                 <div style={{
-                    background:'var(--secondary)',border:'1px solid var(--border)',
-                    borderRadius:'var(--radius-lg)',padding:'12px 16px',
+                    background:'var(--secondary)',border:'1px solid var(--border-subtle)',
+                    borderRadius:'var(--radius-lg)',padding:'14px 18px',
                     display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
                 }}>
                     <div>
@@ -348,10 +348,10 @@ export default function Dashboard({
                 {/* ── Greeting ──────────────────────────────────────────── */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'8px'}}>
                     <div>
-                        <h1 style={{margin:0,fontSize:'1.375rem',fontWeight:700,color:'var(--foreground)'}}>
+                        <h1 style={{margin:0,fontSize:'1.625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                             Assalamu Alaykum, {name} 👋
                         </h1>
-                        <p style={{margin:'2px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{server_date}</p>
+                        <p style={{margin:'4px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{server_date}</p>
                     </div>
                     {streak > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
@@ -384,8 +384,8 @@ export default function Dashboard({
                 </div>
 
                 {/* ── Weekly target progress ─────────────────────────────── */}
-                <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',boxShadow:'var(--shadow-sm)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
                         <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'var(--foreground)'}}>
                             Weekly Target — {week_pages} / {weekly_target} pages
                         </p>
@@ -402,15 +402,16 @@ export default function Dashboard({
                         background: 'var(--card)',
                         border: today_submitted
                             ? '1px solid var(--status-on-track-border)'
-                            : '1px solid var(--border)',
+                            : '1px solid var(--border-subtle)',
                         borderLeft: today_submitted
                             ? '3px solid var(--status-on-track)'
-                            : '1px solid var(--border)',
+                            : '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-lg)',
-                        padding: '16px',
+                        padding: '20px',
+                        boxShadow: 'var(--shadow-sm)',
                     }}>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                            <h2 style={{margin:0,fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
+                            <h2 style={{margin:0,fontSize:'1.0625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                                 {partner?.makeup_today
                                     ? `Makeup — ${partner.name}'s Session`
                                     : partner ? `Record ${partner.name}'s Muraja'ah` : "Today's Revision"}
@@ -504,8 +505,8 @@ export default function Dashboard({
                     </div>
 
                     {/* Partner card */}
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
-                        <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',boxShadow:'var(--shadow-sm)'}}>
+                        <h2 style={{margin:'0 0 16px',fontSize:'1.0625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                             My Partner
                         </h2>
                         {partner ? (
@@ -547,7 +548,7 @@ export default function Dashboard({
 
                         {/* Halqa info */}
                         {halqa && (
-                            <div style={{marginTop:'16px',paddingTop:'12px',borderTop:'1px solid var(--border)'}}>
+                            <div style={{marginTop:'18px',paddingTop:'16px',borderTop:'1px solid var(--border-subtle)'}}>
                                 <p style={{margin:'0 0 2px',fontSize:'0.75rem',fontWeight:500,color:'var(--muted-foreground)'}}>MY HALQA</p>
                                 <p style={{margin:0,fontWeight:600,color:'var(--foreground)',fontSize:'0.875rem'}}>{halqa.name}</p>
                                 <p style={{margin:'1px 0 6px',fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>Leader: {halqa.leader_name}</p>
@@ -560,10 +561,11 @@ export default function Dashboard({
                 {/* ── Weekly summary (Fridays) ───────────────────────────── */}
                 {weekly_summary && (
                     <div style={{
-                        background:'var(--card)',border:'1px solid var(--accent)',
-                        borderRadius:'var(--radius-lg)',padding:'16px',
+                        background:'var(--card)',border:'1px solid var(--border-subtle)',
+                        borderLeft:'3px solid var(--accent)',
+                        borderRadius:'var(--radius-lg)',padding:'20px',boxShadow:'var(--shadow-sm)',
                     }}>
-                        <h2 style={{margin:'0 0 6px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                        <h2 style={{margin:'0 0 8px',fontSize:'1.0625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                             📊 Weekly Summary
                         </h2>
                         <p style={{margin:0,color:'var(--foreground)',fontSize:'0.9375rem'}}>
@@ -574,8 +576,8 @@ export default function Dashboard({
                 )}
 
                 {/* ── 30-day Heatmap ─────────────────────────────────────── */}
-                <div data-onboard="heatmap" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
-                    <h2 style={{margin:'0 0 14px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                <div data-onboard="heatmap" style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',boxShadow:'var(--shadow-sm)'}}>
+                    <h2 style={{margin:'0 0 16px',fontSize:'1.0625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                         Last 30 Days
                     </h2>
                     <Heatmap data={checkins_30_days} />
@@ -586,23 +588,23 @@ export default function Dashboard({
                 {pending_excuses?.length > 0 && <PendingExcusesBanner excuses={pending_excuses} />}
 
                 {/* ── Personal Best ─────────────────────────────────────── */}
-                <div className="grid-2col" style={{gap:'12px'}}>
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px',textAlign:'center'}}>
-                        <p style={{margin:'0 0 4px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>LONGEST STREAK</p>
-                        <p style={{margin:0,fontSize:'2rem',fontWeight:700,color:'var(--foreground)'}}>{personal_best.longest_streak}</p>
-                        <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)'}}>days</p>
+                <div className="grid-2col" style={{gap:'16px'}}>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
+                        <p style={{margin:'0 0 6px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>LONGEST STREAK</p>
+                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>{personal_best.longest_streak}</p>
+                        <p style={{margin:'2px 0 0',fontSize:'0.75rem',color:'var(--muted-foreground)'}}>days</p>
                     </div>
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px',textAlign:'center'}}>
-                        <p style={{margin:'0 0 4px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>MOST PAGES / WEEK</p>
-                        <p style={{margin:0,fontSize:'2rem',fontWeight:700,color:'var(--foreground)'}}>{personal_best.most_pages_week}</p>
-                        <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)'}}>pages</p>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
+                        <p style={{margin:'0 0 6px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>MOST PAGES / WEEK</p>
+                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>{personal_best.most_pages_week}</p>
+                        <p style={{margin:'2px 0 0',fontSize:'0.75rem',color:'var(--muted-foreground)'}}>pages</p>
                     </div>
                 </div>
 
                 {/* ── Badges preview ─────────────────────────────────────── */}
                 {earned_badges.length > 0 && (
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'16px'}}>
-                        <h2 style={{margin:'0 0 10px',fontSize:'1rem',fontWeight:700,color:'var(--foreground)'}}>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',boxShadow:'var(--shadow-sm)'}}>
+                        <h2 style={{margin:'0 0 12px',fontSize:'1.0625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                             Badges Earned
                         </h2>
                         <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>

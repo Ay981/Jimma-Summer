@@ -17,11 +17,13 @@ function EscalateModal({ studentId, pairId, onClose }) {
 
     return (
         <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }}
+            className="dialog-backdrop"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: '16px' }}
             onClick={onClose}
         >
             <div
-                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '380px', maxWidth: '95vw' }}
+                className="dialog-panel"
+                style={{ background: 'var(--dialog)', borderRadius: 'var(--radius-lg)', padding: '20px', width: '380px', maxWidth: '95vw' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>

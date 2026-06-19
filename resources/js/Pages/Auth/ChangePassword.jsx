@@ -1,5 +1,6 @@
 import { Head, useForm } from "@inertiajs/react";
 import PasswordInput from "@/Components/UI/PasswordInput";
+import PasswordStrength from "@/Components/UI/PasswordStrength";
 import Logo from "@/Components/UI/Logo";
 
 export default function ChangePassword({ role, current_name }) {
@@ -51,16 +52,18 @@ export default function ChangePassword({ role, current_name }) {
             width: "100%",
             maxWidth: "400px",
             background: "var(--card)",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
-            padding: "2rem",
+            padding: "2.25rem",
+            boxShadow: "var(--shadow-md)",
           }}
         >
           <h1
             style={{
               color: "var(--foreground)",
-              fontSize: "1.125rem",
+              fontSize: "1.375rem",
               fontWeight: 700,
+              letterSpacing: "-0.01em",
               textAlign: "center",
               marginBottom: "0.5rem",
             }}
@@ -175,6 +178,7 @@ export default function ChangePassword({ role, current_name }) {
                 hasError={!!errors.password}
                 autoFocus={!isLeader}
               />
+              <PasswordStrength value={data.password} />
               {errors.password && (
                 <p
                   style={{

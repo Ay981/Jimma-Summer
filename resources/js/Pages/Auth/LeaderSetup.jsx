@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import PasswordInput from '@/Components/UI/PasswordInput';
+import PasswordStrength from '@/Components/UI/PasswordStrength';
 import Logo from '@/Components/UI/Logo';
 
 export default function LeaderSetup() {
@@ -69,16 +70,18 @@ export default function LeaderSetup() {
                         width: '100%',
                         maxWidth: '440px',
                         background: 'var(--card)',
-                        border: '1px solid var(--border)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-lg)',
-                        padding: '2rem',
+                        padding: '2.25rem',
+                        boxShadow: 'var(--shadow-md)',
                     }}
                 >
                     <h1
                         style={{
                             color: 'var(--foreground)',
-                            fontSize: '1.125rem',
+                            fontSize: '1.375rem',
                             fontWeight: 700,
+                            letterSpacing: '-0.01em',
                             textAlign: 'center',
                             marginBottom: '0.375rem',
                         }}
@@ -114,8 +117,8 @@ export default function LeaderSetup() {
                             {errors.code && <p style={errorStyle}>{errors.code}</p>}
                         </div>
 
-                        {/* Divider */}
-                        <div style={{ borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
+                        {/* Section gap — spacing instead of a divider line */}
+                        <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '1.5rem 0' }} />
 
                         {/* Full Name */}
                         <div style={{ marginBottom: '1rem' }}>
@@ -178,6 +181,7 @@ export default function LeaderSetup() {
                                 placeholder="At least 8 characters"
                                 hasError={!!errors.password}
                             />
+                            <PasswordStrength value={data.password} />
                             {errors.password && <p style={errorStyle}>{errors.password}</p>}
                         </div>
 

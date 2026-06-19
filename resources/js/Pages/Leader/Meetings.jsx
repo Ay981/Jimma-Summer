@@ -253,8 +253,8 @@ function NewMeetingForm({ suggestedStudents, allStudents, onClose }) {
     const inp = { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem' };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
-            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', width: '640px', maxWidth: '96vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '16px' }} onClick={onClose}>
+            <div className="dialog-panel" style={{ background: 'var(--dialog)', borderRadius: 'var(--radius-lg)', padding: '20px', width: '640px', maxWidth: '96vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
                 <h3 style={{ margin: '0 0 16px', fontSize: '1rem', fontWeight: 700 }}>Log Meeting</h3>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
