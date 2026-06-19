@@ -10,11 +10,14 @@ class PushController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
-        $request->validate(['token' => ['required', 'string', 'max:255']]);
+        $validated = $request->validate([
+            'token'    => ['required', 'string', 'max:255'],
+            'platform' => ['nullable', 'in:android,web'],
+        ]);
 
         DeviceToken::updateOrCreate(
-            ['token'   => $request->token],
-            ['user_id' => auth()->id(), 'platform' => 'android'],
+            ['token'   => $validated['token']],
+            ['user_id' => auth()->id(), 'platform' => $validated['platform'] ?? 'android'],
         );
 
         return response()->json(['ok' => true]);

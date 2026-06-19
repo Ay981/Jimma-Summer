@@ -53,6 +53,10 @@ class FcmService
                         'notification' => ['title' => $title, 'body' => $body],
                         'data'         => ['url' => $url ?? ''],
                         'android'      => ['priority' => 'high', 'notification' => ['sound' => 'default']],
+                        'webpush'      => [
+                            'headers'      => ['Urgency' => 'high'],
+                            'fcm_options'  => ['link' => $url ?: config('app.url')],
+                        ],
                     ],
                 ]);
 
