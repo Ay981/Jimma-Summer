@@ -25,8 +25,8 @@ function LockModal({ onClose }) {
     }
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }} onClick={onClose}>
-            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px', width: '400px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '16px' }} onClick={onClose}>
+            <div className="dialog-panel" style={{ background: 'var(--dialog)', borderRadius: 'var(--radius-lg)', padding: '22px', width: '400px', maxWidth: '95vw' }} onClick={(e) => e.stopPropagation()}>
                 <h3 style={{ margin: '0 0 10px', fontSize: '1rem', fontWeight: 700 }}>Lock & Archive Leaderboard</h3>
 
                 {!confirmed ? (

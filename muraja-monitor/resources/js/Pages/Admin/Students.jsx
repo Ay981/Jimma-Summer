@@ -66,15 +66,15 @@ function AddStudentModal({ halqas, students, onClose }) {
     }
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500,
+        <div className="dialog-backdrop" style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '16px',
         }} onClick={onClose}>
-            <div style={{
-                background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px',
+            <div className="dialog-panel" style={{
+                background: 'var(--dialog)', borderRadius: 'var(--radius-lg)', padding: '22px',
                 width: '440px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto',
             }} onClick={(e) => e.stopPropagation()}>
-                <h3 style={{ margin: '0 0 16px', fontSize: '1rem', fontWeight: 700 }}>Add Student</h3>
+                <h3 style={{ margin: '0 0 18px', fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}>Add Student</h3>
                 <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {/* Name */}
                     <div>
@@ -185,16 +185,16 @@ function ImportModal({ onClose }) {
 
     return (
         <div
-            className="import-modal-backdrop"
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '16px' }}
+            className="import-modal-backdrop dialog-backdrop"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '16px' }}
             onClick={onClose}
         >
             <div
                 className="import-modal-inner"
-                style={{ background: 'var(--card)', borderRadius: 'var(--radius-lg)', padding: '24px', width: '480px', maxWidth: '100%' }}
+                style={{ background: 'var(--dialog)', borderRadius: 'var(--radius-lg)', padding: '22px', width: '480px', maxWidth: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.07)' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <h3 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: 700 }}>Import Students via CSV</h3>
+                <h3 style={{ margin: '0 0 14px', fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}>Import Students via CSV</h3>
 
                 {!result ? (
                     <>

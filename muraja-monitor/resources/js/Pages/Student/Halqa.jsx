@@ -1,17 +1,21 @@
 import { Head } from '@inertiajs/react';
+import { Mosque } from '@phosphor-icons/react';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
 import StudentLayout from '@/Layouts/StudentLayout';
+import EmptyState from '@/Components/UI/EmptyState';
 
 export default function Halqa({ halqa }) {
     return (
         <StudentLayout title="My Halqa">
             <Head title="My Halqa" />
             <div className="page-content">
-                <h1 style={{margin:'0 0 20px',fontSize:'1.25rem',fontWeight:700,color:'var(--foreground)'}}>My Halqa</h1>
+                <h1 className="page-title" style={{margin:'0 0 20px'}}>My Halqa</h1>
 
                 {!halqa ? (
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'40px',textAlign:'center'}}>
-                        <p style={{color:'var(--muted-foreground)',margin:0}}>You haven't been assigned to a halqa yet.</p>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-sm)'}}>
+                        <EmptyState icon={Mosque} title="No halqa assigned yet">
+                            Once your leader assigns you to a halqa, its details and group progress will appear here.
+                        </EmptyState>
                     </div>
                 ) : (
                     <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>

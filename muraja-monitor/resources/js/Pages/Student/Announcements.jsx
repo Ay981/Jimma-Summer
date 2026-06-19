@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
+import { Megaphone } from '@phosphor-icons/react';
 import StudentLayout from '@/Layouts/StudentLayout';
+import EmptyState from '@/Components/UI/EmptyState';
 
 function getKey(id) { return `announcement_dismissed_${id}`; }
 function isDismissed(id) { try { return localStorage.getItem(getKey(id)) === '1'; } catch { return false; } }
@@ -27,8 +29,10 @@ export default function Announcements({ announcements = [] }) {
                 </p>
 
                 {announcements.length === 0 && (
-                    <div style={{ padding: '40px', textAlign: 'center', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>
-                        No announcements yet.
+                    <div style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+                        <EmptyState icon={Megaphone} title="No announcements yet">
+                            Messages from your halqa admin will appear here.
+                        </EmptyState>
                     </div>
                 )}
 

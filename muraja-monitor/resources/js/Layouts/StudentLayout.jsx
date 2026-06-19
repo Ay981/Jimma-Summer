@@ -1,6 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Logo from '@/Components/UI/Logo';
+import EnableNotifications from '@/Components/UI/EnableNotifications';
+import EnableBiometricLock from '@/Components/UI/EnableBiometricLock';
+import { useWebPush } from '@/hooks/useWebPush';
 import {
     Bell, BookOpen, ClockCounterClockwise, DotsThree, House,
     Medal, Megaphone, Mosque, SignOut, UsersThree, UserCircle,
@@ -106,6 +109,8 @@ function NotificationBell({ compact = false }) {
                             </button>
                         )}
                     </div>
+                    <EnableNotifications />
+                    <EnableBiometricLock />
                     {latest.length === 0 ? (
                         <p style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>
                             No new notifications
@@ -206,6 +211,7 @@ export default function StudentLayout({ children, title }) {
     const { url } = usePage();
     const { auth } = usePage().props;
     const [showMore, setShowMore] = useState(false);
+    useWebPush(); // keeps the browser push token registered on every page load
 
     const navItems = [
         { href: '/student/dashboard',     icon: House,                  label: 'Dashboard' },

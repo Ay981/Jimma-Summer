@@ -1,5 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
+import { NotePencil } from '@phosphor-icons/react';
 import StudentLayout from '@/Layouts/StudentLayout';
+import EmptyState from '@/Components/UI/EmptyState';
 
 export default function Journal({ entries, can_add, today_sub }) {
     const { data, setData, post, processing, errors, reset } = useForm({ text: '', submission_id: today_sub?.id ?? '' });
@@ -71,8 +73,10 @@ export default function Journal({ entries, can_add, today_sub }) {
 
                 {/* Entries list */}
                 {entries.data.length === 0 ? (
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'40px',textAlign:'center'}}>
-                        <p style={{color:'var(--muted-foreground)',margin:0}}>No journal entries yet. Start by submitting your revision and writing a reflection.</p>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-sm)'}}>
+                        <EmptyState icon={NotePencil} title="No journal entries yet">
+                            Submit your revision, then write a short reflection to start your journal.
+                        </EmptyState>
                     </div>
                 ) : (
                     <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>

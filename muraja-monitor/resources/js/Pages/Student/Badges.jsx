@@ -1,5 +1,7 @@
 import { Head } from '@inertiajs/react';
+import { Medal } from '@phosphor-icons/react';
 import StudentLayout from '@/Layouts/StudentLayout';
+import EmptyState from '@/Components/UI/EmptyState';
 
 const BADGE_META = {
     streak_7:     { icon: '🔥', next: 'streak_14' },
@@ -87,7 +89,9 @@ export default function Badges({ earned, locked, defs }) {
                 )}
 
                 {earned.length === 0 && locked.length === 0 && (
-                    <p style={{textAlign:'center',color:'var(--muted-foreground)',padding:'40px 0'}}>No badges defined yet.</p>
+                    <EmptyState icon={Medal} title="No badges yet">
+                        Keep up your daily muraja&apos;a — badges you earn will show up here.
+                    </EmptyState>
                 )}
             </div>
         </StudentLayout>

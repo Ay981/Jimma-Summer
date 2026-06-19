@@ -1,6 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { ClockCounterClockwise, Exam } from '@phosphor-icons/react';
 import StudentLayout from '@/Layouts/StudentLayout';
+import EmptyState from '@/Components/UI/EmptyState';
 
 const JUZ_LABELS = {1:'Al-Fātiḥah',2:'Al-Baqarah 142',3:'Al-Baqarah 253',4:"Āl ʿImrān 92",5:'An-Nisāʾ 24',6:'An-Nisāʾ 148',7:"Al-Māʾidah 82",8:"Al-Anʿām 111",9:"Al-Aʿrāf 88",10:'Al-Anfāl 41',11:'At-Tawbah 94',12:'Hūd 6',13:'Yūsuf 53',14:'Al-Ḥijr 1',15:'Al-Isrāʾ 1',16:'Al-Kahf 75',17:'Al-Anbiyāʾ 1',18:"Al-Muʾminūn 1",19:'Al-Furqān 21',20:'An-Naml 56',21:"Al-ʿAnkabūt 46",22:'Al-Aḥzāb 31',23:'Yā-Sīn 28',24:'Az-Zumar 32',25:'Fuṣṣilat 47',26:'Al-Aḥqāf 1',27:'Adh-Dhāriyāt 31',28:'Al-Mujādilah 1',29:'Al-Mulk 1',30:"An-Nabaʾ 1"};
 
@@ -98,7 +100,9 @@ export default function History({ submissions, current_month, months, is_editabl
                 {tab === 'tests' && (
                     <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
                         {(tests ?? []).length === 0 ? (
-                            <p style={{padding:'40px',textAlign:'center',color:'var(--muted-foreground)',margin:0}}>No tests recorded yet.</p>
+                            <EmptyState icon={Exam} title="No tests recorded yet">
+                                Your leader&apos;s muraja&apos;a test results will appear here.
+                            </EmptyState>
                         ) : (
                             <div style={{overflowX:'auto'}}>
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -150,8 +154,10 @@ export default function History({ submissions, current_month, months, is_editabl
                 </div>
 
                 {submissions.data.length === 0 ? (
-                    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'40px',textAlign:'center'}}>
-                        <p style={{color:'var(--muted-foreground)',margin:0}}>No submissions for this month.</p>
+                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-sm)'}}>
+                        <EmptyState icon={ClockCounterClockwise} title="No submissions this month">
+                            Revisions you log will show up here, grouped by month.
+                        </EmptyState>
                     </div>
                 ) : (
                     <div data-onboard="history-table" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>

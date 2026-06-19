@@ -21,9 +21,9 @@ function RejectModal({ requestId, onClose }) {
     }
     const inp = { padding:'7px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius-sm)', background:'var(--background)', color:'var(--foreground)', fontSize:'0.875rem', width:'100%', boxSizing:'border-box' };
     return (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:600, padding:'16px' }} onClick={onClose}>
-            <div style={{ background:'var(--card)', borderRadius:'var(--radius-lg)', border:'1px solid var(--border)', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
-                <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div className="dialog-backdrop" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:600, padding:'16px' }} onClick={onClose}>
+            <div className="dialog-panel" style={{ background:'var(--dialog)', borderRadius:'var(--radius-lg)', border:'1px solid var(--border-subtle)', width:'100%', maxWidth:'440px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--border-subtle)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <p style={{ margin:0, fontSize:'0.875rem', fontWeight:700, color:'var(--destructive)' }}>Reject Request</p>
                     <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1.1rem', color:'var(--muted-foreground)' }}>✕</button>
                 </div>

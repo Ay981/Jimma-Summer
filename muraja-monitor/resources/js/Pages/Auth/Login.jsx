@@ -40,19 +40,20 @@ export default function Login() {
                         width: '100%',
                         maxWidth: '400px',
                         background: 'var(--card)',
-                        border: '1px solid var(--border)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-lg)',
-                        padding: '2rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,.08)',
+                        padding: '2.25rem',
+                        boxShadow: 'var(--shadow-md)',
                     }}
                 >
                     <h1
                         style={{
                             color: 'var(--foreground)',
-                            fontSize: '1.25rem',
+                            fontSize: '1.5rem',
                             fontWeight: 700,
+                            letterSpacing: '-0.01em',
                             textAlign: 'center',
-                            marginBottom: '0.25rem',
+                            marginBottom: '0.375rem',
                         }}
                     >
                         Muraja'a Monitor
@@ -62,7 +63,7 @@ export default function Login() {
                             color: 'var(--muted-foreground)',
                             fontSize: '0.875rem',
                             textAlign: 'center',
-                            marginBottom: '1.75rem',
+                            marginBottom: '2rem',
                         }}
                     >
                         Jimma University MSU — Summer Revision Program
@@ -110,7 +111,7 @@ export default function Login() {
                         </div>
 
                         {/* Password */}
-                        <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ marginBottom: '1.75rem' }}>
                             <label
                                 htmlFor="password"
                                 style={{
@@ -142,7 +143,7 @@ export default function Login() {
                             disabled={processing}
                             style={{
                                 width: '100%',
-                                padding: '0.6875rem',
+                                padding: '0.75rem',
                                 background: 'var(--primary)',
                                 color: 'var(--primary-foreground)',
                                 border: 'none',
@@ -151,6 +152,7 @@ export default function Login() {
                                 fontWeight: 600,
                                 cursor: processing ? 'not-allowed' : 'pointer',
                                 opacity: processing ? 0.7 : 1,
+                                boxShadow: 'var(--shadow-sm)',
                                 transition: 'opacity 0.15s',
                             }}
                         >
