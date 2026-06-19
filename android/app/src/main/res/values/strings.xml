@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Irshad Muraja</string>
+    <string name="title_activity_main">Irshad Muraja</string>
+    <string name="package_name">dev.aymenabdulkerim.irshadmuraja</string>
+    <string name="custom_url_scheme">dev.aymenabdulkerim.irshadmuraja</string>
+    <string name="shortcut_dashboard_short">Dashboard</string>
+    <string name="shortcut_dashboard_long">Open Dashboard</string>
+    <string name="shortcut_submit_short">Submit Today</string>
+    <string name="shortcut_submit_long">Record Today\'s Session</string>
+</resources>

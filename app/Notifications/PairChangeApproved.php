@@ -8,7 +8,16 @@ class PairChangeApproved extends Notification
 {
     public function __construct(private readonly string $newPartnerName) {}
 
-    public function via(object $notifiable): array { return ['database']; }
+    public function via(object $notifiable): array { return ['database', \App\Channels\FcmChannel::class]; }
+
+    public function toFcm(object $notifiable): array
+    {
+        return [
+            'title' => 'Partner updated',
+            'body'  => "Your new muraja'a partner is {$this->newPartnerName}.",
+            'url'   => '/student/pair',
+        ];
+    }
 
     public function toDatabase(object $notifiable): array
     {

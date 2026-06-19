@@ -14,7 +14,7 @@ class PartnerSubmitted extends Notification
 
     public function via(mixed $notifiable): array
     {
-        return ['database'];
+        return ['database', \App\Channels\FcmChannel::class];
     }
 
     public function toDatabase(mixed $notifiable): array
@@ -27,6 +27,15 @@ class PartnerSubmitted extends Notification
             'page_from'    => $this->submission->page_from,
             'page_to'      => $this->submission->page_to,
             'minutes_spent'=> $this->submission->minutes_spent,
+        ];
+    }
+
+    public function toFcm(mixed $notifiable): array
+    {
+        return [
+            'title' => 'Revision recorded',
+            'body'  => "{$this->partnerName} recorded your Juz {$this->submission->juz} session.",
+            'url'   => '/student/dashboard',
         ];
     }
 }

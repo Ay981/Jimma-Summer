@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\ContactLog;
 use App\Models\LeaderEscalation;
 use App\Models\User;
+use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,10 +33,10 @@ class BroadcastController extends Controller
         "type" => "App\Notifications\LeaderBroadcast",
         "notifiable_type" => User::class,
         "notifiable_id" => $student->id,
-        "data" => json_encode([
+        "data" => [
           "message" => $request->message,
           "from" => $leader->name,
-        ]),
+        ],
         "created_at" => now(),
       ]);
 
@@ -52,6 +53,13 @@ class BroadcastController extends Controller
 
       $count++;
     }
+
+    app(FcmService::class)->sendToUsers(
+      $students->pluck('id')->toArray(),
+      "Message from {$leader->name}",
+      $request->message,
+      '/student/announcements',
+    );
 
     return back()->with("success", "Broadcast sent to {$count} students.");
   }
@@ -71,10 +79,10 @@ class BroadcastController extends Controller
       "type" => "App\Notifications\LeaderNudge",
       "notifiable_type" => User::class,
       "notifiable_id" => $student->id,
-      "data" => json_encode([
+      "data" => [
         "message" => $request->message,
         "from" => $leader->name,
-      ]),
+      ],
       "created_at" => now(),
     ]);
 
@@ -87,6 +95,13 @@ class BroadcastController extends Controller
       "follow_up_required" => false,
       "outcome" => "pending",
     ]);
+
+    app(FcmService::class)->sendToUser(
+      $studentId,
+      "Message from {$leader->name}",
+      $request->message,
+      '/student/dashboard',
+    );
 
     return back()->with("success", "Nudge sent to {$student->name}.");
   }

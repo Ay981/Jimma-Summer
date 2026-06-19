@@ -8,6 +8,7 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
+use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -283,17 +284,20 @@ class PairController extends Controller
 
     private function notifyUsers(array $userIds, string $message): void
     {
-        foreach (array_filter($userIds) as $uid) {
+        $ids = array_filter($userIds);
+        foreach ($ids as $uid) {
             $u = User::find($uid);
             $u?->notifications()->create([
                 'id'              => Str::uuid(),
                 'type'            => 'App\Notifications\PairSwap',
                 'notifiable_type' => User::class,
                 'notifiable_id'   => $uid,
-                'data'            => json_encode(['message' => $message]),
+                'data'            => ['message' => $message],
                 'created_at'      => now(),
             ]);
         }
+
+        app(FcmService::class)->sendToUsers(array_values($ids), 'Pair update', $message, '/student/pair');
     }
 
     // ── Cross-halqa pair merge ────────────────────────────────────────────────

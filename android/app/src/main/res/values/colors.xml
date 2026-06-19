@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1a3a2a</color>
+    <color name="colorPrimaryDark">#1a3a2a</color>
+    <color name="colorAccent">#c9a227</color>
+    <color name="fcm_accent">#c9a227</color>
+</resources>

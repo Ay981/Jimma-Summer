@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Halqa;
 use App\Models\User;
+use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,6 @@ class AnnouncementsController extends Controller
             'body'      => $request->body,
         ]);
 
-        // Dispatch in-app notifications to relevant users
         $this->notifyRelevantUsers($announcement);
 
         return back()->with('success', 'Announcement posted.');
@@ -79,7 +79,6 @@ class AnnouncementsController extends Controller
         $query = User::whereIn('role', ['student', 'leader'])->where('is_active', true);
 
         if ($announcement->halqa_id) {
-            // Targeted: only members of that halqa
             $query->where('halqa_id', $announcement->halqa_id);
         }
 
@@ -92,12 +91,16 @@ class AnnouncementsController extends Controller
                 'type'            => 'App\Notifications\NewAnnouncement',
                 'notifiable_type' => User::class,
                 'notifiable_id'   => $user->id,
-                'data'            => json_encode([
-                    'message'  => "New announcement: {$announcement->title}",
-                    'redirect' => $route($user),
-                ]),
-                'created_at' => now(),
+                'data'            => ['message' => "New announcement: {$announcement->title}", 'redirect' => $route($user)],
+                'created_at'      => now(),
             ]);
         }
+
+        app(FcmService::class)->sendToUsers(
+            $users->pluck('id')->toArray(),
+            $announcement->title,
+            $announcement->body,
+            '/student/announcements',
+        );
     }
 }

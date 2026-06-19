@@ -7,6 +7,7 @@ use App\Models\ContactLog;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\User;
+use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
@@ -60,16 +61,25 @@ class OutreachController extends Controller
                         'type'            => 'App\Notifications\LeaderReminder',
                         'notifiable_type' => User::class,
                         'notifiable_id'   => $student->id,
-                        'data'            => json_encode([
+                        'data'            => [
                             'message' => 'Your leader sent a reminder: please submit your muraja\'a for today.',
                             'from'    => $leader->name,
-                        ]),
+                        ],
                         'created_at' => now(),
                     ]);
                     $count++;
                 }
             }
         }
+
+        // Also fix double json_encode on data while we're here — done above already
+
+        app(FcmService::class)->sendToUsers(
+            $halqa->pairs->flatMap(fn ($p) => [$p->student_a_id, $p->student_b_id])->filter()->unique()->values()->toArray(),
+            "Reminder from {$leader->name}",
+            'Please submit your muraja\'a for today.',
+            '/student/dashboard',
+        );
 
         return back()->with('success', "Reminder sent to {$count} students.");
     }
