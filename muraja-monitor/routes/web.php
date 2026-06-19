@@ -59,6 +59,9 @@ Route::middleware("guest")->group(function () {
 // ── Authenticated: Change Password & Logout ───────────────────────────────────
 
 Route::middleware("auth")->group(function () {
+  Route::post("/push/register", [\App\Http\Controllers\PushController::class, "register"])
+    ->name("push.register");
+
   Route::get("/change-password", [
     AuthController::class,
     "showChangePassword",

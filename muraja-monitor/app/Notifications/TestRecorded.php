@@ -17,6 +17,18 @@ class TestRecorded extends Notification
     return ['database'];
   }
 
+  public function toFcm(mixed $notifiable): array
+  {
+    $range = [];
+    if ($this->test->from_juz && $this->test->to_juz)
+      $range[] = "Juz {$this->test->from_juz}–{$this->test->to_juz}";
+    return [
+      'title' => 'Test recorded',
+      'body'  => "Your leader recorded a test: " . (implode(', ', $range) ?: '') . " — {$this->test->score}/10.",
+      'url'   => '/student/dashboard',
+    ];
+  }
+
   public function toDatabase(mixed $notifiable): array
   {
     $range = [];

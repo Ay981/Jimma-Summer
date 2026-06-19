@@ -11,7 +11,16 @@ class PairChangeRejected extends Notification
         private readonly string $reason,
     ) {}
 
-    public function via(object $notifiable): array { return ['database']; }
+    public function via(object $notifiable): array { return ['database', \App\Channels\FcmChannel::class]; }
+
+    public function toFcm(object $notifiable): array
+    {
+        return [
+            'title' => 'Pair change rejected',
+            'body'  => "Pair change request was rejected: {$this->reason}",
+            'url'   => '/student/pair-change-requests',
+        ];
+    }
 
     public function toDatabase(object $notifiable): array
     {

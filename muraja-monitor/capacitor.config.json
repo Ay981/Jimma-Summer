@@ -1,0 +1,12 @@
+{
+  "appId": "dev.aymenabdulkerim.irshadmuraja",
+  "appName": "Irshad Muraja",
+  "webDir": "public",
+  "server": {
+    "url": "https://irshad-muraja.aymenabdulkerim.dev",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#ffffff"
+  }
+}

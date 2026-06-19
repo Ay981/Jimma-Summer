@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="dashboard"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_dashboard_short"
+        android:shortcutLongLabel="@string/shortcut_dashboard_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="dev.aymenabdulkerim.irshadmuraja"
+            android:targetClass="dev.aymenabdulkerim.irshadmuraja.ShortcutActivity"
+            android:data="shortcut://dashboard" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="submit"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_submit_short"
+        android:shortcutLongLabel="@string/shortcut_submit_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="dev.aymenabdulkerim.irshadmuraja"
+            android:targetClass="dev.aymenabdulkerim.irshadmuraja.ShortcutActivity"
+            android:data="shortcut://submit" />
+    </shortcut>
+
+</shortcuts>
