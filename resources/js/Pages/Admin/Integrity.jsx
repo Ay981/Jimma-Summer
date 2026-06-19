@@ -37,7 +37,7 @@ function FlagRow({ s }) {
     );
 }
 
-export default function Integrity({ flagged, proxySubs }) {
+export default function Integrity({ flagged, selfSubs }) {
     const [tab, setTab] = useState('Flagged');
 
     return (
@@ -45,8 +45,8 @@ export default function Integrity({ flagged, proxySubs }) {
             <Head title="Integrity" />
 
             <div style={{ display: 'flex', gap: '4px', marginBottom: '14px' }}>
-                {[`Flagged (${(flagged ?? []).length})`, `Proxy Filed (${(proxySubs ?? []).length})`].map((t) => {
-                    const key = t.startsWith('F') ? 'Flagged' : 'Proxy';
+                {[`Flagged (${(flagged ?? []).length})`, `Self-Filed (${(selfSubs ?? []).length})`].map((t) => {
+                    const key = t.startsWith('F') ? 'Flagged' : 'Self';
                     return (
                         <button key={key} onClick={() => setTab(key)} style={{ padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer', background: tab === key ? 'var(--primary)' : 'var(--card)', color: tab === key ? 'var(--primary-foreground)' : 'var(--foreground)', fontWeight: tab === key ? 600 : 400, fontSize: '0.875rem' }}>{t}</button>
                     );
@@ -67,22 +67,25 @@ export default function Integrity({ flagged, proxySubs }) {
                         }
                     </>
                 )}
-                {tab === 'Proxy' && (
+                {tab === 'Self' && (
                     <>
                         <p style={{ padding: '10px 14px', margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)', borderBottom: '1px solid var(--border)' }}>
-                            Submissions where the filer and the subject are different students.
+                            Submissions a student filed for themselves instead of their partner. Expected only for students with no pair — a self-filing <strong>with a partner</strong> breaks the cross-submission rule.
                         </p>
-                        {(proxySubs ?? []).length === 0
-                            ? <p style={{ padding: '40px', textAlign: 'center', color: 'var(--success)', margin: 0 }}>No proxy submissions found.</p>
-                            : (proxySubs ?? []).map((s) => (
+                        {(selfSubs ?? []).length === 0
+                            ? <p style={{ padding: '40px', textAlign: 'center', color: 'var(--success)', margin: 0 }}>No self-filed submissions. All cross-filed.</p>
+                            : (selfSubs ?? []).map((s) => (
                                 <div key={s.id} style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '12px', alignItems: 'center' }}>
                                     <div style={{ flex: 1 }}>
                                         <p style={{ margin: 0, fontSize: '0.875rem' }}>
-                                            <strong>{s.filed_by}</strong> filed for <strong>{s.student}</strong>
+                                            <strong>{s.student}</strong> filed their own muraja <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>({s.halqa})</span>
                                         </p>
                                         <p style={{ margin: '1px 0 0', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{s.date}</p>
                                     </div>
-                                    <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'oklch(95% 0.04 50)', color: 'oklch(45% 0.1 50)', fontWeight: 600 }}>Cross-filed</span>
+                                    {s.has_pair
+                                        ? <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--status-at-risk-bg)', color: 'var(--status-at-risk)', fontWeight: 600 }}>Has partner — anomaly</span>
+                                        : <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--status-inactive-bg)', color: 'var(--status-inactive)', fontWeight: 600 }}>No pair</span>
+                                    }
                                 </div>
                             ))
                         }
