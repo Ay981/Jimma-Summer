@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\ContactLog;
 use App\Models\Halqa;
 use App\Models\MeetingLog;
@@ -10,6 +11,7 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
+use App\Models\Watchlist;
 use App\Services\ConsistencyService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -284,7 +286,21 @@ class ReportsController extends Controller
             return $s;
         }, $lb->studentBoard());
 
-        $leaders = $lb->leaderBoard();
+        // Enrich leader rows with two report-only metrics the PDF expects:
+        //  • recovered — students this leader flagged on the watchlist and later
+        //    resolved (resolved_at set when removed from the watchlist).
+        //  • logins    — leader sign-ins recorded since the program started.
+        $leaders = array_map(function ($l) use ($start) {
+            $l['recovered'] = Watchlist::where('added_by', $l['id'])
+                ->whereNotNull('resolved_at')
+                ->count();
+            $l['logins'] = AuditLog::where('user_id', $l['id'])
+                ->where('action', 'login')
+                ->where('created_at', '>=', $start)
+                ->count();
+            return $l;
+        }, $lb->leaderBoard());
+
         $awards  = $lb->awards();
 
         $pdf = Pdf::loadView('pdf.program-report', [
