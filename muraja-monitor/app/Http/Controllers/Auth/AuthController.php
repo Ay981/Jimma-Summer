@@ -49,7 +49,7 @@ class AuthController extends Controller
         ->onlyInput("student_id");
     }
 
-    Auth::login($user, remember: false);
+    Auth::login($user, remember: true);
     $request->session()->regenerate();
 
     AuditLog::create([
