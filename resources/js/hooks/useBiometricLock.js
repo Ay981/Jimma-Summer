@@ -13,9 +13,16 @@ const isNative =
 const STORAGE_KEY = 'biometric-lock-enabled';
 
 // Lazy-load the plugin so the web bundle never pulls in native-only code.
+//
+// IMPORTANT: never resolve a promise *with* the Capacitor plugin proxy as its
+// value. The async/Promise thenable-check reads `.then` on the resolved value,
+// and the proxy turns ANY property access into a native call — so returning the
+// proxy directly triggers `BiometricAuthNative.then()`, which throws
+// "not implemented on android" and the promise never settles. Wrap it in a
+// plain object so the proxy is only ever touched via explicit property access.
 async function loadPlugin() {
     const mod = await import('@aparajita/capacitor-biometric-auth');
-    return mod.BiometricAuth;
+    return { auth: mod.BiometricAuth };
 }
 
 export function isBiometricLockEnabled() {
@@ -42,7 +49,7 @@ function useBiometryAvailable() {
         if (!isNative) return;
         let cancelled = false;
         loadPlugin()
-            .then((Bio) => Bio.checkBiometry())
+            .then(({ auth }) => auth.checkBiometry())
             .then((info) => {
                 // Accept device-credential fallback too, so a device with a PIN but
                 // no enrolled fingerprint can still use the lock.
@@ -99,8 +106,8 @@ export function useBiometricLock(authed) {
         inFlight.current = true;
         setError(null);
         try {
-            const Bio = await loadPlugin();
-            await Bio.authenticate(AUTH_OPTS); // resolves on success, throws otherwise
+            const { auth } = await loadPlugin();
+            await auth.authenticate(AUTH_OPTS); // resolves on success, throws otherwise
             setLocked(false);
         } catch (e) {
             setError(e?.message || 'Authentication failed. Tap to try again.');
@@ -131,8 +138,8 @@ export function useBiometricSetting() {
             // unenrolled sensor can never lock the user out of their own app.
             setBusy(true);
             try {
-                const Bio = await loadPlugin();
-                await Bio.authenticate({ ...AUTH_OPTS, reason: 'Confirm to enable app lock' });
+                const { auth } = await loadPlugin();
+                await auth.authenticate({ ...AUTH_OPTS, reason: 'Confirm to enable app lock' });
             } catch {
                 setBusy(false);
                 return;
