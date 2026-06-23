@@ -250,6 +250,7 @@ class DashboardController extends Controller
             'program_started'   => $programStarted,
             'program_ended'     => $programEnded,
             'server_date'       => Carbon::today()->format('l, d F Y'),
+            'server_date_iso'   => Carbon::today()->toDateString(),
             'scheduled_days'    => array_map('ucfirst', $user->available_days ?? []),
         ]);
     }

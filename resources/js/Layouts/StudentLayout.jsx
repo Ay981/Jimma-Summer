@@ -5,7 +5,7 @@ import EnableNotifications from '@/Components/UI/EnableNotifications';
 import EnableBiometricLock from '@/Components/UI/EnableBiometricLock';
 import { useWebPush } from '@/hooks/useWebPush';
 import {
-    Bell, BookOpen, ClockCounterClockwise, DotsThree, House,
+    Bell, BookOpen, ClockCounterClockwise, DotsThree, Fire, House,
     Medal, Megaphone, Mosque, SignOut, UsersThree, UserCircle,
 } from '@phosphor-icons/react';
 
@@ -181,6 +181,45 @@ function MobileNavItem({ href, icon: Icon, label, active }) {
     );
 }
 
+// ── Streak + consistency indicators ───────────────────────────────────────────
+
+const STREAK_STATES = {
+    done: { color: 'var(--status-on-track)', title: "Today's session is done — your streak is safe" },
+    due:  { color: 'var(--destructive)',     title: "It's a submission day — submit now to keep your streak!" },
+    rest: { color: 'var(--warning)',         title: 'No session scheduled today' },
+};
+
+function HeaderStats() {
+    const { student_stats } = usePage().props;
+    if (!student_stats) return null;
+
+    const { streak, consistency, streak_state } = student_stats;
+    const state = STREAK_STATES[streak_state] ?? STREAK_STATES.rest;
+    const isDue = streak_state === 'due';
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+                title={state.title}
+                className={isDue ? 'streak-due' : undefined}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: '3px',
+                    fontSize: '0.875rem', fontWeight: 700, color: 'var(--foreground)',
+                }}
+            >
+                <Fire size={18} weight="fill" color={state.color} />
+                {streak}
+            </span>
+            <span
+                title="Overall consistency"
+                style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--muted-foreground)' }}
+            >
+                {consistency}%
+            </span>
+        </div>
+    );
+}
+
 function HeaderLogoutButton() {
     return (
         <Link
@@ -298,16 +337,18 @@ export default function StudentLayout({ children, title }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0 16px', background: 'var(--card)', position: 'sticky', top: 0, zIndex: 100,
                 }}>
-                    {/* Mobile: logo */}
-                    <Logo height={28} className="mobile-only" />
-                    {/* Desktop: page title */}
-                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--foreground)' }}
-                        className="desktop-only"
-                    >
-                        {title}
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <NotificationBell />
+                    {/* Left: page title (desktop) + streak / consistency indicators */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--foreground)' }}
+                            className="desktop-only"
+                        >
+                            {title}
+                        </span>
+                        <HeaderStats />
+                    </div>
+                    {/* Right: notifications + logout */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <NotificationBell />
                         <HeaderLogoutButton />
                     </div>
                 </header>
@@ -384,6 +425,15 @@ export default function StudentLayout({ children, title }) {
 
             {/* Inline styles for responsive classes */}
             <style>{`
+                /* Streak fire on a missed submission day: glowing red blink */
+                @keyframes streakDuePulse {
+                    0%, 100% { opacity: 1;    filter: drop-shadow(0 0 2px var(--destructive)); }
+                    50%      { opacity: 0.45; filter: drop-shadow(0 0 6px var(--destructive)); }
+                }
+                .streak-due { animation: streakDuePulse 1.1s ease-in-out infinite; }
+                @media (prefers-reduced-motion: reduce) {
+                    .streak-due { animation: none; filter: drop-shadow(0 0 4px var(--destructive)); }
+                }
                 .sidebar-desktop { display: flex !important; }
                 .mobile-only { display: none !important; }
                 .mobile-header-action { display: none !important; }

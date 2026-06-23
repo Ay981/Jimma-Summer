@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { BookOpen, Clock } from '@phosphor-icons/react';
 import AyatBox from '@/Components/UI/AyatBox';
 import Heatmap from '@/Components/UI/Heatmap';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
@@ -15,15 +16,37 @@ const JUZ_LABELS = {
     29:'Al-Mulk 1',30:"An-Nabaʾ 1",
 };
 
-function StatCard({ label, value, sub }) {
+// Format an ISO date (YYYY-MM-DD) as a Hijri date, e.g. "26 Dhuʻl-Qiʻdah 1447 AH".
+// Uses the Umm al-Qura calendar via Intl; returns null if unavailable.
+function formatHijri(iso) {
+    if (!iso) return null;
+    try {
+        return new Intl.DateTimeFormat('en-GB-u-ca-islamic-umalqura', {
+            day: 'numeric', month: 'long', year: 'numeric',
+        }).format(new Date(iso + 'T00:00:00')) + ' AH';
+    } catch {
+        return null;
+    }
+}
+
+function TotalStat({ icon: Icon, value, label, tint, tintBg }) {
     return (
-        <div style={{
-            background:'var(--card)',border:'1px solid var(--border-subtle)',
-            borderRadius:'var(--radius-lg)',padding:'18px',boxShadow:'var(--shadow-sm)',
-        }}>
-            <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500,letterSpacing:'0.01em'}}>{label}</p>
-            <p style={{margin:'6px 0 2px',fontSize:'1.875rem',fontWeight:700,color:'var(--foreground)',lineHeight:1,letterSpacing:'-0.01em'}}>{value}</p>
-            {sub && <p style={{margin:0,fontSize:'0.75rem',color:'var(--muted-foreground)'}}>{sub}</p>}
+        <div style={{ display:'flex', alignItems:'center', gap:'12px', flex:1, minWidth:0 }}>
+            <div style={{
+                width:'42px', height:'42px', borderRadius:'var(--radius-md)', flexShrink:0,
+                background:tintBg, color:tint,
+                display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+                <Icon size={22} weight="duotone" />
+            </div>
+            <div style={{ minWidth:0 }}>
+                <p style={{ margin:0, fontSize:'1.5rem', fontWeight:700, color:'var(--foreground)', lineHeight:1.05, letterSpacing:'-0.02em' }}>
+                    {value}
+                </p>
+                <p style={{ margin:'2px 0 0', fontSize:'0.75rem', fontWeight:500, color:'var(--muted-foreground)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                    {label}
+                </p>
+            </div>
         </div>
     );
 }
@@ -282,7 +305,7 @@ export default function Dashboard({
     name, streak, consistency, pages_total, minutes_total,
     weekly_target, week_pages, today_submitted, today_submission,
     pair_id, partner, halqa, ayat, checkins_30_days,
-    program_started, program_ended, server_date,
+    program_started, program_ended, server_date, server_date_iso,
     earned_badges, locked_badges, weekly_summary, personal_best,
     excusable_missed, pending_excuses, scheduled_days,
 }) {
@@ -351,36 +374,38 @@ export default function Dashboard({
                         <h1 style={{margin:0,fontSize:'1.625rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>
                             Assalamu Alaykum, {name} 👋
                         </h1>
-                        <p style={{margin:'4px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>{server_date}</p>
-                    </div>
-                    {streak > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                            <div style={{
-                                display:'flex',alignItems:'center',gap:'6px',
-                                padding:'6px 12px',borderRadius:'var(--radius-md)',
-                                background:'var(--status-on-track-bg)',color:'var(--status-on-track)',
-                                fontSize:'0.875rem',fontWeight:600,
-                            }}>
-                                🔥 {streak}-day streak
-                            </div>
-                            {pending_excuses?.length > 0 && (
-                                <p style={{ margin: 0, fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
-                                    Protected — makeup due {new Date(pending_excuses[0].makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                </p>
+                        <p style={{margin:'4px 0 0',fontSize:'0.875rem',color:'var(--muted-foreground)'}}>
+                            {server_date}
+                            {formatHijri(server_date_iso) && (
+                                <span style={{color:'var(--accent)'}}> · {formatHijri(server_date_iso)}</span>
                             )}
-                        </div>
+                        </p>
+                    </div>
+                    {pending_excuses?.length > 0 && (
+                        <p style={{ margin: '6px 0 0', fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
+                            Streak protected — makeup due {new Date(pending_excuses[0].makeup_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </p>
                     )}
                 </div>
 
                 {/* ── Ayat ──────────────────────────────────────────────── */}
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
 
-                {/* ── Stat Cards ────────────────────────────────────────── */}
-                <div className="stat-grid" data-onboard="stat-cards" style={{gap:'12px'}}>
-                    <StatCard label="Consistency" value={`${Math.round(consistency)}%`} sub="Overall program" />
-                    <StatCard label="Current Streak" value={streak} sub="days in a row" />
-                    <StatCard label="Total Pages" value={pages_total.toLocaleString()} sub="submitted" />
-                    <StatCard label="Total Minutes" value={minutes_total.toLocaleString()} sub="spent revising" />
+                {/* ── Totals ────────────────────────────────────────────── */}
+                <div data-onboard="stat-cards" style={{
+                    display:'flex', alignItems:'stretch', gap:'4px',
+                    background:'var(--card)', border:'1px solid var(--border-subtle)',
+                    borderRadius:'var(--radius-lg)', padding:'16px 20px', boxShadow:'var(--shadow-sm)',
+                }}>
+                    <TotalStat
+                        icon={BookOpen} value={pages_total.toLocaleString()} label="Pages submitted"
+                        tint="var(--status-on-track)" tintBg="var(--status-on-track-bg)"
+                    />
+                    <div style={{ width:'1px', alignSelf:'center', height:'32px', background:'var(--border-subtle)' }} />
+                    <TotalStat
+                        icon={Clock} value={minutes_total.toLocaleString()} label="Minutes revising"
+                        tint="var(--accent)" tintBg="var(--secondary)"
+                    />
                 </div>
 
                 {/* ── Weekly target progress ─────────────────────────────── */}
