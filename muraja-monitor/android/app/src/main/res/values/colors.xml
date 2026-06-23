@@ -4,4 +4,5 @@
     <color name="colorPrimaryDark">#1a3a2a</color>
     <color name="colorAccent">#c9a227</color>
     <color name="fcm_accent">#c9a227</color>
+    <color name="splash_bg">#EEF2EA</color>
 </resources>
