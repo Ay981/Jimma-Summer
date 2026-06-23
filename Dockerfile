@@ -55,7 +55,7 @@ ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
     VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID \
     VITE_FIREBASE_VAPID_KEY=$VITE_FIREBASE_VAPID_KEY
 
-RUN npm ci && npm run build && rm -rf node_modules
+RUN npm install --no-audit --no-fund && npm run build && rm -rf node_modules
 
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
@@ -65,7 +65,9 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && mkdir -p /var/lib/nginx/logs /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/run/nginx /var/log/nginx \
+    && chown -R www-data:www-data /var/lib/nginx /var/run/nginx /var/log/nginx
 
 # Switch to non-root user
 USER www-data
