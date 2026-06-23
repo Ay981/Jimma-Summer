@@ -35,6 +35,26 @@ RUN composer install \
     --optimize-autoloader \
     --no-interaction
 
+# Firebase WEB push config — these are public client-side values (they ship in
+# the JS bundle and the service worker), NOT secrets. They must be present at
+# `npm run build` time because Vite inlines `import.meta.env.VITE_*`. The build
+# context excludes .env (see .dockerignore), so provide them here. Override per
+# environment with `docker build --build-arg VITE_FIREBASE_API_KEY=... ...`.
+ARG VITE_FIREBASE_API_KEY=AIzaSyCm5FhpsB1f2ajDonr4Pcok4mUpRTgS_Wg
+ARG VITE_FIREBASE_AUTH_DOMAIN=irshad-muraja.firebaseapp.com
+ARG VITE_FIREBASE_PROJECT_ID=irshad-muraja
+ARG VITE_FIREBASE_STORAGE_BUCKET=irshad-muraja.firebasestorage.app
+ARG VITE_FIREBASE_MESSAGING_SENDER_ID=403334478043
+ARG VITE_FIREBASE_APP_ID=1:403334478043:web:01d0078e1fa5f218dab4fe
+ARG VITE_FIREBASE_VAPID_KEY=BMOtqGa6uVbLBNl746kLhTKXx89rqcV69j0Jqo-o079pIss2hMjU5_6jnpotSpQlJSCpGA_kZliWlciVT_DYV9w
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
+    VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN \
+    VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID \
+    VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET \
+    VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID \
+    VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID \
+    VITE_FIREBASE_VAPID_KEY=$VITE_FIREBASE_VAPID_KEY
+
 RUN npm ci && npm run build && rm -rf node_modules
 
 RUN chown -R www-data:www-data /var/www \
