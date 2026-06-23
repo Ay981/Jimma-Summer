@@ -76,6 +76,41 @@ class HandleInertiaRequests extends Middleware
             ->toArray(),
         ]
         : ["unread_count" => 0, "latest" => []],
+      // Ambient streak/consistency indicators shown in the student header on every page.
+      // Students only; null before the program starts so the indicators stay hidden.
+      "student_stats" =>
+        $user && $user->role === "student"
+          ? (function () use ($user) {
+            $svc = app(\App\Services\ConsistencyService::class);
+            $consistency = $svc->getConsistency($user->id);
+            if ($consistency === null) {
+              return null;
+            }
+            $available = $user->available_days ?? [];
+            $scheduledToday =
+              empty($available) ||
+              in_array(strtolower(now()->format("l")), $available, true);
+            $submittedToday = \App\Models\PairSubmission::where(
+              "subject_student_id",
+              $user->id,
+            )
+              ->where("submission_date", now()->toDateString())
+              ->exists();
+            // done  → submitted today (green)
+            // due   → scheduled today but not yet submitted (red, urgent)
+            // rest  → not a scheduled day, nothing due (orange)
+            $streakState = $submittedToday
+              ? "done"
+              : ($scheduledToday
+                ? "due"
+                : "rest");
+            return [
+              "streak" => $svc->getStreak($user->id),
+              "consistency" => round($consistency),
+              "streak_state" => $streakState,
+            ];
+          })()
+          : null,
     ];
   }
 }
