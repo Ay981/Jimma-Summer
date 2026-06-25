@@ -34,6 +34,12 @@ return [
         'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH', storage_path('app/private/firebase-service-account.json')),
     ],
 
+    'telegram' => [
+        'bot_token'      => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username'   => env('TELEGRAM_BOT_USERNAME'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
