@@ -94,6 +94,8 @@ Route::middleware(["auth", "role:student", "throttle:30,1"])
 
       Route::get("/profile", [StudentProfile::class, "edit"])->name("profile.edit");
       Route::put("/profile", [StudentProfile::class, "update"])->name("profile.update");
+      Route::post("/telegram/link-token", [StudentProfile::class, "generateTelegramLinkToken"])->name("telegram.link-token");
+      Route::delete("/telegram/unlink", [StudentProfile::class, "unlinkTelegram"])->name("telegram.unlink");
       Route::put("/settings/weekly-target", [
         StudentDashboard::class,
         "updateWeeklyTarget",
@@ -580,6 +582,12 @@ Route::middleware(["auth", "role:admin"])
       "recapture",
     ])->name("onboarding.recapture");
   });
+
+// ── Telegram Webhook ──────────────────────────────────────────────────────────
+
+Route::post("/telegram/webhook", [\App\Http\Controllers\TelegramWebhookController::class, "handle"])
+    ->name("telegram.webhook")
+    ->middleware("throttle:60,1");
 
 // ── Root Redirect ──────────────────────────────────────────────────────────────
 

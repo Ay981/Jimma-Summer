@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([\App\Console\Commands\CaptureOnboardingScreenshots::class])
+    ->withCommands([
+        \App\Console\Commands\CaptureOnboardingScreenshots::class,
+        \App\Console\Commands\TelegramSetWebhook::class,
+    ])
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('muraja:remind morning')
             ->dailyAt('07:00')
@@ -31,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
                      Request::HEADER_X_FORWARDED_PROTO |
                      Request::HEADER_X_FORWARDED_AWS_ELB,
         );
+
+        $middleware->preventRequestForgery(except: [
+            'telegram/webhook',
+        ]);
 
         $middleware->web(prepend: [
             \App\Http\Middleware\NoCacheHeaders::class,
