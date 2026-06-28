@@ -23,6 +23,37 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('muraja:remind evening')
             ->dailyAt('18:00')
             ->timezone('Africa/Addis_Ababa');
+
+        // PDF export housekeeping — runs every hour
+        $schedule->call(function () {
+            // Processing exports not updated in 2h → job silently died; mark failed
+            \App\Models\PdfExport::where('status', 'processing')
+                ->where('updated_at', '<', now()->subHours(2))
+                ->each(function ($export) {
+                    if ($export->file_path) {
+                        \Illuminate\Support\Facades\Storage::delete($export->file_path);
+                    }
+                    $export->update([
+                        'status'        => 'failed',
+                        'error_message' => 'Export timed out — please try again.',
+                    ]);
+                });
+
+            // Ready exports older than 3 days → delete file + record
+            \App\Models\PdfExport::where('status', 'ready')
+                ->where('ready_at', '<', now()->subDays(3))
+                ->each(function ($export) {
+                    if ($export->file_path) {
+                        \Illuminate\Support\Facades\Storage::delete($export->file_path);
+                    }
+                    $export->delete();
+                });
+
+            // Old failed records → prune (keep 7 days for debugging)
+            \App\Models\PdfExport::where('status', 'failed')
+                ->where('updated_at', '<', now()->subDays(7))
+                ->delete();
+        })->hourly()->name('pdf-exports:cleanup');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(

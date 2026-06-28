@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GeneratePdfReport;
 use App\Models\AuditLog;
 use App\Models\ContactLog;
 use App\Models\Halqa;
 use App\Models\MeetingLog;
 use App\Models\Pair;
 use App\Models\PairSubmission;
+use App\Models\PdfExport;
 use App\Models\ProgramSetting;
 use App\Models\User;
 use App\Models\Watchlist;
@@ -152,53 +154,38 @@ class ReportsController extends Controller
         ]);
     }
 
-    // ── Batch completion certificates ZIP ────────────────────────────────────
+    // ── Batch completion certificates ZIP (async) ────────────────────────────
 
-    public function exportCertificatesZip(): Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportCertificatesZip(): \Illuminate\Http\RedirectResponse
     {
-        $threshold   = (int) ProgramSetting::get('certificate_threshold', 80);
-        $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
-        $today       = Carbon::today();
-        $start       = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $days        = max(1, $start->diffInDays($today) + 1);
+        $export = PdfExport::create([
+            'requested_by' => auth()->id(),
+            'report_type'  => 'certificates_zip',
+            'status'       => 'queued',
+        ]);
 
-        $students = User::where('role', 'student')
-            ->where('is_active', true)
-            ->with('halqa')
-            ->get()
-            ->filter(function ($s) use ($days, $threshold) {
-                $total = PairSubmission::where('subject_student_id', $s->id)->count();
-                return round(($total / $days) * 100) >= $threshold;
-            });
+        GeneratePdfReport::dispatch($export->id, 'certificates_zip');
 
-        if ($students->isEmpty()) {
-            return response('No students have met the certificate threshold yet.', 404, [
-                'Content-Type' => 'text/plain',
-            ]);
-        }
+        return back()->with('success', "Preparing certificates — you'll get a notification with a download link when the ZIP is ready.");
+    }
 
-        // Use system temp dir — always writable, no storage config needed
-        $zipPath = sys_get_temp_dir() . '/certificates-' . uniqid() . '.zip';
-        $zip = new \ZipArchive();
+    // ── Download a completed async export ────────────────────────────────────
 
-        $opened = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
-        if ($opened !== true) {
-            abort(500, "Could not create ZIP archive (ZipArchive error {$opened}).");
-        }
+    public function downloadExport(PdfExport $export): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        abort_if($export->status !== 'ready', 404, 'Export is not ready yet.');
+        abort_if(
+            !$export->file_path || !\Illuminate\Support\Facades\Storage::exists($export->file_path),
+            404,
+            'Export file not found — it may have expired.'
+        );
 
-        $lb       = new LeaderboardController();
-        $awardMap = $lb->studentAwardMap();
+        $filename = match ($export->report_type) {
+            'certificates_zip' => 'certificates-' . now()->toDateString() . '.zip',
+            default            => basename($export->file_path),
+        };
 
-        foreach ($students as $s) {
-            $pdf = Pdf::loadView('pdf.certificate', $lb->certificateData($s, $awardMap));
-            $pdf->setPaper('A4', 'portrait');
-            $zip->addFromString("certificate-{$s->student_id}.pdf", $pdf->output());
-        }
-
-        $zip->close();
-
-        return response()->download($zipPath, 'certificates-' . $today->toDateString() . '.zip')
-            ->deleteFileAfterSend();
+        return \Illuminate\Support\Facades\Storage::download($export->file_path, $filename);
     }
 
     // ── Full program PDF report — direct download ─────────────────────────────
