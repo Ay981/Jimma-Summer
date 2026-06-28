@@ -7,7 +7,7 @@ use App\Models\AuditLog;
 use App\Models\ContactLog;
 use App\Models\LeaderEscalation;
 use App\Models\User;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,7 +54,7 @@ class BroadcastController extends Controller
       $count++;
     }
 
-    app(FcmService::class)->sendToUsers(
+    SendFcmPush::toUsers(
       $students->pluck('id')->toArray(),
       "Message from {$leader->name}",
       $request->message,
@@ -96,7 +96,7 @@ class BroadcastController extends Controller
       "outcome" => "pending",
     ]);
 
-    app(FcmService::class)->sendToUser(
+    SendFcmPush::toUser(
       $studentId,
       "Message from {$leader->name}",
       $request->message,

@@ -17,6 +17,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -31,12 +32,21 @@ class LeaderboardController extends Controller
         $isEnded    = $programEnd && $today->gt(Carbon::parse($programEnd));
         $isLocked   = ProgramSnapshot::orderByDesc('created_at')->exists();
 
+        [$students, $pairs, $halqas, $leaders, $awards] = Cache::remember('leaderboard_data', 300, function () {
+            $students = $this->studentBoard();
+            $pairs    = $this->pairBoard();
+            $halqas   = $this->halqaBoard();
+            $leaders  = $this->leaderBoard();
+            $awards   = $this->awards($students, $pairs);
+            return [$students, $pairs, $halqas, $leaders, $awards];
+        });
+
         return Inertia::render('Admin/Leaderboard', [
-            'students'   => $this->studentBoard(),
-            'pairs'      => $this->pairBoard(),
-            'halqas'     => $this->halqaBoard(),
-            'leaders'    => $this->leaderBoard(),
-            'awards'     => $this->awards(),
+            'students'   => $students,
+            'pairs'      => $pairs,
+            'halqas'     => $halqas,
+            'leaders'    => $leaders,
+            'awards'     => $awards,
             'is_ended'   => $isEnded && !$isLocked,
             'is_locked'  => $isLocked,
             'snapshots'  => ProgramSnapshot::orderByDesc('created_at')->get()->map(fn ($s) => [
@@ -52,15 +62,20 @@ class LeaderboardController extends Controller
     {
         $request->validate(['program_name' => ['required', 'string', 'max:255']]);
 
+        Cache::forget('leaderboard_data');
+
+        $students = $this->studentBoard();
+        $pairs    = $this->pairBoard();
+
         $snapshot = ProgramSnapshot::create([
             'program_name'  => $request->program_name,
             'ended_at'      => now(),
             'snapshot_data' => [
-                'students' => $this->studentBoard(),
-                'pairs'    => $this->pairBoard(),
+                'students' => $students,
+                'pairs'    => $pairs,
                 'halqas'   => $this->halqaBoard(),
                 'leaders'  => $this->leaderBoard(),
-                'awards'   => $this->awards(),
+                'awards'   => $this->awards($students, $pairs),
             ],
         ]);
 
@@ -198,22 +213,18 @@ class LeaderboardController extends Controller
                 'score'     => $t->score,
             ])->toArray();
 
-        // Compute student's rank using same weighted formula as studentBoard()
-        $allStudents = User::where('role', 'student')->where('is_active', true)->get();
-        $cs          = app(\App\Services\ConsistencyService::class);
-        $scores      = $allStudents->map(function ($s) use ($cs) {
-            $p    = (int) (PairSubmission::where('subject_student_id', $s->id)->selectRaw('COALESCE(SUM(page_to - page_from + 1), 0) as p')->value('p') ?? 0);
-            $c    = $cs->getConsistency($s->id) ?? 0;
-            $t    = (float) (\App\Models\MurajaTest::where('student_id', $s->id)->avg('score') ?? 0);
-            return ['id' => $s->id, 'pages' => $p, 'cons' => $c, 'avg_test' => $t];
+        // Re-use cached board for rank computation
+        $board         = Cache::remember('leaderboard_data', 300, function () {
+            $s = $this->studentBoard();
+            $p = $this->pairBoard();
+            return [$s, $p, $this->halqaBoard(), $this->leaderBoard(), $this->awards($s, $p)];
         });
-        $maxPages    = $scores->max('pages') ?: 1;
-        $rankScore   = round(($avgTest / 10 * 50) + ($pages / $maxPages * 30) + ($consistency / 100 * 20), 2);
-        $sorted      = $scores->map(function ($s) use ($maxPages) {
-            return array_merge($s, ['rank_score' => ($s['avg_test'] / 10 * 50) + ($s['pages'] / $maxPages * 30) + ($s['cons'] / 100 * 20)]);
-        })->sortByDesc('rank_score')->values();
-        $rank        = $sorted->search(fn ($s) => $s['id'] === $student->id) + 1;
-        $totalStudents = $allStudents->count();
+        $allRanked     = collect($board[0]);
+        $entry         = $allRanked->firstWhere('id', $student->id);
+        $rank          = $entry['rank'] ?? $allRanked->count();
+        $totalStudents = $allRanked->count();
+        $maxPages      = $allRanked->max('pages') ?: 1;
+        $rankScore     = $entry['rank_score'] ?? 0;
 
         // Revision partner — the other member of the student's pair
         $pair      = Pair::where('student_a_id', $student->id)->orWhere('student_b_id', $student->id)->first();
@@ -278,22 +289,41 @@ class LeaderboardController extends Controller
 
         $students = User::where('role', 'student')
             ->where('is_active', true)
+            ->with('halqa')
+            ->get();
+
+        $studentIds = $students->pluck('id');
+
+        // 3 bulk queries instead of N×3
+        $allSubs = PairSubmission::whereIn('subject_student_id', $studentIds)
             ->get()
-            ->map(function ($s) use ($consistency) {
-                $subs       = PairSubmission::where('subject_student_id', $s->id)->get();
-                $pages      = (int) $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
-                $minutes    = (int) $subs->sum('minutes_spent');
-                $badges     = Badge::where('user_id', $s->id)->count();
-                $cons       = $consistency->getConsistency($s->id) ?? 0;
-                $streak     = $consistency->getStreak($s->id);
-                $avgTest    = round(\App\Models\MurajaTest::where('student_id', $s->id)->avg('score') ?? 0, 2);
+            ->groupBy('subject_student_id');
 
-                return ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa' => $s->halqa?->name ?? '—', 'consistency' => $cons, 'streak' => $streak, 'pages' => $pages, 'minutes' => $minutes, 'badges' => $badges, 'avg_test_score' => $avgTest];
-            });
+        $badgeCounts = Badge::whereIn('user_id', $studentIds)
+            ->selectRaw('user_id, COUNT(*) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id');
 
-        $maxPages = $students->max('pages') ?: 1;
+        $testAvgs = \App\Models\MurajaTest::whereIn('student_id', $studentIds)
+            ->selectRaw('student_id, ROUND(AVG(score)::numeric, 2) as avg_score')
+            ->groupBy('student_id')
+            ->pluck('avg_score', 'student_id');
 
-        return $students
+        $mapped = $students->map(function ($s) use ($consistency, $allSubs, $badgeCounts, $testAvgs) {
+            $subs    = $allSubs->get($s->id, collect());
+            $pages   = (int) $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
+            $minutes = (int) $subs->sum('minutes_spent');
+            $badges  = (int) ($badgeCounts->get($s->id, 0));
+            $cons    = $consistency->getConsistency($s->id) ?? 0;
+            $streak  = $consistency->getStreak($s->id);
+            $avgTest = round((float) ($testAvgs->get($s->id, 0)), 2);
+
+            return ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa' => $s->halqa?->name ?? '—', 'consistency' => $cons, 'streak' => $streak, 'pages' => $pages, 'minutes' => $minutes, 'badges' => $badges, 'avg_test_score' => $avgTest];
+        });
+
+        $maxPages = $mapped->max('pages') ?: 1;
+
+        return $mapped
             ->map(function ($s) use ($maxPages) {
                 $testScore  = ($s['avg_test_score'] / 10) * 50;
                 $pagesScore = ($s['pages'] / $maxPages) * 30;
@@ -579,10 +609,10 @@ class LeaderboardController extends Controller
         return round(($subs / $days) * 100, 1);
     }
 
-    public function awards(): array
+    public function awards(?array $students = null, ?array $pairs = null): array
     {
-        $students = $this->studentBoard();
-        $pairs    = $this->pairBoard();
+        $students = $students ?? $this->studentBoard();
+        $pairs    = $pairs    ?? $this->pairBoard();
 
         $mostConsistentStudents = array_slice($students, 0, 3);
         $mostConsistentPair     = $pairs[0] ?? null;

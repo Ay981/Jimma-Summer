@@ -3,10 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\PairSubmission;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class PartnerSubmitted extends Notification
+class PartnerSubmitted extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         private readonly PairSubmission $submission,
         private readonly string $partnerName,

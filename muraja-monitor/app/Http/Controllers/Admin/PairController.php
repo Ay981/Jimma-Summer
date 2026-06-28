@@ -8,7 +8,7 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\User;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -297,7 +297,7 @@ class PairController extends Controller
             ]);
         }
 
-        app(FcmService::class)->sendToUsers(array_values($ids), 'Pair update', $message, '/student/pair');
+        SendFcmPush::toUsers(array_values($ids), 'Pair update', $message, '/student/pair');
     }
 
     // ── Cross-halqa pair merge ────────────────────────────────────────────────

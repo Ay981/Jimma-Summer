@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -78,9 +79,10 @@ class HandleInertiaRequests extends Middleware
         : ["unread_count" => 0, "latest" => []],
       // Ambient streak/consistency indicators shown in the student header on every page.
       // Students only; null before the program starts so the indicators stay hidden.
+      // Cached per-user for 2 minutes; CheckinController busts the cache on submission.
       "student_stats" =>
         $user && $user->role === "student"
-          ? (function () use ($user) {
+          ? Cache::remember("student_stats:{$user->id}", 120, function () use ($user) {
             $svc = app(\App\Services\ConsistencyService::class);
             $consistency = $svc->getConsistency($user->id);
             if ($consistency === null) {
@@ -96,9 +98,6 @@ class HandleInertiaRequests extends Middleware
             )
               ->where("submission_date", now()->toDateString())
               ->exists();
-            // done  → submitted today (green)
-            // due   → scheduled today but not yet submitted (red, urgent)
-            // rest  → not a scheduled day, nothing due (orange)
             $streakState = $submittedToday
               ? "done"
               : ($scheduledToday
@@ -109,7 +108,7 @@ class HandleInertiaRequests extends Middleware
               "consistency" => round($consistency),
               "streak_state" => $streakState,
             ];
-          })()
+          })
           : null,
     ];
   }

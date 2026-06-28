@@ -2,10 +2,14 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class PairChangeApproved extends Notification
+class PairChangeApproved extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(private readonly string $newPartnerName) {}
 
     public function via(object $notifiable): array { return ['database', \App\Channels\FcmChannel::class]; }
