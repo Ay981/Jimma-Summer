@@ -549,6 +549,10 @@ Route::middleware(["auth", "role:admin"])
       AdminReports::class,
       "exportCertificatesZip",
     ])->name("reports.certificates");
+    Route::get("/reports/exports/{export}/download", [
+      AdminReports::class,
+      "downloadExport",
+    ])->name("reports.exports.download");
     Route::get("/reports/program-report", [
       AdminReports::class,
       "exportProgramReport",

@@ -182,6 +182,127 @@ class LeaderboardController extends Controller
     }
 
     /**
+     * Bulk version of certificateData() — loads all student data in a fixed number
+     * of queries regardless of cohort size, then maps per student.
+     * Returns array keyed by student ID.
+     *
+     * @param \Illuminate\Support\Collection<int, User> $students Must have 'halqa' relation loaded.
+     */
+    public function batchCertificateData(\Illuminate\Support\Collection $students, array $awardMap): array
+    {
+        if ($students->isEmpty()) return [];
+
+        $studentIds  = $students->pluck('id');
+        $today       = Carbon::today();
+        $start       = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
+        $endRaw      = ProgramSetting::get('program_end_date');
+        $end         = $endRaw ? Carbon::parse($endRaw) : $today;
+        $programName = ProgramSetting::get('program_name', "Muraja'a Monitor");
+
+        // ── Bulk queries (constant count regardless of N) ─────────────────────
+
+        $pages = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->selectRaw('subject_student_id, COALESCE(SUM(page_to - page_from + 1), 0) as p')
+            ->groupBy('subject_student_id')
+            ->pluck('p', 'subject_student_id');
+
+        $juzCovered = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->select('subject_student_id', 'juz')
+            ->distinct()
+            ->get()
+            ->groupBy('subject_student_id')
+            ->map->count();
+
+        $badgeCounts = Badge::whereIn('user_id', $studentIds)
+            ->selectRaw('user_id, COUNT(*) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id');
+
+        $minutes = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->selectRaw('subject_student_id, COALESCE(SUM(minutes_spent), 0) as m')
+            ->groupBy('subject_student_id')
+            ->pluck('m', 'subject_student_id');
+
+        $avgTests = \App\Models\MurajaTest::whereIn('student_id', $studentIds)
+            ->selectRaw('student_id, ROUND(AVG(score)::numeric, 1) as avg_score')
+            ->groupBy('student_id')
+            ->pluck('avg_score', 'student_id');
+
+        $allTests = \App\Models\MurajaTest::whereIn('student_id', $studentIds)
+            ->orderBy('tested_at')
+            ->get()
+            ->groupBy('student_id')
+            ->map(fn ($rows) => $rows->map(fn ($t) => [
+                'date'      => Carbon::parse($t->tested_at)->format('d M Y'),
+                'from_juz'  => $t->from_juz,
+                'to_juz'    => $t->to_juz,
+                'from_page' => $t->from_page,
+                'to_page'   => $t->to_page,
+                'score'     => $t->score,
+            ])->toArray());
+
+        // Pairs: one query, then fan-out to partner name lookup
+        $pairs = Pair::where(
+            fn ($q) => $q->whereIn('student_a_id', $studentIds)->orWhereIn('student_b_id', $studentIds)
+        )->get();
+
+        $partnerIdMap = []; // student_id → partner_user_id
+        foreach ($pairs as $pair) {
+            if ($studentIds->contains($pair->student_a_id)) {
+                $partnerIdMap[$pair->student_a_id] = $pair->student_b_id;
+            }
+            if ($studentIds->contains($pair->student_b_id)) {
+                $partnerIdMap[$pair->student_b_id] = $pair->student_a_id;
+            }
+        }
+        $partnerUserIds = collect($partnerIdMap)->values()->filter()->unique();
+        $partnerNames   = $partnerUserIds->isNotEmpty()
+            ? User::whereIn('id', $partnerUserIds)->pluck('name', 'id')
+            : collect();
+
+        // Leaderboard board — cached, shared across all students
+        $board         = Cache::remember('leaderboard_data', 300, function () {
+            $s = $this->studentBoard();
+            $p = $this->pairBoard();
+            return [$s, $p, $this->halqaBoard(), $this->leaderBoard(), $this->awards($s, $p)];
+        });
+        $allRanked     = collect($board[0]);
+        $totalStudents = $allRanked->count();
+
+        // ConsistencyService is scoped + in-memory cached — one call per student is fine
+        $cs = app(\App\Services\ConsistencyService::class);
+
+        $results = [];
+        foreach ($students as $student) {
+            $entry = $allRanked->firstWhere('id', $student->id);
+
+            $results[$student->id] = [
+                'student'        => $student,
+                'consistency'    => $cs->getConsistency($student->id) ?? 0,
+                'pages'          => (int) ($pages->get($student->id, 0)),
+                'streak'         => $cs->getStreak($student->id),
+                'juz_covered'    => (int) ($juzCovered->get($student->id, 0)),
+                'badges'         => (int) ($badgeCounts->get($student->id, 0)),
+                'halqa'          => $student->halqa?->name,
+                'partner'        => $partnerNames->get($partnerIdMap[$student->id] ?? 0),
+                'start'          => $start->format('d M Y'),
+                'end'            => $end->format('d M Y'),
+                'program_name'   => $programName,
+                'generated'      => $today->format('d F Y'),
+                'award'          => $awardMap[$student->id] ?? null,
+                'avg_test'       => (float) $avgTests->get($student->id, 0),
+                'minutes'        => (int) $minutes->get($student->id, 0),
+                'rank'           => $entry['rank'] ?? $totalStudents,
+                'total_students' => $totalStudents,
+                'rank_score'     => $entry['rank_score'] ?? 0,
+                'tests'          => $allTests->get($student->id, []),
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
      * Build the full data payload for a completion certificate.
      * Shared by the single-download (here) and the batch ZIP (ReportsController).
      * Pass a pre-computed $awardMap to avoid recomputing awards() per student.
