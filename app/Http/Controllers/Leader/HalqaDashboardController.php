@@ -39,8 +39,8 @@ class HalqaDashboardController extends Controller
         $programStartRaw = ProgramSetting::get('program_start_date', '');
         $programStart    = $programStartRaw ? Carbon::parse($programStartRaw) : $today->copy();
 
-        // Programme hasn't started — return neutral state
-        if ($programStartRaw && $today->toDateString() < $programStart->toDateString()) {
+        // Programme hasn't started (or no start date configured) — return neutral state
+        if (!$programStartRaw || $today->toDateString() < $programStart->toDateString()) {
             return Inertia::render('Leader/Dashboard', [
                 'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
                 'pairs'          => $halqa->pairs->map(fn ($p) => [
@@ -63,7 +63,36 @@ class HalqaDashboardController extends Controller
             ]);
         }
 
-        $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $yesterday, $programStart) {
+        // ── Bulk queries before the pairs map — eliminates N+1 ───────────────────
+        $allStudentIds = $halqa->pairs
+            ->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))
+            ->unique()->values();
+
+        $last14 = collect(range(13, 0))->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
+        $windowStart14 = $today->copy()->subDays(13);
+        $effectiveStartGlobal = $programStart->gt($windowStart14) ? $programStart->copy() : $windowStart14->copy();
+
+        // All 14-day submissions for every student in the halqa, grouped by student then date
+        $allSubs14ByStudent = PairSubmission::whereIn('subject_student_id', $allStudentIds)
+            ->whereBetween('submission_date', [$last14->first(), $last14->last()])
+            ->get()
+            ->groupBy('subject_student_id')
+            ->map(fn ($rows) => $rows->groupBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString()));
+
+        // Last submission date per student
+        $lastSubByStudent = PairSubmission::whereIn('subject_student_id', $allStudentIds)
+            ->selectRaw('subject_student_id, MAX(submission_date::text) as last_sub')
+            ->groupBy('subject_student_id')
+            ->pluck('last_sub', 'subject_student_id');
+
+        // Today's submissions per student (distinct count)
+        $todaySubStudentIds = PairSubmission::whereIn('subject_student_id', $allStudentIds)
+            ->where('submission_date', $today->toDateString())
+            ->distinct()
+            ->pluck('subject_student_id')
+            ->flip(); // use as a set for O(1) lookup
+
+        $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $yesterday, $programStart, $last14, $effectiveStartGlobal, $allSubs14ByStudent, $lastSubByStudent, $todaySubStudentIds) {
             $studentIds = [$pair->student_a_id, $pair->student_b_id];
 
             // Each student's scheduled day names (lowercase). Empty = every day.
@@ -80,20 +109,17 @@ class HalqaDashboardController extends Controller
                 return $aExpected && $bExpected;
             };
 
-            // Build the 14-day window
-            $windowStart14 = $today->copy()->subDays(13);
-
             // Effective window: no earlier than program start
-            $effectiveStart = $programStart->gt($windowStart14) ? $programStart->copy() : $windowStart14->copy();
+            $effectiveStart = $effectiveStartGlobal->copy();
 
-            $last14 = collect(range(13, 0))
-                ->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
-
-            // Submissions in the 14-day window
-            $subs14 = PairSubmission::whereIn('subject_student_id', $studentIds)
-                ->whereBetween('submission_date', [$last14->first(), $last14->last()])
-                ->get()
-                ->groupBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString());
+            // Merge pre-loaded submissions for both students, keyed by date
+            $subs14 = [];
+            foreach (array_filter($studentIds) as $sid) {
+                $byDate = $allSubs14ByStudent->get($sid, collect());
+                foreach ($byDate as $date => $rows) {
+                    $subs14[$date] = isset($subs14[$date]) ? $subs14[$date]->merge($rows) : collect($rows);
+                }
+            }
 
             // Sparkline: 1 if either student submitted that day
             $sparkline = $last14->map(fn ($date) => isset($subs14[$date]) ? 1 : 0)->values()->toArray();
@@ -115,18 +141,16 @@ class HalqaDashboardController extends Controller
             });
             $consistency = round(($bothDays->count() / $scheduledCount) * 100, 1);
 
-            // Last submission ever
-            $lastSub = PairSubmission::whereIn('subject_student_id', $studentIds)
-                ->orderByDesc('submission_date')
-                ->value('submission_date');
+            // Last submission ever — from pre-loaded map
+            $lastSub = collect(array_filter($studentIds))
+                ->map(fn ($id) => $lastSubByStudent->get($id))
+                ->filter()
+                ->max();
 
             // Today — only flag if today is a scheduled day
             $todayScheduled = $isPairScheduled($today->toDateString());
             $todayCount     = $todayScheduled
-                ? PairSubmission::whereIn('subject_student_id', $studentIds)
-                    ->where('submission_date', $today->toDateString())
-                    ->distinct('subject_student_id')
-                    ->count('subject_student_id')
+                ? collect(array_filter($studentIds))->filter(fn ($id) => isset($todaySubStudentIds[$id]))->count()
                 : null;
             $todayStatus = match (true) {
                 !$todayScheduled    => 'none',   // not a scheduled day — show neutral dot

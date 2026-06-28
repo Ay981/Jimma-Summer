@@ -10,9 +10,9 @@ class ProgramSettingsSeeder extends Seeder
     public function run(): void
     {
         $defaults = [
-            'program_name'            => "Muraja'a Monitor — Summer 1446",
-            'program_start_date'      => now()->format('Y-m-d'),
-            'program_end_date'        => now()->addDays(90)->format('Y-m-d'),
+            'program_name'            => "Muraja'a Monitor",
+            'program_start_date'      => '',
+            'program_end_date'        => '',
             'default_password'        => 'Muraja@1446',
             'certificate_threshold'   => '80',
             'badge_streak_bronze'     => '7',

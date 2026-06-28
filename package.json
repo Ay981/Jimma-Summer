@@ -7,7 +7,8 @@
         "npm": ">=9.0.0"
     },
     "scripts": {
-        "build": "vite build",
+        "build": "vite build && vite build --config vite.config.sw.js",
+        "build:sw": "vite build --config vite.config.sw.js",
         "dev": "vite",
         "dev:host": "vite --host 0.0.0.0",
         "capture:onboarding": "node scripts/capture-onboarding.mjs",

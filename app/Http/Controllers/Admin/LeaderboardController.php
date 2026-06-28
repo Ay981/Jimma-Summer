@@ -626,9 +626,28 @@ class LeaderboardController extends Controller
         $firstTo   = $start->copy()->addDays(13);
         $lastFrom  = $today->copy()->subDays(13);
 
-        $improvedList = User::where('role', 'student')->where('is_active', true)->get()->map(function ($s) use ($firstFrom, $firstTo, $lastFrom, $today) {
-            $from = $this->consistencyInWindow($s->id, $firstFrom, $firstTo);
-            $to   = $this->consistencyInWindow($s->id, $lastFrom, $today);
+        $activeStudents = User::where('role', 'student')->where('is_active', true)->get();
+        $studentIds     = $activeStudents->pluck('id');
+
+        // Bulk-load submissions for both windows — avoids N×2 queries
+        $earlyDays = max(1, $firstFrom->diffInDays($firstTo) + 1);
+        $lateDays  = max(1, $lastFrom->diffInDays($today) + 1);
+
+        $earlySubs = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->whereBetween('submission_date', [$firstFrom->toDateString(), $firstTo->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt')
+            ->groupBy('subject_student_id')
+            ->pluck('cnt', 'subject_student_id');
+
+        $lateSubs = PairSubmission::whereIn('subject_student_id', $studentIds)
+            ->whereBetween('submission_date', [$lastFrom->toDateString(), $today->toDateString()])
+            ->selectRaw('subject_student_id, COUNT(*) as cnt')
+            ->groupBy('subject_student_id')
+            ->pluck('cnt', 'subject_student_id');
+
+        $improvedList = $activeStudents->map(function ($s) use ($earlySubs, $lateSubs, $earlyDays, $lateDays) {
+            $from = round(((int) $earlySubs->get($s->id, 0) / $earlyDays) * 100, 1);
+            $to   = round(((int) $lateSubs->get($s->id, 0)  / $lateDays)  * 100, 1);
             return [
                 'id'          => $s->id,
                 'name'        => $s->name,

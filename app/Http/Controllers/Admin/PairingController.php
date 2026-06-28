@@ -228,12 +228,51 @@ class PairingController extends Controller
                     }
                     usort($candidates, fn ($x, $y) => $y[2] <=> $x[2]);
 
-                    $usedInPass = [];
+                    $usedInPass  = [];
+                    $greedyPairs = [];
                     foreach ($candidates as [$aId, $bId, $score]) {
                         if (in_array($aId, $usedInPass) || in_array($bId, $usedInPass)) continue;
-                        $newPairs[]   = [min($aId, $bId), max($aId, $bId), $halqaId, $score];
-                        $usedInPass[] = $aId;
-                        $usedInPass[] = $bId;
+                        $greedyPairs[] = [min($aId, $bId), max($aId, $bId), $halqaId, $score];
+                        $usedInPass[]  = $aId;
+                        $usedInPass[]  = $bId;
+                    }
+
+                    // 2-opt: try every partner swap between two greedy pairs;
+                    // accept any swap that strictly improves total score.
+                    // Repeats until a full pass finds no improvement.
+                    $improved = true;
+                    while ($improved) {
+                        $improved = false;
+                        $n = count($greedyPairs);
+                        for ($i = 0; $i < $n - 1; $i++) {
+                            for ($j = $i + 1; $j < $n; $j++) {
+                                [$aId, $bId, , $sAB] = $greedyPairs[$i];
+                                [$cId, $dId, , $sCD] = $greedyPairs[$j];
+                                $current = $sAB + $sCD;
+
+                                $sAC = $scoreOf($aId, $cId);
+                                $sBD = $scoreOf($bId, $dId);
+                                if ($sAC + $sBD > $current && $sAC >= self::MIN_SCORE && $sBD >= self::MIN_SCORE) {
+                                    $greedyPairs[$i] = [min($aId, $cId), max($aId, $cId), $halqaId, $sAC];
+                                    $greedyPairs[$j] = [min($bId, $dId), max($bId, $dId), $halqaId, $sBD];
+                                    $improved = true;
+                                    continue 2;
+                                }
+
+                                $sAD = $scoreOf($aId, $dId);
+                                $sBC = $scoreOf($bId, $cId);
+                                if ($sAD + $sBC > $current && $sAD >= self::MIN_SCORE && $sBC >= self::MIN_SCORE) {
+                                    $greedyPairs[$i] = [min($aId, $dId), max($aId, $dId), $halqaId, $sAD];
+                                    $greedyPairs[$j] = [min($bId, $cId), max($bId, $cId), $halqaId, $sBC];
+                                    $improved = true;
+                                    continue 2;
+                                }
+                            }
+                        }
+                    }
+
+                    foreach ($greedyPairs as $p) {
+                        $newPairs[] = $p;
                     }
 
                     // Any remaining students who had a viable partner but still went unmatched
