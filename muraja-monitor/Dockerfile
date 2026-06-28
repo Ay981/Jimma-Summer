@@ -64,6 +64,7 @@ RUN chown -R www-data:www-data /var/www \
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/php.ini /usr/local/etc/php/conf.d/php.ini
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
     && mkdir -p /var/lib/nginx/logs /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi /var/run/nginx /var/log/nginx \
