@@ -219,3 +219,58 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Additional design tokens and utilities (4px grid, shadows, motion, glass) */
+:root {
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-8: 32px;
+
+	--shadow-xs: 0 1px 3px rgba(16,24,40,0.04);
+	--shadow-sm: 0 4px 12px rgba(16,24,40,0.06);
+	--shadow-md: 0 8px 30px rgba(16,24,40,0.08);
+
+	--motion-fast: 120ms;
+	--motion-default: 200ms;
+	--motion-ease: cubic-bezier(.2,.9,.3,1);
+}
+
+.dark {
+	--card-inner-highlight: inset 0 1px 1px rgba(255,255,255,0.04);
+	--shadow-xs: 0 1px 2px rgba(0,0,0,0.35);
+	--shadow-sm: 0 6px 20px rgba(0,0,0,0.36);
+}
+
+/* Utility classes for subtle motion and elevation */
+.card-elevate {
+	transition: transform var(--motion-default) var(--motion-ease), box-shadow var(--motion-default) var(--motion-ease);
+	will-change: transform, box-shadow;
+}
+.card-elevate:hover {
+	transform: translateY(-4px);
+	box-shadow: var(--shadow-sm);
+}
+
+/* Lightweight glassmorphism utility */
+.glass {
+	background-color: rgba(255,255,255,0.5);
+	backdrop-filter: blur(10px) saturate(120%);
+}
+
+/* Button loading indicator (basic) */
+.btn-loading { position: relative; }
+.btn-loading::after {
+	content: '';
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 14px; height: 14px; border-radius: 50%;
+	border: 2px solid transparent; border-top-color: currentColor;
+	animation: spin 900ms linear infinite;
+}
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
