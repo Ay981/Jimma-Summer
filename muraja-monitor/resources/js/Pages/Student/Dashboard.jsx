@@ -101,7 +101,9 @@ function SubmissionForm({ pairId }) {
                 padding:'10px',background:'var(--primary)',color:'var(--primary-foreground)',
                 border:'none',borderRadius:'var(--radius-md)',fontWeight:600,fontSize:'0.9375rem',
                 cursor:processing?'not-allowed':'pointer',opacity:processing?0.7:1,
+                display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',
             }}>
+                {processing && <span className="spinner spinner-sm" />}
                 {processing ? 'Submitting…' : 'Submit Revision'}
             </button>
         </form>
@@ -190,7 +192,9 @@ function EditSubmissionForm({ submission, partner, onCancel }) {
                     flex:1, padding:'9px', background:'var(--primary)', color:'var(--primary-foreground)',
                     border:'none', borderRadius:'var(--radius-md)', fontWeight:600, fontSize:'0.9rem',
                     cursor:processing?'not-allowed':'pointer', opacity:processing?0.7:1,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
                 }}>
+                    {processing && <span className="spinner spinner-sm" />}
                     {processing ? 'Saving…' : 'Save Changes'}
                 </button>
                 <button type="button" onClick={onCancel} style={{
@@ -228,13 +232,13 @@ function ExcuseCard({ missed, scheduledDays = [] }) {
 
     return (
         <div style={{ background: 'var(--status-slipping-bg)', border: '1px solid var(--status-slipping-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--status-slipping-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--status-slipping-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.875rem' }}>⏳</span>
                 <p style={{ margin: 0, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--status-slipping)' }}>
                     Missed Day — Excuse Window Open
                 </p>
             </div>
-            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--foreground)' }}>
                     You missed a scheduled day. File an excuse within 48 hours and propose a makeup date <strong>in the same week</strong> to protect your streak.
                 </p>
@@ -246,7 +250,7 @@ function ExcuseCard({ missed, scheduledDays = [] }) {
                 {missed.map((m) => (
                     <div key={m.date}>
                         {open === m.date ? (
-                            <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px', background: 'var(--card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                            <form onSubmit={submit} className="slide-down" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'var(--card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                                 <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600 }}>{m.label}</p>
                                 <div>
                                     <label style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)', display: 'block', marginBottom: '3px' }}>Reason</label>
@@ -354,7 +358,7 @@ export default function Dashboard({
                 {/* ── Onboarding banner ─────────────────────────────────── */}
                 <div style={{
                     background:'var(--secondary)',border:'1px solid var(--border-subtle)',
-                    borderRadius:'var(--radius-lg)',padding:'14px 18px',
+                    borderRadius:'var(--radius-lg)',padding:'12px 16px',
                     display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
                 }}>
                     <div>
@@ -509,9 +513,9 @@ export default function Dashboard({
                                                 ['Minutes', today_submission.minutes_spent],
                                                 ['Pages covered', today_submission.page_to - today_submission.page_from + 1],
                                             ].map(([l,v])=>(
-                                                <div key={l} style={{background:'var(--muted)',borderRadius:'var(--radius-sm)',padding:'8px 10px'}}>
-                                                    <p style={{margin:0,fontSize:'0.6875rem',color:'var(--muted-foreground)'}}>{l}</p>
-                                                    <p style={{margin:'2px 0 0',fontSize:'0.9375rem',fontWeight:600,color:'var(--foreground)'}}>{v}</p>
+                                                <div key={l} style={{background:'var(--muted)',borderRadius:'var(--radius-sm)',padding:'8px 12px'}}>
+                                                    <p className="section-eyebrow">{l}</p>
+                                                    <p style={{margin:'4px 0 0',fontSize:'0.9375rem',fontWeight:600,color:'var(--foreground)'}}>{v}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -574,7 +578,7 @@ export default function Dashboard({
                         {/* Halqa info */}
                         {halqa && (
                             <div style={{marginTop:'18px',paddingTop:'16px',borderTop:'1px solid var(--border-subtle)'}}>
-                                <p style={{margin:'0 0 2px',fontSize:'0.75rem',fontWeight:500,color:'var(--muted-foreground)'}}>MY HALQA</p>
+                                <p className="section-eyebrow" style={{marginBottom:'2px'}}>MY HALQA</p>
                                 <p style={{margin:0,fontWeight:600,color:'var(--foreground)',fontSize:'0.875rem'}}>{halqa.name}</p>
                                 <p style={{margin:'1px 0 6px',fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>Leader: {halqa.leader_name}</p>
                                 <SegmentedBar value={halqa.group_consistency} max={100} segments={16} label="Group consistency" />
@@ -614,15 +618,15 @@ export default function Dashboard({
 
                 {/* ── Personal Best ─────────────────────────────────────── */}
                 <div className="grid-2col" style={{gap:'16px'}}>
-                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
-                        <p style={{margin:'0 0 6px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>LONGEST STREAK</p>
-                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>{personal_best.longest_streak}</p>
-                        <p style={{margin:'2px 0 0',fontSize:'0.75rem',color:'var(--muted-foreground)'}}>days</p>
+                    <div className="card-lift" style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
+                        <p className="section-eyebrow" style={{marginBottom:'8px'}}>Longest Streak</p>
+                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.02em',lineHeight:1}}>{personal_best.longest_streak}</p>
+                        <p className="stat-label" style={{marginTop:'4px'}}>days</p>
                     </div>
-                    <div style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
-                        <p style={{margin:'0 0 6px',fontSize:'0.75rem',color:'var(--muted-foreground)',fontWeight:500}}>MOST PAGES / WEEK</p>
-                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.01em'}}>{personal_best.most_pages_week}</p>
-                        <p style={{margin:'2px 0 0',fontSize:'0.75rem',color:'var(--muted-foreground)'}}>pages</p>
+                    <div className="card-lift" style={{background:'var(--card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',padding:'20px',textAlign:'center',boxShadow:'var(--shadow-sm)'}}>
+                        <p className="section-eyebrow" style={{marginBottom:'8px'}}>Most Pages / Week</p>
+                        <p style={{margin:0,fontSize:'2.125rem',fontWeight:700,color:'var(--foreground)',letterSpacing:'-0.02em',lineHeight:1}}>{personal_best.most_pages_week}</p>
+                        <p className="stat-label" style={{marginTop:'4px'}}>pages</p>
                     </div>
                 </div>
 

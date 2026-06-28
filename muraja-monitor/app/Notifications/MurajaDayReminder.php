@@ -2,10 +2,14 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class MurajaDayReminder extends Notification
+class MurajaDayReminder extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         private readonly string $slot = 'morning',
     ) {}

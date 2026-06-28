@@ -39,11 +39,11 @@ const label = { fontSize: '0.8125rem', fontWeight: 600, color: 'var(--foreground
 
 export default function Profile({ profile, student }) {
     const { data, setData, put, processing, errors, wasSuccessful } = useForm({
-        memo_level:        profile.memo_level        ?? '',
-        current_juz:       profile.current_juz       ?? 1,
-        available_times:   profile.available_times   ?? [],
-        available_days:    profile.available_days    ?? [],
-        telegram_username: profile.telegram_username ?? '',
+        memo_level:        profile.memo_level      ?? '',
+        current_juz:       profile.current_juz     ?? 1,
+        available_times:   profile.available_times ?? [],
+        available_days:    profile.available_days  ?? [],
+        telegram_username: student.telegram_username ?? '',
     });
 
     function toggleDay(val) {
@@ -149,20 +149,28 @@ export default function Profile({ profile, student }) {
                         {errors.available_times && <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.available_times}</p>}
                     </div>
 
-                    {/* Telegram */}
+                    {/* Telegram username (simple editable field) */}
                     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
-                        <span style={label}>Telegram Username</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-                            <span style={{ padding: '9px 10px', background: 'var(--muted)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)', fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>@</span>
+                        <span style={label}>Telegram</span>
+
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            Enter your Telegram username (without the @). This is used to contact you.
+                        </p>
+
+                        <div style={{ marginTop: '10px', position: 'relative' }}>
+                            <span style={{
+                                position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+                                color: 'var(--muted-foreground)', fontSize: '0.9rem', pointerEvents: 'none',
+                            }}>@</span>
                             <input
-                                type="text"
                                 value={data.telegram_username}
-                                onChange={e => setData('telegram_username', e.target.value)}
-                                placeholder="username"
-                                style={{ ...inp, borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', flex: 1 }}
+                                onChange={e => setData('telegram_username', e.target.value.replace(/^@/, ''))}
+                                placeholder="yourhandle"
+                                style={{ ...inp, paddingLeft: '24px' }}
                             />
                         </div>
-                        {errors.telegram_username && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.telegram_username}</p>}
+
+                        {errors.telegram_username && <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.telegram_username}</p>}
                     </div>
 
                     {/* Submit */}

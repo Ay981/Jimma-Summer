@@ -7,7 +7,7 @@ use App\Models\ContactLog;
 use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\User;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
@@ -74,7 +74,7 @@ class OutreachController extends Controller
 
         // Also fix double json_encode on data while we're here — done above already
 
-        app(FcmService::class)->sendToUsers(
+        SendFcmPush::toUsers(
             $halqa->pairs->flatMap(fn ($p) => [$p->student_a_id, $p->student_b_id])->filter()->unique()->values()->toArray(),
             "Reminder from {$leader->name}",
             'Please submit your muraja\'a for today.',

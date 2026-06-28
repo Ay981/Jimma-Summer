@@ -276,10 +276,10 @@
 	--logo-green: var(--green-400);
 	--logo-gold:  var(--gold-400);
 
-	/* ── Shadows dark ───────────────────────────────────────────────── */
-	--shadow-sm: 0 1px 3px oklch(0 0 0 / 0.28);
-	--shadow-md: 0 4px 8px oklch(0 0 0 / 0.35);
-	--shadow-lg: 0 10px 24px oklch(0 0 0 / 0.40);
+	/* ── Shadows dark — inner top highlight replaces heavy drop shadows ── */
+	--shadow-sm: 0 1px 3px oklch(0 0 0 / 0.28), inset 0 1px 0 rgba(255,255,255,0.06);
+	--shadow-md: 0 4px 8px oklch(0 0 0 / 0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+	--shadow-lg: 0 10px 24px oklch(0 0 0 / 0.40), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -978,5 +978,48 @@ button:not(:disabled):active {
 	}
 	/* keep tiny inline icon-only buttons from being forced oversized */
 	button.icon-btn { min-height: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLASS SURFACE — sticky/fixed bars that float over content
+   ═══════════════════════════════════════════════════════════════════ */
+.glass-surface {
+	background: oklch(0.982 0.002 90 / 0.88);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+}
+.dark .glass-surface {
+	background: oklch(0.195 0.024 152 / 0.82);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CARD LIFT — hover elevation for non-interactive data cards
+   ═══════════════════════════════════════════════════════════════════ */
+.card-lift {
+	transition: transform 130ms ease-out, box-shadow 130ms ease-out;
+	will-change: transform;
+	cursor: default;
+}
+.card-lift:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+@media (prefers-reduced-motion: reduce) {
+	.card-lift { transition: none; }
+	.card-lift:hover { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SLIDE DOWN — accordion / inline form reveal animation
+   ═══════════════════════════════════════════════════════════════════ */
+@keyframes slideDown {
+	from { opacity: 0; transform: translateY(-6px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+.slide-down {
+	animation: slideDown 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+	.slide-down { animation: none; }
 }
 

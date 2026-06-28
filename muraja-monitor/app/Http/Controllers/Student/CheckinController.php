@@ -14,6 +14,7 @@ use App\Services\ConsistencyService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CheckinController extends Controller
 {
@@ -123,6 +124,8 @@ class CheckinController extends Controller
     // Recompute consistency and badges for the subject (partner or self)
     $this->consistency->forget($subject->id);
     $this->badges->checkAndAward($subject);
+    Cache::forget("student_stats:{$subject->id}");
+    Cache::forget('leaderboard_data');
 
     // Mark any unfulfilled excuse for the subject whose makeup is today
     MissedSubmissionExcuse::where("student_id", $subject->id)

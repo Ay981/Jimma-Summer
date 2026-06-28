@@ -7,7 +7,7 @@ use App\Models\ContactLog;
 use App\Models\PairSubmission;
 use App\Models\User;
 use App\Models\Watchlist;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,7 +68,7 @@ class OutreachController extends Controller
         return back()->with('success', 'Contact note added.');
     }
 
-    public function bulkNotify(Request $request, FcmService $fcm): RedirectResponse
+    public function bulkNotify(Request $request): RedirectResponse
     {
         $request->validate(['student_ids' => ['required', 'array'], 'student_ids.*' => ['exists:users,id']]);
 
@@ -88,8 +88,7 @@ class OutreachController extends Controller
             $notified++;
         }
 
-        // Push to device
-        $fcm->sendToUsers(
+        SendFcmPush::toUsers(
             $request->student_ids,
             'Reminder from admin',
             'Please log your muraja\'a for today.',

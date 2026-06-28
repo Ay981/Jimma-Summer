@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\MurajaTest;
 use App\Models\Pair;
 use App\Models\User;
+use App\Jobs\SendFcmPush;
 use App\Notifications\TestRecorded;
-use App\Services\FcmService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -42,7 +42,7 @@ class TestController extends Controller
     $range = [];
     if ($test->from_juz && $test->to_juz) $range[] = "Juz {$test->from_juz}-{$test->to_juz}";
     if ($test->from_page && $test->to_page) $range[] = "pp. {$test->from_page}-{$test->to_page}";
-    app(FcmService::class)->sendToUser(
+    SendFcmPush::toUser(
         $data['student_id'],
         'Test recorded',
         (implode(', ', $range) ?: 'Test') . " — {$test->score}/10.",
