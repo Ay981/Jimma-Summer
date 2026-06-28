@@ -77,13 +77,15 @@ class ProfileController extends Controller
             'available_times.*' => ['in:after_subhi,after_zuhr,after_asr,after_maghrib,after_isha'],
             'available_days'    => ['required', 'array', 'min:1'],
             'available_days.*'  => ['in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
+            'telegram_username' => ['nullable', 'string', 'max:64'],
         ]);
 
         $request->user()->update([
-            'memo_level'      => $request->memo_level,
-            'current_juz'     => $request->current_juz,
-            'available_times' => $request->available_times,
-            'available_days'  => $request->available_days,
+            'memo_level'        => $request->memo_level,
+            'current_juz'       => $request->current_juz,
+            'available_times'   => $request->available_times,
+            'available_days'    => $request->available_days,
+            'telegram_username' => $request->telegram_username ?? null,
             'profile_completed' => true,
         ]);
 

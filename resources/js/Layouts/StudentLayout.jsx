@@ -332,10 +332,10 @@ export default function StudentLayout({ children, title }) {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                 {/* Top bar (mobile header + desktop notification area) */}
-                <header style={{
+                <header className="glass-surface" style={{
                     height: '52px', borderBottom: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0 16px', background: 'var(--card)', position: 'sticky', top: 0, zIndex: 100,
+                    padding: '0 16px', position: 'sticky', top: 0, zIndex: 100,
                 }}>
                     {/* Left: page title (desktop) + streak / consistency indicators */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -360,14 +360,12 @@ export default function StudentLayout({ children, title }) {
             </div>
 
             {/* ── Mobile bottom nav ────────────────────────────────────────── */}
-            <nav style={{
+            <nav className="glass-surface mobile-bottom-nav" style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
-                background: 'var(--card)', borderTop: '1px solid var(--border)',
+                borderTop: '1px solid var(--border)',
                 display: 'flex', zIndex: 150,
                 paddingBottom: 'env(safe-area-inset-bottom)',
-            }}
-                className="mobile-bottom-nav"
-            >
+            }}>
                 {['/student/dashboard', '/student/history', '/student/pair', '/student/announcements'].map((href) => {
                     const item = navItems.find((n) => n.href === href);
                     return item ? <MobileNavItem key={href} {...item} active={isActive(href)} /> : null;
