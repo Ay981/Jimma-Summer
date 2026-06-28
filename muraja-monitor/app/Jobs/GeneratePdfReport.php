@@ -50,8 +50,6 @@ class GeneratePdfReport implements ShouldQueue
                 'ready_at'  => now(),
             ]);
 
-            $this->notifyRequester($export);
-
         } catch (\Throwable $e) {
             // Clean up any storage file that was partially written
             if ($export->file_path && Storage::exists($export->file_path)) {
@@ -62,7 +60,6 @@ class GeneratePdfReport implements ShouldQueue
                 'error_message' => $e->getMessage(),
             ]);
 
-            $this->notifyFailure($export, $e->getMessage());
         }
     }
 
@@ -158,52 +155,4 @@ class GeneratePdfReport implements ShouldQueue
         return $path;
     }
 
-    // ── Notifications ─────────────────────────────────────────────────────────
-
-    private function notifyRequester(PdfExport $export): void
-    {
-        $requester = User::find($export->requested_by);
-        if (!$requester) return;
-
-        $message = match ($this->reportType) {
-            'certificates_zip' => 'Your certificates ZIP is ready — click to download.',
-            default            => 'Your PDF report is ready to download.',
-        };
-
-        $requester->notifications()->create([
-            'id'              => Str::uuid(),
-            'type'            => 'App\Notifications\PdfReady',
-            'notifiable_type' => User::class,
-            'notifiable_id'   => $requester->id,
-            'data'            => json_encode([
-                'message'   => $message,
-                'redirect'  => '/admin/reports/exports/' . $this->exportId . '/download',
-                'export_id' => $this->exportId,
-            ]),
-            'created_at' => now(),
-        ]);
-    }
-
-    private function notifyFailure(PdfExport $export, string $reason): void
-    {
-        $requester = User::find($export->requested_by);
-        if (!$requester) return;
-
-        $label = match ($this->reportType) {
-            'certificates_zip' => 'Certificate ZIP export',
-            default            => 'PDF export',
-        };
-
-        $requester->notifications()->create([
-            'id'              => Str::uuid(),
-            'type'            => 'App\Notifications\PdfReady',
-            'notifiable_type' => User::class,
-            'notifiable_id'   => $requester->id,
-            'data'            => json_encode([
-                'message'   => "{$label} failed: {$reason}",
-                'export_id' => $this->exportId,
-            ]),
-            'created_at' => now(),
-        ]);
-    }
 }

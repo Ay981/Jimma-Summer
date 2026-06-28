@@ -312,6 +312,7 @@ export default function Dashboard({
     program_started, program_ended, server_date, server_date_iso,
     earned_badges, locked_badges, weekly_summary, personal_best,
     excusable_missed, pending_excuses, scheduled_days,
+    certificates_published,
 }) {
     const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     const isFriday = new Date().getDay() === 5;
@@ -355,23 +356,6 @@ export default function Dashboard({
 
             <div className="page-content" style={{display:'flex',flexDirection:'column',gap:'24px'}}>
 
-                {/* ── Onboarding banner ─────────────────────────────────── */}
-                <div style={{
-                    background:'var(--secondary)',border:'1px solid var(--border-subtle)',
-                    borderRadius:'var(--radius-lg)',padding:'12px 16px',
-                    display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap',
-                }}>
-                    <div>
-                        <p style={{margin:0,fontSize:'0.875rem',fontWeight:600,color:'var(--secondary-foreground)'}}>New to Muraja Monitor?</p>
-                        <p style={{margin:'2px 0 0',fontSize:'0.8125rem',color:'var(--muted-foreground)'}}>Download the visual step-by-step onboarding guide.</p>
-                    </div>
-                    <a href="/student/onboarding/guide" target="_blank" rel="noreferrer" style={{
-                        padding:'7px 16px',background:'var(--primary)',color:'var(--primary-foreground)',
-                        borderRadius:'var(--radius-sm)',fontWeight:600,fontSize:'0.8125rem',
-                        textDecoration:'none',whiteSpace:'nowrap',flexShrink:0,
-                    }}>Download Guide (PDF)</a>
-                </div>
-
                 {/* ── Greeting ──────────────────────────────────────────── */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'8px'}}>
                     <div>
@@ -394,6 +378,30 @@ export default function Dashboard({
 
                 {/* ── Ayat ──────────────────────────────────────────────── */}
                 {ayat && <AyatBox text={ayat.text} reference={ayat.reference} />}
+
+                {/* ── Certificate download (shown when admin publishes) ── */}
+                {certificates_published && (
+                    <div style={{
+                        background: 'var(--card)', border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)', padding: '16px 20px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        gap: '12px', flexWrap: 'wrap',
+                    }}>
+                        <div>
+                            <p style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700 }}>Your Certificate is Ready</p>
+                            <p style={{ margin: '3px 0 0', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                                Download your completion certificate for this program.
+                            </p>
+                        </div>
+                        <a href="/student/certificate/download" style={{
+                            padding: '7px 16px', background: 'var(--primary)', color: 'var(--primary-foreground)',
+                            borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.875rem',
+                            textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                        }}>
+                            Download Certificate ↓
+                        </a>
+                    </div>
+                )}
 
                 {/* ── Totals ────────────────────────────────────────────── */}
                 <div data-onboard="stat-cards" style={{

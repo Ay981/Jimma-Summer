@@ -247,8 +247,9 @@ class DashboardController extends Controller
             ],
             'excusable_missed'  => $excusableMissed,
             'pending_excuses'   => $pendingExcuses,
-            'program_started'   => $programStarted,
-            'program_ended'     => $programEnded,
+            'program_started'        => $programStarted,
+            'program_ended'          => $programEnded,
+            'certificates_published' => (bool) ProgramSetting::get('certificates_published', false),
             'server_date'       => Carbon::today()->format('l, d F Y'),
             'server_date_iso'   => Carbon::today()->toDateString(),
             'scheduled_days'    => array_map('ucfirst', $user->available_days ?? []),
@@ -260,5 +261,13 @@ class DashboardController extends Controller
         $request->validate(['weekly_target' => ['required', 'integer', 'min:1', 'max:604']]);
         $request->user()->update(['weekly_target' => $request->weekly_target]);
         return back()->with('success', 'Weekly target updated.');
+    }
+
+    public function downloadCertificate(): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless((bool) ProgramSetting::get('certificates_published', false), 403, 'Certificates are not yet published.');
+
+        $lb = new \App\Http\Controllers\Admin\LeaderboardController();
+        return $lb->certificate(auth()->user());
     }
 }
