@@ -129,6 +129,7 @@ Route::put("/settings/weekly-target", [
       Route::get("/halqa", [StudentHalqa::class, "show"])->name("halqa");
 
       Route::get("/badges", [StudentBadge::class, "index"])->name("badges");
+      Route::get("/certificate/download", [StudentDashboard::class, "downloadCertificate"])->name("certificate.download");
 
       Route::get("/journal", [JournalController::class, "index"])->name(
         "journal",
@@ -250,6 +251,8 @@ Route::middleware(["auth", "role:leader"])
     Route::get("/export/pdf", [LeaderPdfExport::class, "export"])->name(
       "export.pdf",
     );
+    Route::get("/certificate/download", [LeaderDashboard::class, "downloadMyCertificate"])->name("leader.certificate.download");
+    Route::get("/certificates/{student}/download", [LeaderDashboard::class, "downloadStudentCertificate"])->name("leader.student.certificate.download");
     // Weekly report
     Route::get("/weekly-report", [
       App\Http\Controllers\Leader\WeeklyReportController::class,
@@ -549,6 +552,7 @@ Route::middleware(["auth", "role:admin"])
       AdminReports::class,
       "exportCertificatesZip",
     ])->name("reports.certificates");
+    Route::post("/reports/certificates/publish", [AdminReports::class, "toggleCertificatesPublished"])->name("reports.certificates.publish");
     Route::get("/reports/exports/{export}/download", [
       AdminReports::class,
       "downloadExport",

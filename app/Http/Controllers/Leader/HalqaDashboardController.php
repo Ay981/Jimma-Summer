@@ -253,14 +253,15 @@ class HalqaDashboardController extends Controller
         ];
 
         return Inertia::render('Leader/Dashboard', [
-            'halqa'          => ['id' => $halqa->id, 'name' => $halqa->name],
-            'pairs'          => $pairs->values(),
-            'students'       => $this->buildStudentRows($halqa, $today, $programStart),
-            'summary'        => $summary,
-            'today_subs'     => $pairs->sum(fn ($p) => $p['today_submitted'] === 'both' ? 2 : ($p['today_submitted'] === 'one' ? 1 : 0)),
-            'absence_queue'  => $absenceQueue,
-            'follow_up_queue'=> array_merge($overdueActions, $snoozedContacts),
-            'group_identity' => $groupIdentity,
+            'halqa'                  => ['id' => $halqa->id, 'name' => $halqa->name],
+            'pairs'                  => $pairs->values(),
+            'students'               => $this->buildStudentRows($halqa, $today, $programStart),
+            'summary'                => $summary,
+            'today_subs'             => $pairs->sum(fn ($p) => $p['today_submitted'] === 'both' ? 2 : ($p['today_submitted'] === 'one' ? 1 : 0)),
+            'absence_queue'          => $absenceQueue,
+            'follow_up_queue'        => array_merge($overdueActions, $snoozedContacts),
+            'group_identity'         => $groupIdentity,
+            'certificates_published' => (bool) ProgramSetting::get('certificates_published', false),
         ]);
     }
 
@@ -378,5 +379,34 @@ class HalqaDashboardController extends Controller
 
         // Recent submission but consistency not yet at 70 % — still building
         return 'slipping';
+    }
+
+    // ── Certificate downloads (only when certificates_published is on) ─────────
+
+    public function downloadMyCertificate(): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless((bool) ProgramSetting::get('certificates_published', false), 403, 'Certificates are not yet published.');
+
+        $lb = new \App\Http\Controllers\Admin\LeaderboardController();
+        return $lb->leaderCertificate(auth()->user());
+    }
+
+    public function downloadStudentCertificate(\App\Models\User $student): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless((bool) ProgramSetting::get('certificates_published', false), 403, 'Certificates are not yet published.');
+
+        // Confirm the student belongs to this leader's halqa
+        $halqa = auth()->user()->ledHalqa;
+        abort_if(!$halqa, 403, 'No halqa assigned.');
+        abort_unless(
+            \App\Models\Pair::where('halqa_id', $halqa->id)
+                ->where(fn ($q) => $q->where('student_a_id', $student->id)->orWhere('student_b_id', $student->id))
+                ->exists(),
+            403,
+            'Student is not in your halqa.'
+        );
+
+        $lb = new \App\Http\Controllers\Admin\LeaderboardController();
+        return $lb->certificate($student);
     }
 }

@@ -268,7 +268,7 @@ function PairRow({ pair }) {
 
 // ── Student row ───────────────────────────────────────────────────────────────
 
-function StudentRow({ student }) {
+function StudentRow({ student, certPublished }) {
     const c    = consistencyColor(student.consistency);
     const href = student.pair_id ? `/leader/members/${student.pair_id}` : null;
     const lastAgo = student.last_submission ? diffForHumans(student.last_submission) : null;
@@ -326,6 +326,22 @@ function StudentRow({ student }) {
                     border: student.today_submitted ? 'none' : '1.5px solid var(--muted-foreground)',
                 }}
             />
+            {/* Cert download */}
+            {certPublished && (
+                <a
+                    href={`/leader/certificates/${student.id}/download`}
+                    onClick={e => e.stopPropagation()}
+                    title="Download certificate"
+                    style={{
+                        fontSize: '0.75rem', fontWeight: 600, padding: '3px 8px',
+                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                        color: 'var(--foreground)', textDecoration: 'none', flexShrink: 0,
+                        background: 'var(--card)', whiteSpace: 'nowrap',
+                    }}
+                >
+                    PDF ↓
+                </a>
+            )}
             {/* Chevron */}
             {href && <CaretRight size={16} style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />}
         </div>
@@ -434,6 +450,7 @@ function BroadcastModal({ onClose }) {
 export default function LeaderDashboard({
     halqa, pairs, students, summary, today_subs,
     absence_queue, follow_up_queue, group_identity,
+    certificates_published,
 }) {
     const view = typeof window !== 'undefined'
         ? (new URLSearchParams(window.location.search).get('view') ?? 'overview')
@@ -546,6 +563,27 @@ export default function LeaderDashboard({
                 <StatCard label="At Risk"   value={summary?.at_risk ?? 0}  color="var(--destructive)"      icon={Warning} />
                 <StatCard label="Inactive"  value={summary?.inactive ?? 0} color="var(--muted-foreground)" />
             </div>
+
+            {/* ── LEADER CERT BANNER ──────────────────────────────────── */}
+            {certificates_published && (
+                <div style={{
+                    background: 'var(--card)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap',
+                }}>
+                    <div>
+                        <p style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700 }}>Your Leader Certificate is Ready</p>
+                        <p style={{ margin: '3px 0 0', fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>Download your leader completion certificate for this program.</p>
+                    </div>
+                    <a href="/leader/certificate/download" style={{
+                        padding: '7px 16px', background: 'var(--primary)', color: 'var(--primary-foreground)',
+                        borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.875rem',
+                        textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                    }}>
+                        Download Certificate ↓
+                    </a>
+                </div>
+            )}
 
             {/* ── ABSENCE QUEUE — hidden on overview ───────────────────── */}
             {view !== 'overview' && absence_queue?.length > 0 && (
@@ -665,7 +703,7 @@ export default function LeaderDashboard({
                                 <p style={{ margin: '4px 0 0', fontSize: '0.8125rem' }}>Try adjusting the filters above</p>
                             </div>
                         ) : (
-                            filteredStudents.map((s) => <StudentRow key={s.id} student={s} />)
+                            filteredStudents.map((s) => <StudentRow key={s.id} student={s} certPublished={certificates_published} />)
                         )}
                     </div>
                 )}

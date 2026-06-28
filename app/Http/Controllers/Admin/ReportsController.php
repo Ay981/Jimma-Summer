@@ -36,10 +36,33 @@ class ReportsController extends Controller
 
     public function __construct(private readonly ConsistencyService $consistency) {}
 
+    public function toggleCertificatesPublished(): \Illuminate\Http\RedirectResponse
+    {
+        $current = (bool) ProgramSetting::get('certificates_published', false);
+        ProgramSetting::set('certificates_published', $current ? '0' : '1');
+        $msg = $current ? 'Certificates removed from dashboards.' : 'Certificates are now visible in student and leader dashboards.';
+        return back()->with('success', $msg);
+    }
+
     public function index(): \Inertia\Response
     {
         return Inertia::render('Admin/Reports', [
-            'program_name' => ProgramSetting::get('program_name', "Muraja'a Monitor"),
+            'program_name'           => ProgramSetting::get('program_name', "Muraja'a Monitor"),
+            'certificates_published' => (bool) ProgramSetting::get('certificates_published', false),
+            'exports'                => PdfExport::where('requested_by', auth()->id())
+                ->orderByDesc('created_at')
+                ->take(5)
+                ->get()
+                ->map(fn ($e) => [
+                    'id'            => $e->id,
+                    'status'        => $e->status,
+                    'error_message' => $e->error_message,
+                    'created_at'    => $e->created_at->diffForHumans(),
+                    'download_url'  => $e->status === 'ready'
+                        ? "/admin/reports/exports/{$e->id}/download"
+                        : null,
+                ])
+                ->toArray(),
         ]);
     }
 
@@ -171,7 +194,7 @@ class ReportsController extends Controller
 
     // ── Download a completed async export ────────────────────────────────────
 
-    public function downloadExport(PdfExport $export): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadExport(PdfExport $export): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         abort_if($export->status !== 'ready', 404, 'Export is not ready yet.');
         abort_if(
