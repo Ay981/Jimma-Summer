@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Halqa;
 use App\Models\User;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -96,7 +96,7 @@ class AnnouncementsController extends Controller
             ]);
         }
 
-        app(FcmService::class)->sendToUsers(
+        SendFcmPush::toUsers(
             $users->pluck('id')->toArray(),
             $announcement->title,
             $announcement->body,

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Leader;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\User;
-use App\Services\FcmService;
+use App\Jobs\SendFcmPush;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +44,7 @@ class AnnouncementController extends Controller
         ]);
     }
 
-    public function store(Request $request, FcmService $fcm): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         $leader = auth()->user();
         $halqa  = $leader->ledHalqa;
@@ -81,8 +81,7 @@ class AnnouncementController extends Controller
             ]);
         }
 
-        // Push to devices
-        $fcm->sendToUsers(
+        SendFcmPush::toUsers(
             $students->pluck('id')->toArray(),
             $announcement->title,
             "From {$leader->name}: {$announcement->body}",

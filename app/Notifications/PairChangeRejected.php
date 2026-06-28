@@ -2,10 +2,14 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class PairChangeRejected extends Notification
+class PairChangeRejected extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         private readonly string $studentName,
         private readonly string $reason,

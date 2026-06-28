@@ -14,7 +14,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         \App\Console\Commands\CaptureOnboardingScreenshots::class,
-        \App\Console\Commands\TelegramSetWebhook::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('muraja:remind morning')

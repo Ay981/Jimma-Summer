@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,30 +37,12 @@ class ProfileController extends Controller
                 'available_days'  => $user->available_days  ?? [],
             ],
             'student' => [
-                'name'       => $user->name,
-                'student_id' => $user->student_id,
-                'halqa'      => $user->halqa?->name,
-            ],
-            'telegram' => [
-                'linked'       => !is_null($user->telegram_chat_id),
-                'bot_username' => config('services.telegram.bot_username'),
+                'name'            => $user->name,
+                'student_id'      => $user->student_id,
+                'halqa'           => $user->halqa?->name,
+                'telegram_username' => $user->telegram_username ?? '',
             ],
         ]);
-    }
-
-    public function generateTelegramLinkToken(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $token = strtoupper(Str::random(8));
-        Cache::put("tg_link:{$token}", $request->user()->id, 600);
-
-        return response()->json(['token' => $token]);
-    }
-
-    public function unlinkTelegram(Request $request): RedirectResponse
-    {
-        $request->user()->update(['telegram_chat_id' => null]);
-
-        return back()->with('success', 'Telegram account disconnected.');
     }
 
     public function update(Request $request): RedirectResponse
@@ -74,6 +54,7 @@ class ProfileController extends Controller
             'available_times.*' => ['in:after_subhi,after_zuhr,after_asr,after_maghrib,after_isha'],
             'available_days'    => ['required', 'array', 'min:1'],
             'available_days.*'  => ['in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
+            'telegram_username' => ['nullable', 'string', 'max:64'],
         ]);
 
         $request->user()->update([
@@ -81,6 +62,7 @@ class ProfileController extends Controller
             'current_juz'     => $request->current_juz,
             'available_times' => $request->available_times,
             'available_days'  => $request->available_days,
+            'telegram_username'=> $request->telegram_username ?? null,
         ]);
 
         return back()->with('success', 'Profile updated.');

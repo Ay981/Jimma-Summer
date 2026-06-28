@@ -1,5 +1,4 @@
-import { Head, useForm, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, useForm } from '@inertiajs/react';
 import StudentLayout from '@/Layouts/StudentLayout';
 
 const MEMO_LEVELS = [
@@ -38,49 +37,14 @@ const inp = {
 
 const label = { fontSize: '0.8125rem', fontWeight: 600, color: 'var(--foreground)', display: 'block', marginBottom: '6px' };
 
-export default function Profile({ profile, student, telegram }) {
+export default function Profile({ profile, student }) {
     const { data, setData, put, processing, errors, wasSuccessful } = useForm({
-        memo_level:      profile.memo_level      ?? '',
-        current_juz:     profile.current_juz     ?? 1,
-        available_times: profile.available_times ?? [],
-        available_days:  profile.available_days  ?? [],
+        memo_level:        profile.memo_level      ?? '',
+        current_juz:       profile.current_juz     ?? 1,
+        available_times:   profile.available_times ?? [],
+        available_days:    profile.available_days  ?? [],
+        telegram_username: student.telegram_username ?? '',
     });
-
-    const [linkToken, setLinkToken]         = useState(null);
-    const [tokenLoading, setTokenLoading]   = useState(false);
-    const [copied, setCopied]               = useState(false);
-    const [unlinking, setUnlinking]         = useState(false);
-
-    async function generateToken() {
-        setTokenLoading(true);
-        try {
-            const res = await fetch('/student/telegram/link-token', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
-                    'Accept': 'application/json',
-                },
-            });
-            const json = await res.json();
-            setLinkToken(json.token);
-        } finally {
-            setTokenLoading(false);
-        }
-    }
-
-    function copyCommand() {
-        navigator.clipboard.writeText(`/link ${linkToken}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    }
-
-    function unlink() {
-        if (!confirm('Disconnect your Telegram account?')) return;
-        setUnlinking(true);
-        router.delete('/student/telegram/unlink', {
-            onFinish: () => setUnlinking(false),
-        });
-    }
 
     function toggleDay(val) {
         setData('available_days', data.available_days.includes(val)
@@ -185,85 +149,28 @@ export default function Profile({ profile, student, telegram }) {
                         {errors.available_times && <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.available_times}</p>}
                     </div>
 
-                    {/* Telegram */}
+                    {/* Telegram username (simple editable field) */}
                     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                         <span style={label}>Telegram</span>
 
-                        {telegram.linked ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>✅</span>
-                                    <span style={{ fontSize: '0.875rem', color: 'var(--foreground)', fontWeight: 600 }}>Account connected</span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={unlink}
-                                    disabled={unlinking}
-                                    style={{
-                                        padding: '6px 12px', border: '1px solid var(--destructive)',
-                                        borderRadius: 'var(--radius-sm)', background: 'transparent',
-                                        color: 'var(--destructive)', fontSize: '0.8125rem',
-                                        fontWeight: 600, cursor: 'pointer', opacity: unlinking ? 0.6 : 1,
-                                    }}
-                                >
-                                    {unlinking ? 'Disconnecting…' : 'Disconnect'}
-                                </button>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
-                                    Connect your Telegram so you can reset your password directly from the bot.
-                                </p>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
+                            Enter your Telegram username (without the @). This is used to contact you.
+                        </p>
 
-                                {!linkToken ? (
-                                    <button
-                                        type="button"
-                                        onClick={generateToken}
-                                        disabled={tokenLoading}
-                                        style={{
-                                            padding: '9px 14px', border: 'none', borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--primary)', color: 'var(--primary-foreground)',
-                                            fontSize: '0.875rem', fontWeight: 700,
-                                            cursor: tokenLoading ? 'not-allowed' : 'pointer',
-                                            opacity: tokenLoading ? 0.7 : 1, alignSelf: 'flex-start',
-                                        }}
-                                    >
-                                        {tokenLoading ? 'Generating…' : 'Generate Link Code'}
-                                    </button>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--foreground)', fontWeight: 600 }}>
-                                            Open <a href={`https://t.me/${telegram.bot_username}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>@{telegram.bot_username}</a> and send this command:
-                                        </p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <code style={{
-                                                flex: 1, padding: '9px 12px', background: 'var(--muted)',
-                                                border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                                                fontSize: '0.9375rem', fontFamily: 'monospace', letterSpacing: '0.05em',
-                                            }}>
-                                                /link {linkToken}
-                                            </code>
-                                            <button
-                                                type="button"
-                                                onClick={copyCommand}
-                                                style={{
-                                                    padding: '9px 14px', border: 'none', borderRadius: 'var(--radius-sm)',
-                                                    background: copied ? 'var(--success)' : 'var(--muted)',
-                                                    color: copied ? 'var(--success-foreground)' : 'var(--foreground)',
-                                                    fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
-                                                    transition: 'background 0.15s',
-                                                }}
-                                            >
-                                                {copied ? 'Copied!' : 'Copy'}
-                                            </button>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
-                                            Code expires in 10 minutes.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <div style={{ marginTop: '10px', position: 'relative' }}>
+                            <span style={{
+                                position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
+                                color: 'var(--muted-foreground)', fontSize: '0.9rem', pointerEvents: 'none',
+                            }}>@</span>
+                            <input
+                                value={data.telegram_username}
+                                onChange={e => setData('telegram_username', e.target.value.replace(/^@/, ''))}
+                                placeholder="yourhandle"
+                                style={{ ...inp, paddingLeft: '24px' }}
+                            />
+                        </div>
+
+                        {errors.telegram_username && <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--destructive)' }}>{errors.telegram_username}</p>}
                     </div>
 
                     {/* Submit */}

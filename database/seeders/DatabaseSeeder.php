@@ -20,7 +20,6 @@ class DatabaseSeeder extends Seeder
     $this->call([
       AyatRotationSeeder::class,
       ProgramSettingsSeeder::class,
-      // DemoSeeder::class,  ← dev only, never run in production
     ]);
 
     // Create admin account only on first deploy — never overwrites
