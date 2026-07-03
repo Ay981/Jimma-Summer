@@ -511,6 +511,13 @@ class StudentController extends Controller
       );
       $newHalqaId = $student->halqa_id ?? $partner?->halqa_id;
       $pair->update(["halqa_id" => $newHalqaId]);
+
+      if ($newHalqaId) {
+        User::whereIn(
+          "id",
+          array_filter([$student->id, $partner?->id]),
+        )->update(["halqa_id" => $newHalqaId]);
+      }
     }
 
     return back()->with("success", "Student updated.");

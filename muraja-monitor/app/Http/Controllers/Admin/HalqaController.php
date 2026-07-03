@@ -253,26 +253,55 @@ class HalqaController extends Controller
       return back()->with("error", "No unassigned students to distribute.");
     }
 
-    // Build pair groups: paired students must land in the same halqa
+    // Build pair groups: paired students must land in the same halqa.
+    // If one partner is already assigned, the unassigned partner follows them.
     $pairs = Pair::whereIn("student_a_id", $students->keys())
       ->orWhereIn("student_b_id", $students->keys())
       ->get();
 
-    // Build units: each unit is a list of student IDs that must go together
+    $pairStudentIds = $pairs
+      ->flatMap(
+        fn($pair) => array_filter([
+          $pair->student_a_id,
+          $pair->student_b_id,
+        ]),
+      )
+      ->unique()
+      ->values();
+    $pairStudents = User::whereIn("id", $pairStudentIds)->get()->keyBy("id");
+
+    // Build units: each unit is a list of unassigned student IDs that must go together.
+    // A unit may have a fixed halqa_id when it belongs to an existing assigned pair.
     $assigned = [];
     $units = [];
     foreach ($pairs as $pair) {
-      $aIn = $students->has($pair->student_a_id);
-      $bIn = $pair->student_b_id && $students->has($pair->student_b_id);
-      if (!$aIn && !$bIn) {
+      $pairIds = array_values(
+        array_filter([$pair->student_a_id, $pair->student_b_id]),
+      );
+      $ids = array_values(
+        array_filter(
+          $pairIds,
+          fn($id) => $students->has($id) && !isset($assigned[$id]),
+        ),
+      );
+      if (empty($ids)) {
         continue;
       }
 
-      $ids = array_filter([
-        $aIn ? $pair->student_a_id : null,
-        $bIn ? $pair->student_b_id : null,
-      ]);
-      $units[] = array_values($ids);
+      $fixedHalqaId = null;
+      foreach ($pairIds as $id) {
+        $pairStudent = $pairStudents->get($id);
+        if (!$students->has($id) && $pairStudent?->halqa_id) {
+          $fixedHalqaId = $pairStudent->halqa_id;
+          break;
+        }
+      }
+
+      $units[] = [
+        "student_ids" => $ids,
+        "pair_id" => $pair->id,
+        "halqa_id" => $fixedHalqaId ?? $pair->halqa_id,
+      ];
       foreach ($ids as $id) {
         $assigned[$id] = true;
       }
@@ -281,14 +310,18 @@ class HalqaController extends Controller
     // Add solo (unpaired) students as single-member units
     foreach ($students->keys() as $id) {
       if (!isset($assigned[$id])) {
-        $units[] = [$id];
+        $units[] = [
+          "student_ids" => [$id],
+          "pair_id" => null,
+          "halqa_id" => null,
+        ];
       }
     }
 
     // Sort units by combined available_times fingerprint so compatible ones still cluster
     usort($units, function ($a, $b) use ($students) {
-      $sigA = implode(",", $students[$a[0]]->available_times ?? []);
-      $sigB = implode(",", $students[$b[0]]->available_times ?? []);
+      $sigA = implode(",", $students[$a["student_ids"][0]]->available_times ?? []);
+      $sigB = implode(",", $students[$b["student_ids"][0]]->available_times ?? []);
       return strcmp($sigA, $sigB);
     });
 
@@ -313,15 +346,22 @@ class HalqaController extends Controller
       $students,
     ) {
       foreach ($units as $unit) {
-        // Pick the halqa with the fewest students so far
-        asort($halqaCounts);
-        $halqaId = array_key_first($halqaCounts);
+        if ($unit["halqa_id"] && isset($halqaCounts[$unit["halqa_id"]])) {
+          $halqaId = $unit["halqa_id"];
+        } else {
+          // Pick the halqa with the fewest students so far.
+          asort($halqaCounts);
+          $halqaId = array_key_first($halqaCounts);
+        }
         $halqa = $halqaById[$halqaId];
 
-        foreach ($unit as $studentId) {
+        foreach ($unit["student_ids"] as $studentId) {
           $students[$studentId]->update(["halqa_id" => $halqa->id]);
         }
-        $halqaCounts[$halqaId] += count($unit);
+        if ($unit["pair_id"]) {
+          Pair::whereKey($unit["pair_id"])->update(["halqa_id" => $halqa->id]);
+        }
+        $halqaCounts[$halqaId] += count($unit["student_ids"]);
       }
 
       // Backfill halqa_id on any null-halqa pairs whose both students are now assigned
@@ -335,9 +375,12 @@ class HalqaController extends Controller
     });
 
     $n = count($halqaById);
+    $assignedCount = array_sum(
+      array_map(fn($unit) => count($unit["student_ids"]), $units),
+    );
     return back()->with(
       "success",
-      count(array_merge(...$units)) .
+      $assignedCount .
         " students assigned to {$n} halqa(s) (smallest halqa filled first). Pair groupings preserved.",
     );
   }
@@ -408,6 +451,22 @@ class HalqaController extends Controller
       );
     }
 
+    $hasActivePair = Pair::whereNotNull("student_b_id")
+      ->where(function ($q) use ($a, $b) {
+        $q->where("student_a_id", $a->id)
+          ->orWhere("student_b_id", $a->id)
+          ->orWhere("student_a_id", $b->id)
+          ->orWhere("student_b_id", $b->id);
+      })
+      ->exists();
+
+    if ($hasActivePair) {
+      return back()->with(
+        "error",
+        "Cannot move one student out of an active pair. Move the pair or reassign partners first.",
+      );
+    }
+
     DB::transaction(function () use ($a, $b) {
       [$a->halqa_id, $b->halqa_id] = [$b->halqa_id, $a->halqa_id];
       $a->save();
@@ -439,7 +498,16 @@ class HalqaController extends Controller
   public function assignPair(Request $request, Halqa $halqa): RedirectResponse
   {
     $request->validate(["pair_id" => ["required", "exists:pairs,id"]]);
-    Pair::findOrFail($request->pair_id)->update(["halqa_id" => $halqa->id]);
+    $pair = Pair::findOrFail($request->pair_id);
+
+    DB::transaction(function () use ($pair, $halqa) {
+      $pair->update(["halqa_id" => $halqa->id]);
+      User::whereIn(
+        "id",
+        array_filter([$pair->student_a_id, $pair->student_b_id]),
+      )->update(["halqa_id" => $halqa->id]);
+    });
+
     return back()->with("success", "Pair assigned to halqa.");
   }
 
