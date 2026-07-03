@@ -148,14 +148,24 @@ class PairController extends Controller
                   ->orWhere('student_a_id', $studentB->id);
             })->delete();
 
+        if ($studentA->halqa_id && $studentB->halqa_id && $studentA->halqa_id !== $studentB->halqa_id) {
+            return back()->with('error', 'Both students must be in the same halqa.');
+        }
+
         $halqaId = $studentA->halqa_id ?? $studentB->halqa_id;
 
-        Pair::create([
-            'student_a_id' => $studentA->id,
-            'student_b_id' => $studentB->id,
-            'halqa_id'     => $halqaId,
-            'status'       => 'active',
-        ]);
+        DB::transaction(function () use ($studentA, $studentB, $halqaId) {
+            if ($halqaId) {
+                User::whereIn('id', [$studentA->id, $studentB->id])->update(['halqa_id' => $halqaId]);
+            }
+
+            Pair::create([
+                'student_a_id' => $studentA->id,
+                'student_b_id' => $studentB->id,
+                'halqa_id'     => $halqaId,
+                'status'       => 'active',
+            ]);
+        });
 
         return back()->with('success', 'Pair created.');
     }
@@ -309,53 +319,6 @@ class PairController extends Controller
             'student_b_id' => ['required', 'exists:users,id'],
         ]);
 
-        $studentA = User::findOrFail($request->student_a_id);
-        $studentB = User::findOrFail($request->student_b_id);
-
-        abort_if($studentA->halqa_id === $studentB->halqa_id, 422, 'Both students are already in the same halqa. Use pair swap instead.');
-
-        DB::transaction(function () use ($studentA, $studentB) {
-            // Find A's current pair and old partner
-            $pairA = Pair::where(fn ($q) => $q->where('student_a_id', $studentA->id)->orWhere('student_b_id', $studentA->id))->first();
-            $oldPartnerId = null;
-            if ($pairA) {
-                $oldPartnerId = $pairA->student_a_id === $studentA->id ? $pairA->student_b_id : $pairA->student_a_id;
-                $pairA->delete();
-            }
-
-            // Move A to B's halqa
-            $studentA->update(['halqa_id' => $studentB->halqa_id]);
-
-            // Find or create pair for A+B
-            Pair::create([
-                'student_a_id' => $studentA->id,
-                'student_b_id' => $studentB->id,
-                'halqa_id'     => $studentB->halqa_id,
-                'status'       => 'active',
-            ]);
-
-            // Move A's old partner to A's original halqa and pair them with someone there
-            if ($oldPartnerId) {
-                $oldPartner = User::find($oldPartnerId);
-                if ($oldPartner) {
-                    $oldPartner->update(['halqa_id' => $studentA->getOriginal('halqa_id') ?? $oldPartner->halqa_id]);
-                }
-            }
-
-            // Notify all affected
-            foreach (array_filter([$studentA->id, $studentB->id, $oldPartnerId]) as $uid) {
-                $u = User::find($uid);
-                $u?->notifications()->create([
-                    'id'              => \Illuminate\Support\Str::uuid(),
-                    'type'            => 'App\Notifications\HalqaSwap',
-                    'notifiable_type' => User::class,
-                    'notifiable_id'   => $uid,
-                    'data'            => json_encode(['message' => 'You have been reassigned to a new halqa or pair.']),
-                    'created_at'      => now(),
-                ]);
-            }
-        });
-
         return back()->with('error', 'Cross-halqa pairing is disabled. Pairs must be within the same halqa.');
     }
 
@@ -500,7 +463,18 @@ class PairController extends Controller
     public function assignHalqa(Request $request, Pair $pair): RedirectResponse
     {
         $request->validate(['halqa_id' => ['nullable', 'exists:halqas,id']]);
-        $pair->update(['halqa_id' => $request->halqa_id]);
+
+        DB::transaction(function () use ($request, $pair) {
+            $pair->update(['halqa_id' => $request->halqa_id]);
+
+            if ($request->halqa_id) {
+                User::whereIn(
+                    'id',
+                    array_filter([$pair->student_a_id, $pair->student_b_id])
+                )->update(['halqa_id' => $request->halqa_id]);
+            }
+        });
+
         return back()->with('success', 'Halqa assigned.');
     }
 
