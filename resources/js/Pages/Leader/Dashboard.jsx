@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import LeaderLayout from '@/Layouts/LeaderLayout';
 import StatusTag from '@/Components/UI/StatusTag';
+import StatusLegend from '@/Components/UI/StatusLegend';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ function StudentMissed({ student, submitted }) {
     );
 }
 
-function AbsenceItem({ pair }) {
+function AbsenceItem({ pair, readOnly = false }) {
     const [note, setNote]         = useState('');
     const [showNote, setShowNote] = useState(false);
     const [done, setDone]         = useState(false);
@@ -109,6 +110,17 @@ function AbsenceItem({ pair }) {
             preserveScroll: true, onSuccess: () => setDone(true),
         });
     }
+
+    if (readOnly) return (
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--gold-200)' }}>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                <StudentMissed student={pair.student_a} submitted={pair.student_a.submitted_yesterday} />
+                {pair.student_b?.name && (
+                    <StudentMissed student={pair.student_b} submitted={pair.student_b.submitted_yesterday} />
+                )}
+            </div>
+        </div>
+    );
 
     if (done) return (
         <div style={{ padding: '8px 12px', fontSize: '0.8125rem', color: 'var(--muted-foreground)', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--gold-200)' }}>
@@ -170,13 +182,13 @@ const STATUS_ACCENT = {
     on_track: 'var(--success)',
 };
 
-function TriagePairRow({ pair }) {
+function TriagePairRow({ pair, href }) {
     const c      = consistencyColor(pair.consistency);
     const accent = STATUS_ACCENT[pair.status] ?? 'var(--border)';
     const lastAgo = pair.last_submission ? diffForHumans(pair.last_submission) : null;
 
     return (
-        <Link href={`/leader/members/${pair.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+        <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="dash-pair-row" style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 padding: '10px 14px', background: 'var(--card)',
@@ -219,12 +231,12 @@ function TriagePairRow({ pair }) {
 
 // ── Pairs tab row (enhanced) ──────────────────────────────────────────────────
 
-function PairRow({ pair }) {
+function PairRow({ pair, href }) {
     const c       = consistencyColor(pair.consistency);
     const lastAgo = pair.last_submission ? diffForHumans(pair.last_submission) : null;
 
     return (
-        <Link href={`/leader/members/${pair.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+        <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="pair-row" style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 padding: '10px 14px', background: 'var(--card)',
@@ -268,9 +280,9 @@ function PairRow({ pair }) {
 
 // ── Student row ───────────────────────────────────────────────────────────────
 
-function StudentRow({ student, certPublished }) {
+function StudentRow({ student, certPublished, hrefFor }) {
     const c    = consistencyColor(student.consistency);
-    const href = student.pair_id ? `/leader/members/${student.pair_id}` : null;
+    const href = student.pair_id ? hrefFor(student.pair_id) : null;
     const lastAgo = student.last_submission ? diffForHumans(student.last_submission) : null;
     const initial = student.name?.charAt(0)?.toUpperCase() ?? '?';
 
@@ -451,6 +463,10 @@ export default function LeaderDashboard({
     halqa, pairs, students, summary, today_subs,
     absence_queue, follow_up_queue, group_identity,
     certificates_published,
+    layout: Layout = LeaderLayout,
+    readOnly = false,
+    pairHref = (p) => `/leader/members/${p.id}`,
+    backHref = null,
 }) {
     const view = typeof window !== 'undefined'
         ? (new URLSearchParams(window.location.search).get('view') ?? 'overview')
@@ -516,8 +532,43 @@ export default function LeaderDashboard({
     [pairs]);
 
     return (
-        <LeaderLayout title={halqa ? halqa.name : 'Leader Dashboard'}>
+        <Layout title={halqa ? halqa.name : 'Leader Dashboard'}>
             <Head title="Leader Dashboard" />
+
+            {/* ── READ-ONLY BANNER (admin "view as leader") ─────────────── */}
+            {readOnly && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px', padding: '9px 14px', background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--secondary-foreground)' }}>
+                            Viewing as leader · read-only
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {[
+                                { key: 'overview', label: 'Overview' },
+                                { key: 'pairs',    label: 'Pairs' },
+                                { key: 'students', label: 'Students' },
+                            ].map((t) => {
+                                const base = typeof window !== 'undefined' ? window.location.pathname : '';
+                                const active = view === t.key;
+                                return (
+                                    <Link
+                                        key={t.key}
+                                        href={t.key === 'overview' ? base : `${base}?view=${t.key}`}
+                                        style={{ padding: '3px 10px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none', background: active ? 'var(--primary)' : 'var(--card)', color: active ? 'var(--primary-foreground)' : 'var(--foreground)', border: '1px solid var(--border)' }}
+                                    >
+                                        {t.label}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {backHref && (
+                        <Link href={backHref} style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                            ← Back to Halqas
+                        </Link>
+                    )}
+                </div>
+            )}
 
             {/* ── HEADER ──────────────────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
@@ -539,6 +590,7 @@ export default function LeaderDashboard({
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                    {!readOnly && <>
                     <a
                         href="/leader/export/pdf"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontWeight: 600, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
@@ -553,6 +605,7 @@ export default function LeaderDashboard({
                         <ClipboardText size={15} weight="bold" />
                         <span className="action-label">Log Meeting</span>
                     </Link>
+                    </>}
                 </div>
             </div>
 
@@ -564,8 +617,13 @@ export default function LeaderDashboard({
                 <StatCard label="Inactive"  value={summary?.inactive ?? 0} color="var(--muted-foreground)" />
             </div>
 
+            {/* ── STATUS LEGEND (plain-English meaning) ───────────────── */}
+            <div style={{ marginBottom: '14px' }}>
+                <StatusLegend />
+            </div>
+
             {/* ── LEADER CERT BANNER ──────────────────────────────────── */}
-            {certificates_published && (
+            {certificates_published && !readOnly && (
                 <div style={{
                     background: 'var(--card)', border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: '14px',
@@ -606,7 +664,8 @@ export default function LeaderDashboard({
                     </button>
                     {showAbsence && (
                         <>
-                            {absence_queue.map((p) => <AbsenceItem key={p.id} pair={p} />)}
+                            {absence_queue.map((p) => <AbsenceItem key={p.id} pair={p} readOnly={readOnly} />)}
+                            {!readOnly && (
                             <div style={{ padding: '10px 12px' }}>
                                 <button
                                     onClick={() => router.post('/leader/outreach/notify-all', {}, { preserveScroll: true })}
@@ -615,6 +674,7 @@ export default function LeaderDashboard({
                                     Notify all absent pairs
                                 </button>
                             </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -689,7 +749,7 @@ export default function LeaderDashboard({
                                 <p style={{ margin: '4px 0 0', fontSize: '0.8125rem' }}>Contact your admin to set up pairs for your halqa</p>
                             </div>
                         ) : (
-                            filteredPairs.map((pair) => <PairRow key={pair.id} pair={pair} />)
+                            filteredPairs.map((pair) => <PairRow key={pair.id} pair={pair} href={pairHref(pair)} />)
                         )}
                     </div>
                 )}
@@ -703,7 +763,7 @@ export default function LeaderDashboard({
                                 <p style={{ margin: '4px 0 0', fontSize: '0.8125rem' }}>Try adjusting the filters above</p>
                             </div>
                         ) : (
-                            filteredStudents.map((s) => <StudentRow key={s.id} student={s} certPublished={certificates_published} />)
+                            filteredStudents.map((s) => <StudentRow key={s.id} student={s} certPublished={certificates_published && !readOnly} hrefFor={(pid) => pairHref({ id: pid })} />)
                         )}
                     </div>
                 )}
@@ -774,6 +834,7 @@ export default function LeaderDashboard({
                 </div>
 
                 {/* Broadcast shortcut */}
+                {!readOnly && (
                 <button
                     onClick={() => setShowBroadcast(true)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: 600, border: '1.5px solid var(--gold-400)', background: 'transparent', color: 'var(--gold-700)', cursor: 'pointer', width: '100%' }}
@@ -781,9 +842,10 @@ export default function LeaderDashboard({
                     <Megaphone size={16} weight="bold" />
                     Broadcast to Halqa
                 </button>
+                )}
             </>)}
 
-            {showBroadcast && <BroadcastModal onClose={() => setShowBroadcast(false)} />}
+            {showBroadcast && !readOnly && <BroadcastModal onClose={() => setShowBroadcast(false)} />}
 
             <style>{`
                 @media (max-width: 600px) {
@@ -804,6 +866,6 @@ export default function LeaderDashboard({
                     .student-status-hide-xs { display: none; }
                 }
             `}</style>
-        </LeaderLayout>
+        </Layout>
     );
 }

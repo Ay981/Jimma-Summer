@@ -25,9 +25,6 @@ class DashboardController extends Controller
         $today        = Carbon::today();
         $programStart = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
         $window14     = $today->copy()->subDays(13);
-        $effStart     = $programStart->gt($window14) ? $programStart->copy() : $window14->copy();
-        $effDays      = max(1, $effStart->diffInDays($today) + 1);
-        $effDates     = collect(range(0, $effDays - 1))->map(fn ($i) => $effStart->copy()->addDays($i)->toDateString());
 
         // ── Core counts ────────────────────────────────────────────────────────
         $totalStudents  = User::where('role', 'student')->count();
@@ -39,7 +36,7 @@ class DashboardController extends Controller
             ->distinct('subject_student_id')->count('subject_student_id');
 
         // ── Bulk status for all active students ────────────────────────────────
-        $students = User::where('role', 'student')->where('is_active', true)->get(['id']);
+        $students = User::where('role', 'student')->where('is_active', true)->get(['id', 'available_days', 'created_at']);
         $ids      = $students->pluck('id');
 
         $subs14 = PairSubmission::whereIn('subject_student_id', $ids)
@@ -55,16 +52,31 @@ class DashboardController extends Controller
         $last14Dates = collect(range(13, 0))->map(fn ($i) => $today->copy()->subDays($i)->toDateString());
         $statusCounts = ['on_track' => 0, 'slipping' => 0, 'at_risk' => 0, 'inactive' => 0];
 
+        $cs = app(\App\Services\ConsistencyService::class);
+
+        // Wider submission window (60d) so scheduled-miss walk-back can reach an inactive verdict.
+        $subs60 = PairSubmission::whereIn('subject_student_id', $ids)
+            ->where('submission_date', '>=', $today->copy()->subDays(59)->toDateString())
+            ->get(['subject_student_id', 'submission_date'])
+            ->groupBy('subject_student_id');
+
+        $studentUsers = $students->keyBy('id');
+
         $studentStatuses = [];
         foreach ($ids as $id) {
             $s14     = ($subs14[$id] ?? collect())->keyBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString());
+            $s60Set  = ($subs60[$id] ?? collect())->keyBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString())->toArray();
             $lastSub = $lastSubDates[$id] ?? null;
             $sparkline = $last14Dates->map(fn ($d) => isset($s14[$d]) ? 1 : 0)->values()->toArray();
-            $submitted = $effDates->filter(fn ($d) => isset($s14[$d]))->count();
-            $cons = round(($submitted / $effDays) * 100, 1);
-            $status = $this->quickStatus($sparkline, $cons, $lastSub, $effDays);
+
+            $availableDays = $studentUsers[$id]->available_days ?? [];
+            $joined   = Carbon::parse($studentUsers[$id]->created_at)->startOfDay();
+            $stEff    = $programStart->gt($joined) ? $programStart->copy() : $joined->copy();
+
+            $cons   = $cs->getConsistency($id) ?? 0.0;
+            $status = $cs->deriveStatus($availableDays, $s60Set, $stEff, $today, $lastSub, (float) $cons);
             $statusCounts[$status]++;
-            $studentStatuses[$id] = ['status' => $status, 'cons' => $cons, 'last_sub' => $lastSub, 'sparkline' => $sparkline];
+            $studentStatuses[$id] = ['status' => $status, 'cons' => $cons, 'last_sub' => $lastSub, 'sparkline' => $sparkline, 'available_days' => $availableDays, 'eff_start' => $stEff, 'sub_set' => $s60Set];
         }
 
         // ── Pulse score (0–100) ────────────────────────────────────────────────
@@ -113,7 +125,7 @@ class DashboardController extends Controller
         $earlyWarning = $this->earlyWarning($studentStatuses, $ids);
 
         // ── Halqa engagement ──────────────────────────────────────────────────
-        $halqaEngagement = $this->halqaEngagement($today);
+        $halqaEngagement = $this->halqaEngagement($cs);
 
         // ── Sankey data ────────────────────────────────────────────────────────
         $sankeyData = $this->sankeyData($studentStatuses);
@@ -287,29 +299,31 @@ class DashboardController extends Controller
     {
         $warnings = [];
         $students = User::whereIn('id', array_keys($studentStatuses))->get(['id', 'name'])->keyBy('id');
+        $cs = app(\App\Services\ConsistencyService::class);
+        $today = Carbon::today();
         foreach ($studentStatuses as $id => $s) {
-            $spark = $s['sparkline'];
-            // Count trailing misses in last 5 days
-            $recent5 = array_slice($spark, -5);
-            $misses  = count(array_filter($recent5, fn ($v) => $v === 0));
-            // Warn if 3-4 misses in last 5 days but status not yet at_risk
-            if ($misses >= 3 && $s['status'] !== 'at_risk' && $s['status'] !== 'inactive') {
-                $warnings[] = ['id' => $id, 'name' => $students[$id]?->name ?? '—', 'missed_of_5' => $misses, 'consistency' => $s['cons']];
+            // Count consecutive missed *scheduled* days (days off are not misses).
+            $missed = $cs->consecutiveMissedScheduledDays(
+                $s['available_days'] ?? [],
+                $s['sub_set'] ?? [],
+                $s['eff_start'] ?? $today->copy(),
+                $today,
+            );
+            // Warn on an emerging gap that has not yet tipped into at_risk/inactive.
+            if ($missed >= 2 && $s['status'] !== 'at_risk' && $s['status'] !== 'inactive') {
+                $warnings[] = ['id' => $id, 'name' => $students[$id]?->name ?? '—', 'missed_of_5' => $missed, 'consistency' => $s['cons']];
             }
         }
         return array_slice($warnings, 0, 10);
     }
 
-    private function halqaEngagement(Carbon $today): array
+    private function halqaEngagement(\App\Services\ConsistencyService $cs): array
     {
-        return Halqa::with(['pairs.studentA:id,name', 'pairs.studentB:id,name'])->get()->map(function ($halqa) use ($today) {
-            $memberIds = $halqa->pairs->flatMap(fn ($p) => array_filter([$p->student_a_id, $p->student_b_id]))->unique();
-            if ($memberIds->isEmpty()) return null;
-            $weekStart = $today->copy()->startOfWeek(Carbon::SATURDAY)->toDateString();
-            $submitted  = PairSubmission::whereIn('subject_student_id', $memberIds)
-                ->where('submission_date', '>=', $weekStart)->distinct('subject_student_id')->count('subject_student_id');
-            $score = round($submitted / $memberIds->count() * 100);
-            return ['name' => $halqa->name, 'score' => $score, 'members' => $memberIds->count()];
+        return Halqa::with(['members' => fn ($q) => $q->where('role', 'student')])->get()->map(function ($halqa) use ($cs) {
+            $memberCount = $halqa->members->count();
+            if ($memberCount === 0) return null;
+            $score = (int) round($cs->getGroupConsistency($halqa->id));
+            return ['name' => $halqa->name, 'score' => $score, 'members' => $memberCount];
         })->filter()->values()->toArray();
     }
 
@@ -340,17 +354,5 @@ class DashboardController extends Controller
         if ($pending > 0)        $actions[] = ['icon' => 'GitBranch',      'text' => "{$pending} pair change request(s) waiting for review.",    'href' => '/admin/pairs',    'label' => 'Review Requests'];
         if (empty($actions))     $actions[] = ['icon' => 'CheckCircle',    'text' => "Everything looks good. Pulse: {$pulse}/100.",              'href' => null,              'label' => null];
         return $actions;
-    }
-
-    private function quickStatus(array $sp, float $cons, ?string $lastSub, int $effDays): string
-    {
-        if (!$lastSub) return $effDays <= 2 ? 'on_track' : 'inactive';
-        if (Carbon::parse($lastSub)->diffInDays(Carbon::today()) >= 7) return 'inactive';
-        $lookback = min(count($sp), $effDays); $consecutive = 0;
-        for ($i = count($sp) - 1; $i >= count($sp) - $lookback; $i--) { if ($sp[$i] === 0) $consecutive++; else break; }
-        if ($consecutive >= 4 || ($effDays >= 7 && $cons < 40)) return 'at_risk';
-        if ($consecutive >= 2) return 'slipping';
-        if ($cons >= 70) return 'on_track';
-        return 'slipping';
     }
 }

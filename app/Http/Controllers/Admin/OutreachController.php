@@ -32,13 +32,21 @@ class OutreachController extends Controller
                 'follow_up_required' => $c->follow_up_required,
             ])->toArray();
 
-        // No-submission-today list (for quick bulk action)
-        $today      = Carbon::today()->toDateString();
-        $submitted  = PairSubmission::where('submission_date', $today)->pluck('subject_student_id')->unique();
-        $notToday   = User::where('role', 'student')->where('is_active', true)
+        // No-submission-today list (for quick bulk action) — only students who are
+        // actually scheduled today (a day off is not a missed submission).
+        $todayCarbon = Carbon::today();
+        $today       = $todayCarbon->toDateString();
+        $todayName   = strtolower($todayCarbon->format('l'));
+        $submitted   = PairSubmission::where('submission_date', $today)->pluck('subject_student_id')->unique();
+        $notToday    = User::where('role', 'student')->where('is_active', true)
             ->whereNotIn('id', $submitted)
-            ->get(['id', 'name', 'student_id'])
+            ->get(['id', 'name', 'student_id', 'available_days'])
+            ->filter(function ($u) use ($todayName) {
+                $days = array_map('strtolower', $u->available_days ?? []);
+                return empty($days) || in_array($todayName, $days, true);
+            })
             ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'student_id' => $u->student_id])
+            ->values()
             ->toArray();
 
         return Inertia::render('Admin/Outreach', [

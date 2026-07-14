@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\Student\ExcuseController as StudentExcuse;
 use App\Http\Controllers\Student\AnnouncementController as StudentAnnouncements;
 use App\Http\Controllers\Student\BadgeController as StudentBadge;
@@ -41,6 +42,8 @@ use App\Http\Controllers\OnboardingController;
 use Illuminate\Support\Facades\Route;
 
 // ── Public: Auth ─────────────────────────────────────────────────────────────
+
+Route::get("/verify/certificate/{code}", CertificateVerificationController::class)->name("certificate.verify");
 
 Route::middleware("guest")->group(function () {
   Route::get("/login", [AuthController::class, "showLogin"])->name("login");
@@ -344,6 +347,14 @@ Route::middleware(["auth", "role:admin"])
 
     // Halqas
     Route::get("/halqas", [AdminHalqa::class, "index"])->name("halqas");
+    Route::get("/halqas/{halqa}/dashboard", [
+      AdminHalqa::class,
+      "dashboard",
+    ])->name("halqas.dashboard");
+    Route::get("/halqas/{halqa}/members/{pair}", [
+      AdminHalqa::class,
+      "memberShow",
+    ])->name("halqas.members.show");
     Route::post("/halqas", [AdminHalqa::class, "store"])->name("halqas.store");
     Route::post("/halqas/bulk-create", [AdminHalqa::class, "bulkCreate"])->name(
       "halqas.bulkCreate",

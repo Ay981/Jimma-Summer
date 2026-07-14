@@ -26,7 +26,9 @@ class PdfExportController extends Controller
         $weekStart  = $today->copy()->startOfWeek(Carbon::SATURDAY);
         $programStart = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
 
-        $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $weekStart, $programStart) {
+        $cs = $this->consistency;
+
+        $pairs = $halqa->pairs->map(function (Pair $pair) use ($today, $weekStart, $programStart, $cs) {
             $studentIds = [$pair->student_a_id, $pair->student_b_id];
 
             // Consistency — use effective program window, not a hardcoded 14
@@ -39,14 +41,26 @@ class PdfExportController extends Controller
                 ->get()
                 ->groupBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString());
 
+            // Weekday names on which BOTH students are expected (available_days, not times).
+            $scheduleA = array_map('strtolower', $pair->studentA->available_days ?? []);
+            $scheduleB = array_map('strtolower', $pair->studentB?->available_days ?? []);
+            $pairDays  = array_values(array_filter(
+                ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],
+                fn ($d) => (empty($scheduleA) || in_array($d, $scheduleA, true))
+                    && (empty($scheduleB) || in_array($d, $scheduleB, true)),
+            ));
+
             $effectiveDates = collect(range(0, $effectiveDays - 1))
                 ->map(fn ($i) => $effectiveStart->copy()->addDays($i)->toDateString());
-            $bothDays = $effectiveDates->filter(function ($date) use ($subs14, $pair) {
+            $scheduledDates = $effectiveDates->filter(fn ($d) => $cs->isScheduledDay($pairDays, Carbon::parse($d)));
+            $scheduledCount = max(1, $scheduledDates->count());
+
+            $bothDays = $scheduledDates->filter(function ($date) use ($subs14, $pair) {
                 if (!isset($subs14[$date])) return false;
                 $submitters = $subs14[$date]->pluck('subject_student_id')->unique();
                 return $submitters->contains($pair->student_a_id) && $submitters->contains($pair->student_b_id);
             });
-            $consistency14 = round(($bothDays->count() / $effectiveDays) * 100, 1);
+            $consistency14 = round(($bothDays->count() / $scheduledCount) * 100, 1);
 
             // Last submission
             $lastSub = PairSubmission::whereIn('subject_student_id', $studentIds)
@@ -59,15 +73,14 @@ class PdfExportController extends Controller
                 ->get()
                 ->sum(fn ($s) => $s->page_to - $s->page_from + 1);
 
-            // Consecutive missed days
-            $sparkline = $last14->map(fn ($date) => isset($subs14[$date]) ? 1 : 0)->values()->toArray();
-            $consecutive = 0;
-            for ($i = count($sparkline) - 1; $i >= 0; $i--) {
-                if ($sparkline[$i] === 0) $consecutive++;
-                else break;
-            }
-
-            $status = $this->deriveStatus($sparkline, $consistency14, $lastSub, $effectiveDays);
+            $status = $cs->deriveStatus(
+                $pairDays,
+                $bothDays->flip()->toArray(),
+                $effectiveStart,
+                $today,
+                $lastSub,
+                (float) $consistency14,
+            );
 
             return [
                 'student_a'       => $pair->studentA->name,
@@ -79,13 +92,9 @@ class PdfExportController extends Controller
             ];
         })->values();
 
-        // Group consistency (all pairs combined)
+        // Group consistency (all pairs combined) — measured against scheduled days.
         $allStudentIds = $halqa->pairs->flatMap(fn ($p) => [$p->student_a_id, $p->student_b_id])->unique();
-        $programDays   = max(1, $programStart->diffInDays($today) + 1);
-        $totalSubs     = PairSubmission::whereIn('subject_student_id', $allStudentIds)->count();
-        $groupConsistency = $allStudentIds->count() > 0
-            ? round(($totalSubs / ($programDays * $allStudentIds->count())) * 100, 1)
-            : 0;
+        $groupConsistency = $cs->getGroupConsistency($halqa->id);
 
         // Submissions this week
         $weekSubs = PairSubmission::whereIn('subject_student_id', $allStudentIds)
@@ -126,25 +135,5 @@ class PdfExportController extends Controller
         $filename = 'halqa-report-' . $today->format('Y-m-d') . '.pdf';
 
         return $pdf->download($filename);
-    }
-
-    private function deriveStatus(array $sparkline14, float $consistency14, ?string $lastSub, int $effectiveDays = 14): string
-    {
-        if (!$lastSub) {
-            return $effectiveDays <= 2 ? 'on_track' : 'inactive';
-        }
-        if (Carbon::parse($lastSub)->diffInDays(Carbon::today()) >= 7) {
-            return 'inactive';
-        }
-        $lookback    = min(count($sparkline14), $effectiveDays);
-        $consecutive = 0;
-        for ($i = count($sparkline14) - 1; $i >= count($sparkline14) - $lookback; $i--) {
-            if ($sparkline14[$i] === 0) $consecutive++;
-            else break;
-        }
-        if ($consecutive >= 4 || ($effectiveDays >= 7 && $consistency14 < 40)) return 'at_risk';
-        if ($consecutive >= 2) return 'slipping';
-        if ($consistency14 >= 70) return 'on_track';
-        return 'slipping';
     }
 }

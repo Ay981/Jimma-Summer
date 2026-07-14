@@ -27,17 +27,9 @@ class HalqaController extends Controller
 
         $halqa = $user->halqa->load('pairs.studentA:id,name', 'pairs.studentB:id,name');
 
-        // Halqa rank among all halqas
-        $start       = Carbon::parse(ProgramSetting::get('program_start_date', now()->toDateString()));
-        $programDays = max(1, $start->diffInDays(now()) + 1);
-
-        $allHalqas = Halqa::with('members:id,halqa_id')->get()->map(function ($h) use ($programDays) {
-            $memberIds = $h->members->pluck('id');
-            if ($memberIds->isEmpty()) {
-                return ['id' => $h->id, 'consistency' => 0];
-            }
-            $total = PairSubmission::whereIn('subject_student_id', $memberIds)->count();
-            return ['id' => $h->id, 'consistency' => ($total / ($programDays * $memberIds->count())) * 100];
+        // Halqa rank among all halqas — group consistency measured against scheduled days.
+        $allHalqas = Halqa::get()->map(function ($h) {
+            return ['id' => $h->id, 'consistency' => $this->consistency->getGroupConsistency($h->id)];
         })->sortByDesc('consistency')->values();
 
         $rank = $allHalqas->search(fn ($h) => $h['id'] === $user->halqa_id) + 1;

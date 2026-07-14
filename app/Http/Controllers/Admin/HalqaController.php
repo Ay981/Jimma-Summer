@@ -25,10 +25,8 @@ class HalqaController extends Controller
   public function index(): Response
   {
     $today = Carbon::today();
-    $programStart = Carbon::parse(
-      ProgramSetting::get("program_start_date", $today->toDateString()),
-    );
-    $programDays = max(1, $programStart->diffInDays($today) + 1);
+
+    $cs = app(\App\Services\ConsistencyService::class);
 
     $halqas = Halqa::with([
       "leader:id,name,student_id",
@@ -36,14 +34,10 @@ class HalqaController extends Controller
       "members" => fn($q) => $q->where("role", "student"),
     ])
       ->get()
-      ->map(function ($halqa) use ($programDays) {
+      ->map(function ($halqa) use ($cs) {
         $memberIds = $halqa->members->pluck("id");
-        $totalSubs = $memberIds->isEmpty()
-          ? 0
-          : PairSubmission::whereIn("subject_student_id", $memberIds)->count();
-        $groupCons = $memberIds->isEmpty()
-          ? 0
-          : round(($totalSubs / ($programDays * $memberIds->count())) * 100, 1);
+        // Group consistency measured against each member's scheduled days.
+        $groupCons = $memberIds->isEmpty() ? 0 : $cs->getGroupConsistency($halqa->id);
 
         $meetings = MeetingLog::where("halqa_id", $halqa->id)
           ->orderByDesc("meeting_date")
@@ -110,6 +104,30 @@ class HalqaController extends Controller
       "total_active_students" => $totalActiveStudents,
       "unassigned_count" => $unassignedCount,
     ]);
+  }
+
+  // ── Read-only "View as Leader" ────────────────────────────────────────────
+
+  public function dashboard(Halqa $halqa): Response
+  {
+    $halqa->load(['pairs.studentA', 'pairs.studentB']);
+
+    return Inertia::render(
+      'Admin/HalqaDashboard',
+      app(\App\Services\HalqaDashboardService::class)->dashboardProps($halqa, $halqa->leader),
+    );
+  }
+
+  public function memberShow(Halqa $halqa, Pair $pair): Response
+  {
+    abort_if($pair->halqa_id !== $halqa->id, 403);
+
+    $pair->load(['studentA', 'studentB']);
+
+    return Inertia::render(
+      'Admin/HalqaPairDetail',
+      app(\App\Services\HalqaDashboardService::class)->pairDetailProps($pair, $halqa, $halqa->leader),
+    );
   }
 
   // ── Bulk create halqas + leader accounts ─────────────────────────────────

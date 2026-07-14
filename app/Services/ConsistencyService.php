@@ -98,10 +98,16 @@ class ConsistencyService
      * Arithmetic equivalent of walking the calendar day-by-day: each full week
      * contributes the number of matching weekdays, then the leftover (< 7 days,
      * whose weekday pattern is identical to the first days from $start) is counted.
+     *
+     * An empty $availableDays means "every day is scheduled".
      */
-    private function countScheduledDays(Carbon $start, Carbon $end, array $availableDays): int
+    public function countScheduledDays(Carbon $start, Carbon $end, array $availableDays): int
     {
         if ($start->gt($end)) return 0;
+
+        if (empty($availableDays)) {
+            return $start->diffInDays($end) + 1;
+        }
 
         $set = array_flip(array_map('strtolower', $availableDays));
 
@@ -126,6 +132,80 @@ class ConsistencyService
     }
 
     /**
+     * True if $date's weekday is one the student submits on.
+     * An empty $availableDays means the student is expected every day.
+     */
+    public function isScheduledDay(array $availableDays, Carbon $date): bool
+    {
+        if (empty($availableDays)) return true;
+        return in_array(strtolower($date->format('l')), array_map('strtolower', $availableDays), true);
+    }
+
+    /**
+     * Number of consecutive *scheduled* days, walking back from today (today
+     * excluded — it hasn't ended), with no submission. Non-scheduled weekdays are
+     * skipped entirely (they are neither a miss nor a break). Stops at $effStart.
+     *
+     * @param array<string,mixed> $submittedSet  map keyed by 'Y-m-d' of submitted days
+     */
+    public function consecutiveMissedScheduledDays(array $availableDays, array $submittedSet, Carbon $effStart, Carbon $today): int
+    {
+        $missed  = 0;
+        $cursor  = $today->copy()->subDay(); // today excluded
+
+        for ($i = 0; $i < 366 && $cursor->gte($effStart); $i++, $cursor->subDay()) {
+            if (! $this->isScheduledDay($availableDays, $cursor)) {
+                continue; // day off — neutral
+            }
+            if (isset($submittedSet[$cursor->toDateString()])) {
+                break; // most recent scheduled day was submitted — streak of misses ends
+            }
+            $missed++;
+        }
+
+        return $missed;
+    }
+
+    /**
+     * The single source of truth for a student's engagement status
+     * (on_track / slipping / at_risk / inactive), measured against their
+     * chosen available_days rather than the raw calendar.
+     *
+     * @param array<string,mixed> $submittedSet map keyed by 'Y-m-d' of days that count as submitted
+     */
+    public function deriveStatus(
+        array $availableDays,
+        array $submittedSet,
+        Carbon $effStart,
+        Carbon $today,
+        ?string $lastSub,
+        float $consistency,
+    ): string {
+        $daysElapsed = max(1, $effStart->diffInDays($today) + 1);
+
+        // Never submitted: benefit of the doubt only while the program is brand new
+        // (≤2 days). Once well underway, a student with nothing on record is at risk.
+        if (! $lastSub) {
+            return $daysElapsed <= 2 ? 'on_track' : 'at_risk';
+        }
+
+        $missed = $this->consecutiveMissedScheduledDays($availableDays, $submittedSet, $effStart, $today);
+        $scheduledElapsed = $this->countScheduledDays($effStart, $today, $availableDays);
+
+        // Inactive: a full week of scheduled days missed in a row.
+        if ($missed >= 7) return 'inactive';
+
+        // At risk: 4+ consecutive scheduled misses, or chronic low consistency
+        // once there is at least a week of scheduled history.
+        if ($missed >= 4 || ($scheduledElapsed >= 7 && $consistency < 40)) return 'at_risk';
+
+        if ($missed >= 2) return 'slipping';
+        if ($consistency >= 70) return 'on_track';
+        return 'slipping';
+    }
+
+
+    /**
      * Current streak counting only the student's scheduled days.
      * Returns 0 if the program hasn't started.
      */
@@ -147,12 +227,15 @@ class ConsistencyService
 
         if (empty($submittedSet)) return $this->streakCache[$userId] = 0;
 
-        // Excuses with a makeup still pending (makeup_date not yet passed, not yet fulfilled)
-        // treat the missed day as "protected" — don't break the streak for it
+        // A missed day is "protected" (does not break the streak) when an excuse
+        // covers it — whether the makeup is still pending OR has been fulfilled.
+        // A fulfilled makeup lands on the makeup date, not the original missed date,
+        // so without this the completed catch-up would paradoxically break the streak.
         $today = Carbon::today();
         $protectedDates = MissedSubmissionExcuse::where('student_id', $userId)
-            ->where('fulfilled', false)
-            ->where('makeup_date', '>=', $today->toDateString()) // makeup still in the future / today
+            ->where(fn ($q) => $q
+                ->where('fulfilled', true)
+                ->orWhere('makeup_date', '>=', $today->toDateString()))
             ->pluck('missed_date')
             ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->flip()
@@ -175,7 +258,7 @@ class ConsistencyService
                 } elseif ($dateStr === $today->toDateString()) {
                     // Today hasn't ended yet — skip without breaking
                 } elseif (isset($protectedDates[$dateStr])) {
-                    // Excuse filed, makeup still pending — protect this day
+                    // Excuse filed (makeup pending or already fulfilled) — protect this day
                     $streak++;
                 } else {
                     break;
@@ -220,6 +303,18 @@ class ConsistencyService
         }
 
         $submittedSet = array_flip($dates);
+
+        // Excused days (pending or fulfilled makeup) count as continuations, so a
+        // caught-up absence does not break the longest streak.
+        $protectedDates = MissedSubmissionExcuse::where('student_id', $userId)
+            ->where(fn ($q) => $q
+                ->where('fulfilled', true)
+                ->orWhere('makeup_date', '>=', Carbon::today()->toDateString()))
+            ->pluck('missed_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip()
+            ->toArray();
+
         $start        = $effStart->copy();
         $end          = Carbon::parse($dates[count($dates) - 1]);
         $cursor       = $start->copy();
@@ -228,7 +323,7 @@ class ConsistencyService
         while ($cursor->lte($end)) {
             $dayName = strtolower($cursor->format('l'));
             if (in_array($dayName, $availableDays, true)) {
-                if (isset($submittedSet[$cursor->toDateString()])) {
+                if (isset($submittedSet[$cursor->toDateString()]) || isset($protectedDates[$cursor->toDateString()])) {
                     $streak++;
                     $max = max($max, $streak);
                 } else {
@@ -319,4 +414,57 @@ class ConsistencyService
         if ($denom === 0) return $this->groupCache[$halqaId] = 0;
         return $this->groupCache[$halqaId] = min(100, round(($total / $denom) * 100, 1));
     }
+
+    /**
+     * Build a standardized N-day heatmap array for a student, ensuring days before
+     * the program start date or before the student joined are marked scheduled=false.
+     *
+     * @return array<int, array{date: string, submitted: bool, is_makeup: bool, scheduled: bool}>
+     */
+    public function buildHeatmap(User $student, int $days = 30): array
+    {
+        $today = Carbon::today();
+        $programStartStr = ProgramSetting::get('program_start_date');
+        $programStarted  = !empty($programStartStr);
+        $programStart    = $programStarted ? Carbon::parse($programStartStr)->startOfDay() : $today->copy();
+        $userJoined      = Carbon::parse($student->created_at)->startOfDay();
+        $effStart        = $programStart->gt($userJoined) ? $programStart->copy() : $userJoined->copy();
+
+        $dates = collect(range($days - 1, 0))->map(
+            fn ($i) => $today->copy()->subDays($i)->toDateString()
+        );
+
+        $submittedSet = PairSubmission::where('subject_student_id', $student->id)
+            ->whereBetween('submission_date', [$dates->first(), $dates->last()])
+            ->pluck('submission_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip()
+            ->toArray();
+
+        $makeupSet = MissedSubmissionExcuse::where('student_id', $student->id)
+            ->where('fulfilled', true)
+            ->pluck('makeup_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->flip()
+            ->toArray();
+
+        $availableDays = $student->available_days ?? [];
+
+        return $dates->map(function ($dateStr) use ($programStarted, $effStart, $submittedSet, $makeupSet, $availableDays) {
+            $inProgram   = $programStarted && Carbon::parse($dateStr)->gte($effStart);
+            $dayName     = strtolower(Carbon::parse($dateStr)->format('l'));
+            $isScheduled = $inProgram && (
+                empty($availableDays) ||
+                in_array($dayName, array_map('strtolower', $availableDays), true)
+            );
+
+            return [
+                'date'      => $dateStr,
+                'submitted' => isset($submittedSet[$dateStr]),
+                'is_makeup' => isset($makeupSet[$dateStr]),
+                'scheduled' => $isScheduled,
+            ];
+        })->values()->toArray();
+    }
 }
+

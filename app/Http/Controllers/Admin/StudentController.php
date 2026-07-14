@@ -35,10 +35,6 @@ class StudentController extends Controller
       ProgramSetting::get("program_start_date", $today->toDateString()),
     );
     $window14 = $today->copy()->subDays(13);
-    $effStart = $programStart->gt($window14)
-      ? $programStart->copy()
-      : $window14->copy();
-    $effDays = max(1, $effStart->diffInDays($today) + 1);
 
     $students = User::where("role", "student")
       ->with([
@@ -100,9 +96,8 @@ class StudentController extends Controller
     $last14Dates = collect(range(13, 0))->map(
       fn($i) => $today->copy()->subDays($i)->toDateString(),
     );
-    $effDates = collect(range(0, $effDays - 1))->map(
-      fn($i) => $effStart->copy()->addDays($i)->toDateString(),
-    );
+
+    $cs = app(\App\Services\ConsistencyService::class);
 
     $rows = $students->map(function ($student) use (
       $subs14,
@@ -111,9 +106,9 @@ class StudentController extends Controller
       $totalPages,
       $partnerMap,
       $last14Dates,
-      $effDates,
-      $effDays,
+      $programStart,
       $today,
+      $cs,
     ) {
       $s14 = ($subs14[$student->id] ?? collect())->keyBy(
         fn($s) => Carbon::parse($s->submission_date)->toDateString(),
@@ -128,23 +123,15 @@ class StudentController extends Controller
         ->values()
         ->toArray();
 
-      $submitted = $effDates->filter(fn($d) => isset($s14[$d]))->count();
-      $cons = round(($submitted / $effDays) * 100, 1);
+      // Consistency + streak measured against the student's chosen days.
+      $cons   = $cs->getConsistency($student->id) ?? 0.0;
+      $streak = $cs->getStreak($student->id);
 
-      // Streak (simple daily, respects available_times if set)
-      $streak = 0;
-      $cursor = $today->copy();
-      for ($i = 0; $i < 60; $i++) {
-        $ds = $cursor->toDateString();
-        if (isset($s60[$ds])) {
-          $streak++;
-        } elseif ($ds < $today->toDateString()) {
-          break;
-        }
-        $cursor->subDay();
-      }
-
-      $status = $this->status($sparkline, $cons, $lastSub, $effDays);
+      // Status derives from scheduled-day misses, not raw calendar days.
+      $availableDays = $student->available_days ?? [];
+      $joined   = Carbon::parse($student->created_at)->startOfDay();
+      $effStart = $programStart->gt($joined) ? $programStart->copy() : $joined->copy();
+      $status   = $cs->deriveStatus($availableDays, $s60->toArray(), $effStart, $today, $lastSub, (float) $cons);
 
       return [
         "id" => $student->id,
@@ -181,28 +168,8 @@ class StudentController extends Controller
     $today = Carbon::today();
 
     // 30-day heatmap
-    $last30 = collect(range(29, 0))->map(
-      fn($i) => $today->copy()->subDays($i)->toDateString(),
-    );
-    $avail = $student->available_times ?? [];
-    $submittedSet = PairSubmission::where("subject_student_id", $student->id)
-      ->whereBetween("submission_date", [$last30->first(), $last30->last()])
-      ->pluck("submission_date")
-      ->map(fn($d) => Carbon::parse($d)->toDateString())
-      ->toArray();
-
-    $heatmap = $last30
-      ->map(
-        fn($d) => [
-          "date" => $d,
-          "submitted" => in_array($d, $submittedSet),
-          "scheduled" =>
-            empty($avail) ||
-            in_array(strtolower(Carbon::parse($d)->format("l")), $avail, true),
-        ],
-      )
-      ->values()
-      ->toArray();
+    $cs = app(\App\Services\ConsistencyService::class);
+    $heatmap = $cs->buildHeatmap($student, 30);
 
     // Submission history
     $submissions = PairSubmission::where("subject_student_id", $student->id)
@@ -651,31 +618,7 @@ class StudentController extends Controller
         $minutes = (int) $totalSubs->sum("minutes_spent");
 
         // 30-day heatmap
-        $last30 = collect(range(29, 0))->map(
-          fn($i) => $today->copy()->subDays($i)->toDateString(),
-        );
-        $subSet = PairSubmission::where("subject_student_id", $s->id)
-          ->whereBetween("submission_date", [$last30->first(), $last30->last()])
-          ->pluck("submission_date")
-          ->map(fn($d) => Carbon::parse($d)->toDateString())
-          ->toArray();
-        $availDays = $s->available_days ?? [];
-        $heatmap = $last30
-          ->map(
-            fn($d) => [
-              "date" => $d,
-              "submitted" => in_array($d, $subSet),
-              "scheduled" =>
-                empty($availDays) ||
-                in_array(
-                  strtolower(Carbon::parse($d)->format("l")),
-                  $availDays,
-                  true,
-                ),
-            ],
-          )
-          ->values()
-          ->toArray();
+        $heatmap = $cs->buildHeatmap($s, 30);
 
         // Weekly submissions for last 8 weeks
         $weekly = collect(range(7, 0))
@@ -813,37 +756,12 @@ class StudentController extends Controller
 
   private function studentDetailData(User $student): array
   {
-    $today = Carbon::today();
-    $last30 = collect(range(29, 0))->map(
-      fn($i) => $today->copy()->subDays($i)->toDateString(),
-    );
-    $avail = $student->available_times ?? [];
-    $subDates = PairSubmission::where("subject_student_id", $student->id)
-      ->whereBetween("submission_date", [$last30->first(), $last30->last()])
-      ->pluck("submission_date")
-      ->map(fn($d) => Carbon::parse($d)->toDateString())
-      ->toArray();
-
+    $cs = app(\App\Services\ConsistencyService::class);
     return [
       "id" => $student->id,
       "name" => $student->name,
       "halqa" => $student->halqa?->name ?? "—",
-      "heatmap" => $last30
-        ->map(
-          fn($d) => [
-            "date" => $d,
-            "submitted" => in_array($d, $subDates),
-            "scheduled" =>
-              empty($avail) ||
-              in_array(
-                strtolower(Carbon::parse($d)->format("l")),
-                $avail,
-                true,
-              ),
-          ],
-        )
-        ->values()
-        ->toArray(),
+      "heatmap" => $cs->buildHeatmap($student, 30),
     ];
   }
 
@@ -864,43 +782,5 @@ class StudentController extends Controller
     )->setPaper("a4", "portrait");
 
     return $pdf->download("student-credentials.pdf");
-  }
-
-  private function status(
-    array $sparkline,
-    float $cons,
-    ?string $lastSub,
-    int $effDays,
-  ): string {
-    if (!$lastSub) {
-      return $effDays <= 2 ? "on_track" : "inactive";
-    }
-    if (Carbon::parse($lastSub)->diffInDays(Carbon::today()) >= 7) {
-      return "inactive";
-    }
-
-    $lookback = min(count($sparkline), $effDays);
-    $consecutive = 0;
-    for (
-      $i = count($sparkline) - 1;
-      $i >= count($sparkline) - $lookback;
-      $i--
-    ) {
-      if ($sparkline[$i] === 0) {
-        $consecutive++;
-      } else {
-        break;
-      }
-    }
-    if ($consecutive >= 4 || ($effDays >= 7 && $cons < 40)) {
-      return "at_risk";
-    }
-    if ($consecutive >= 2) {
-      return "slipping";
-    }
-    if ($cons >= 70) {
-      return "on_track";
-    }
-    return "slipping";
   }
 }

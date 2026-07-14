@@ -28,7 +28,7 @@ class PairController extends Controller
         $effDays      = max(1, $effStart->diffInDays($today) + 1);
 
         // All pairs
-        $pairs = Pair::with(['studentA:id,name', 'studentB:id,name', 'halqa:id,name'])->get();
+        $pairs = Pair::with(['studentA:id,name,available_days', 'studentB:id,name,available_days', 'halqa:id,name'])->get();
 
         $pairIds = $pairs->pluck('id');
 
@@ -45,16 +45,29 @@ class PairController extends Controller
             ->groupBy('pair_id');
 
         $effDates = collect(range(0, $effDays - 1))->map(fn ($i) => $effStart->copy()->addDays($i)->toDateString());
+        $cs       = app(\App\Services\ConsistencyService::class);
 
-        $pairRows = $pairs->map(function ($pair) use ($subs14, $lastSubsByPair, $effDates, $effDays) {
+        $pairRows = $pairs->map(function ($pair) use ($subs14, $lastSubsByPair, $effDates, $cs) {
             $pairSubs = $subs14[$pair->id] ?? collect();
             $byDate   = $pairSubs->groupBy(fn ($s) => Carbon::parse($s->submission_date)->toDateString());
-            $bothDays = $effDates->filter(function ($d) use ($byDate, $pair) {
+
+            // Weekday names on which BOTH students are expected — the pair's schedule.
+            $scheduleA = array_map('strtolower', $pair->studentA->available_days ?? []);
+            $scheduleB = array_map('strtolower', $pair->studentB?->available_days ?? []);
+            $pairDays  = array_values(array_filter(
+                ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],
+                fn ($d) => (empty($scheduleA) || in_array($d, $scheduleA, true))
+                    && (empty($scheduleB) || in_array($d, $scheduleB, true)),
+            ));
+
+            $scheduledDates = $effDates->filter(fn ($d) => $cs->isScheduledDay($pairDays, Carbon::parse($d)));
+            $scheduledCount = max(1, $scheduledDates->count());
+            $bothDays = $scheduledDates->filter(function ($d) use ($byDate, $pair) {
                 if (!isset($byDate[$d])) return false;
                 $who = $byDate[$d]->pluck('subject_student_id')->unique();
                 return $pair->student_b_id && $who->contains($pair->student_a_id) && $who->contains($pair->student_b_id);
             });
-            $cons = round(($bothDays->count() / $effDays) * 100, 1);
+            $cons = round(($bothDays->count() / $scheduledCount) * 100, 1);
 
             return [
                 'id'                  => $pair->id,
@@ -387,16 +400,7 @@ class PairController extends Controller
         $students = collect(array_filter([$pair->studentA, $pair->studentB]))
             ->map(function ($s) use ($consistency, $today, $start) {
                 $allSubs = PairSubmission::where('subject_student_id', $s->id)->get();
-                $recent  = PairSubmission::where('subject_student_id', $s->id)
-                    ->where('submission_date', '>=', $start->toDateString())->get();
-
-                $subDates = $recent->pluck('submission_date')
-                    ->map(fn ($d) => Carbon::parse($d)->toDateString())->flip()->toArray();
-
-                $heatmap = collect(range(29, 0))->map(fn ($i) => [
-                    'date'      => $today->copy()->subDays($i)->toDateString(),
-                    'submitted' => isset($subDates[$today->copy()->subDays($i)->toDateString()]),
-                ])->values()->toArray();
+                $heatmap = $consistency->buildHeatmap($s, 30);
 
                 $excuses = \App\Models\MissedSubmissionExcuse::where('student_id', $s->id)
                     ->orderByDesc('missed_date')->take(10)->get()

@@ -15,8 +15,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('telegram_chat_id');
-        });
+        if (Schema::hasColumn('users', 'telegram_chat_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropUnique('users_telegram_chat_id_unique');
+                $table->dropColumn('telegram_chat_id');
+            });
+        }
     }
 };

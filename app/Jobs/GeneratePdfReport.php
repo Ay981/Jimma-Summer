@@ -77,25 +77,16 @@ class GeneratePdfReport implements ShouldQueue
 
     private function buildCertificatesZip(): string
     {
-        $today     = Carbon::today();
-        $start     = Carbon::parse(ProgramSetting::get('program_start_date', $today->toDateString()));
-        $days      = max(1, $start->diffInDays($today) + 1);
         $threshold = (int) ProgramSetting::get('certificate_threshold', 80);
+        $cs        = app(\App\Services\ConsistencyService::class);
 
-        // Bulk submission count to apply threshold — one query, not N
-        $submissionCounts = PairSubmission::whereIn(
-            'subject_student_id',
-            User::where('role', 'student')->where('is_active', true)->pluck('id')
-        )
-            ->selectRaw('subject_student_id, COUNT(*) as cnt')
-            ->groupBy('subject_student_id')
-            ->pluck('cnt', 'subject_student_id');
-
+        // Eligibility is measured against each student's scheduled days, so a
+        // part-week student who attended every scheduled day is not unfairly gated.
         $students = User::where('role', 'student')
             ->where('is_active', true)
             ->with('halqa')
             ->get()
-            ->filter(fn ($s) => round(($submissionCounts->get($s->id, 0) / $days) * 100) >= $threshold);
+            ->filter(fn ($s) => round($cs->getConsistency($s->id) ?? 0) >= $threshold);
 
         if ($students->isEmpty()) {
             throw new \RuntimeException('No students have met the certificate threshold.');
@@ -115,7 +106,7 @@ class GeneratePdfReport implements ShouldQueue
 
             foreach ($students as $student) {
                 $pdf = Pdf::loadView('pdf.certificate', $dataMap[$student->id]);
-                $pdf->setPaper('A4', 'portrait');
+                $pdf->setPaper('A4', 'landscape');
                 $zip->addFromString("certificate-{$student->student_id}.pdf", $pdf->output());
                 unset($pdf); // release DomPDF instance between iterations
             }
