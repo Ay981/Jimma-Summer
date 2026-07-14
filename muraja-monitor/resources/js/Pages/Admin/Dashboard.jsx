@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
+import StatusLegend from '@/Components/UI/StatusLegend';
 import {
     BellSlash, CheckCircle, EnvelopeSimple, GitBranch,
     Warning, WarningCircle,
@@ -193,6 +194,9 @@ export default function AdminDashboard({
                     <StatCard label="Inactive"  value={sc.inactive  ?? 0} color="var(--muted-foreground)" accent="var(--border)" />
                     <StatCard label="Total"     value={totalStudents}                                      accent="var(--border)" />
                 </div>
+
+                {/* ── Status legend (plain-English meaning) ─────────────────── */}
+                <StatusLegend />
 
                 {/* ── Middle row: Actions | Halqa | Needs Attention ─────────── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', alignItems: 'start' }} className="triple-grid">

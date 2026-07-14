@@ -4,6 +4,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import SegmentedBar from '@/Components/UI/SegmentedBar';
 import Sparkline from '@/Components/UI/Sparkline';
 import StatusTag from '@/Components/UI/StatusTag';
+import StatusLegend from '@/Components/UI/StatusLegend';
 
 // ── Shared button styles ──────────────────────────────────────────────────────
 
@@ -435,6 +436,11 @@ export default function Students({ students, halqas }) {
                         <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{label}</span>
                     </div>
                 ))}
+            </div>
+
+            {/* ── Status legend (plain-English meaning) ────────────────────── */}
+            <div style={{ marginBottom: '16px' }}>
+                <StatusLegend />
             </div>
 
             {/* ── Tabs: desktop row / mobile select ───────────────────────── */}

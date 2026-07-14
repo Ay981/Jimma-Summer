@@ -128,7 +128,7 @@ class ReportsController extends Controller
             $subs    = PairSubmission::where('subject_student_id', $s->id)->get();
             $pages   = $subs->sum(fn ($r) => $r->page_to - $r->page_from + 1);
             $mins    = $subs->sum('minutes_spent');
-            $cons    = round(($subs->count() / $days) * 100, 1);
+            $cons    = $this->consistency->getConsistency($s->id) ?? 0.0;
             $streak  = $this->consistency->getStreak($s->id);
 
             $csv .= implode(',', [
@@ -233,7 +233,10 @@ class ReportsController extends Controller
         $totalPages       = (int) (PairSubmission::whereIn('subject_student_id', $studentIds)
             ->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
         $totalMinutes     = (int) PairSubmission::whereIn('subject_student_id', $studentIds)->sum('minutes_spent');
-        $progConsistency  = $activeCount > 0 ? round($totalSubmissions / max(1, $activeCount * $days) * 100, 1) : 0;
+        // Program-wide consistency = average of each active student's scheduled-day consistency.
+        $progConsistency  = $activeCount > 0
+            ? round($activeIds->map(fn ($id) => $this->consistency->getConsistency($id) ?? 0)->average(), 1)
+            : 0;
 
         $overview = [
             'total_students'   => $totalStudents,
@@ -274,12 +277,12 @@ class ReportsController extends Controller
         }
 
         // ── Page 4: halqa performance (with meetings held) ──
+        $cs = $this->consistency;
         $halqas = Halqa::with(['leader:id,name', 'members' => fn ($q) => $q->where('role', 'student'), 'pairs'])->get();
-        $halqaStats = $halqas->map(function ($h) use ($days) {
+        $halqaStats = $halqas->map(function ($h) use ($cs) {
             $ids   = $h->members->pluck('id');
-            $total = $ids->isEmpty() ? 0 : PairSubmission::whereIn('subject_student_id', $ids)->count();
             $pages = $ids->isEmpty() ? 0 : (int) (PairSubmission::whereIn('subject_student_id', $ids)->selectRaw('COALESCE(SUM(page_to - page_from + 1),0) as p')->value('p') ?? 0);
-            $cons  = $ids->isEmpty() ? 0 : round($total / max(1, $ids->count() * $days) * 100, 1);
+            $cons  = $ids->isEmpty() ? 0 : $cs->getGroupConsistency($h->id);
             $meetings = MeetingLog::where('halqa_id', $h->id)->where('state', 'final')->count();
             return ['name' => $h->name, 'leader' => $h->leader?->name ?? '—', 'pairs' => $h->pairs->count(), 'members' => $ids->count(), 'consistency' => $cons, 'pages' => $pages, 'meetings' => $meetings];
         })->sortByDesc('consistency')->values()->toArray();

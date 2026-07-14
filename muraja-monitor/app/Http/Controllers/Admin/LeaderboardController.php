@@ -13,6 +13,7 @@ use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\ProgramSnapshot;
 use App\Models\User;
+use App\Services\CertificateCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -176,7 +177,7 @@ class LeaderboardController extends Controller
     public function certificate(User $student)
     {
         $pdf = Pdf::loadView('pdf.certificate', $this->certificateData($student));
-        $pdf->setPaper('A4', 'portrait');
+        $pdf->setPaper('A4', 'landscape');
 
         return $pdf->download("certificate-{$student->student_id}.pdf");
     }
@@ -275,6 +276,8 @@ class LeaderboardController extends Controller
         $results = [];
         foreach ($students as $student) {
             $entry = $allRanked->firstWhere('id', $student->id);
+            $certificateId = CertificateCode::forStudent($student, $end);
+            $award = $awardMap[$student->id] ?? null;
 
             $results[$student->id] = [
                 'student'        => $student,
@@ -289,7 +292,10 @@ class LeaderboardController extends Controller
                 'end'            => $end->format('d M Y'),
                 'program_name'   => $programName,
                 'generated'      => $today->format('d F Y'),
-                'award'          => $awardMap[$student->id] ?? null,
+                'certificate_id'  => $certificateId,
+                'verification_url'=> CertificateCode::verificationUrl($certificateId),
+                'award'          => $award,
+                'award_criteria' => $this->certificateAwardCriteria($award, $totalStudents),
                 'avg_test'       => (float) $avgTests->get($student->id, 0),
                 'minutes'        => (int) $minutes->get($student->id, 0),
                 'rank'           => $entry['rank'] ?? $totalStudents,
@@ -353,6 +359,8 @@ class LeaderboardController extends Controller
         $partner   = $partnerId ? User::find($partnerId)?->name : null;
 
         $awardMap = $awardMap ?? $this->studentAwardMap();
+        $award = $awardMap[$student->id] ?? null;
+        $certificateId = CertificateCode::forStudent($student, $end);
 
         return [
             'student'      => $student,
@@ -367,7 +375,10 @@ class LeaderboardController extends Controller
             'end'          => $end->format('d M Y'),
             'program_name' => ProgramSetting::get('program_name', "Muraja'a Monitor"),
             'generated'    => $today->format('d F Y'),
-            'award'          => $awardMap[$student->id] ?? null,
+            'certificate_id'  => $certificateId,
+            'verification_url'=> CertificateCode::verificationUrl($certificateId),
+            'award'          => $award,
+            'award_criteria' => $this->certificateAwardCriteria($award, $totalStudents),
             'avg_test'       => $avgTest,
             'minutes'        => $minutes,
             'rank'           => $rank,
@@ -375,6 +386,25 @@ class LeaderboardController extends Controller
             'rank_score'     => $rankScore,
             'tests'          => $tests,
         ];
+    }
+
+    private function certificateAwardCriteria(?array $award, int $totalStudents): ?string
+    {
+        if (!$award) {
+            return null;
+        }
+
+        $basis = match ($award['title'] ?? '') {
+            'Most Consistent Student' => 'highest consistency rate',
+            'Longest Streak' => 'longest recorded submission streak',
+            'Most Pages Reviewed' => 'highest number of reviewed pages',
+            'Most Improved' => 'largest measured improvement',
+            default => 'program performance records',
+        };
+
+        $place = $award['place_label'] ?? 'Awarded';
+
+        return "{$place} among {$totalStudents} active students, based on {$basis}. See the performance report for supporting metrics.";
     }
 
     /**
@@ -723,11 +753,13 @@ class LeaderboardController extends Controller
 
     private function consistencyInWindow(int $userId, Carbon $from, Carbon $to): float
     {
-        $days = max(1, $from->diffInDays($to) + 1);
+        $cs        = app(\App\Services\ConsistencyService::class);
+        $available = \App\Models\User::find($userId)?->available_days ?? [];
+        $scheduled = max(1, $cs->countScheduledDays($from, $to, $available));
         $subs = PairSubmission::where('subject_student_id', $userId)
             ->whereBetween('submission_date', [$from->toDateString(), $to->toDateString()])
             ->count();
-        return round(($subs / $days) * 100, 1);
+        return round(($subs / $scheduled) * 100, 1);
     }
 
     public function awards(?array $students = null, ?array $pairs = null): array
@@ -749,10 +781,7 @@ class LeaderboardController extends Controller
 
         $activeStudents = User::where('role', 'student')->where('is_active', true)->get();
         $studentIds     = $activeStudents->pluck('id');
-
-        // Bulk-load submissions for both windows — avoids N×2 queries
-        $earlyDays = max(1, $firstFrom->diffInDays($firstTo) + 1);
-        $lateDays  = max(1, $lastFrom->diffInDays($today) + 1);
+        $cs             = app(\App\Services\ConsistencyService::class);
 
         $earlySubs = PairSubmission::whereIn('subject_student_id', $studentIds)
             ->whereBetween('submission_date', [$firstFrom->toDateString(), $firstTo->toDateString()])
@@ -766,7 +795,11 @@ class LeaderboardController extends Controller
             ->groupBy('subject_student_id')
             ->pluck('cnt', 'subject_student_id');
 
-        $improvedList = $activeStudents->map(function ($s) use ($earlySubs, $lateSubs, $earlyDays, $lateDays) {
+        $improvedList = $activeStudents->map(function ($s) use ($earlySubs, $lateSubs, $cs, $firstFrom, $firstTo, $lastFrom, $today) {
+            // Denominators count only each student's scheduled days in the window.
+            $avail     = $s->available_days ?? [];
+            $earlyDays = max(1, $cs->countScheduledDays($firstFrom, $firstTo, $avail));
+            $lateDays  = max(1, $cs->countScheduledDays($lastFrom, $today, $avail));
             $from = round(((int) $earlySubs->get($s->id, 0) / $earlyDays) * 100, 1);
             $to   = round(((int) $lateSubs->get($s->id, 0)  / $lateDays)  * 100, 1);
             return [

@@ -108,37 +108,7 @@ class DashboardController extends Controller
             ])->values()->toArray();
 
         // ── 30-day heatmap (bounded by program start + user created_at) ─────────
-        $userJoined     = Carbon::parse($user->created_at)->startOfDay();
-        $heatmapLower   = $programStart->gt($userJoined) ? $programStart->copy() : $userJoined->copy();
-        $heatmapStart   = now()->subDays(29)->startOfDay();
-        // The actual start of visible cells: whichever is later
-        $visibleStart   = $heatmapLower->gt($heatmapStart) ? $heatmapLower->copy() : $heatmapStart->copy();
-
-        $submittedDates = PairSubmission::where('subject_student_id', $user->id)
-            ->where('submission_date', '>=', $visibleStart->toDateString())
-            ->pluck('submission_date')
-            ->map(fn ($d) => Carbon::parse($d)->toDateString())
-            ->flip()
-            ->toArray();
-
-        // Dates that were makeup submissions (excuse fulfilled on that date)
-        $makeupDates = MissedSubmissionExcuse::where('student_id', $user->id)
-            ->where('fulfilled', true)
-            ->pluck('makeup_date')
-            ->map(fn ($d) => Carbon::parse($d)->toDateString())
-            ->flip()
-            ->toArray();
-
-        $checkins30Days = collect(range(29, 0))->map(function ($daysAgo) use ($visibleStart, $submittedDates, $makeupDates) {
-            $date = now()->subDays($daysAgo)->toDateString();
-            $inProgram = Carbon::parse($date)->gte($visibleStart);
-            return [
-                'date'       => $date,
-                'submitted'  => isset($submittedDates[$date]),
-                'is_makeup'  => isset($makeupDates[$date]),
-                'scheduled'  => $inProgram,
-            ];
-        })->values()->toArray();
+        $checkins30Days = $this->consistency->buildHeatmap($user, 30);
 
         // ── Ayat (rotates daily) ─────────────────────────────────────────────
         $ayatCount = AyatRotation::count();

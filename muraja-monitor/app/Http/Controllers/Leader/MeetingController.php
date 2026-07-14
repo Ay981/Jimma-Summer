@@ -53,6 +53,8 @@ class MeetingController extends Controller
 
     // Students for agenda suggestions: at-risk OR have open follow-up action items
     $atRiskStudentIds = collect();
+    $cs = app(\App\Services\ConsistencyService::class);
+    $today = Carbon::today();
     foreach (
       $halqa
         ->pairs()
@@ -60,13 +62,29 @@ class MeetingController extends Controller
         ->get()
       as $pair
     ) {
-      $ids = array_filter([$pair->student_a_id, $pair->student_b_id]);
-      foreach ($ids as $id) {
-        $last = \App\Models\PairSubmission::where("subject_student_id", $id)
+      foreach ([$pair->studentA, $pair->studentB] as $student) {
+        if (!$student) {
+          continue;
+        }
+        $last = \App\Models\PairSubmission::where("subject_student_id", $student->id)
           ->orderByDesc("submission_date")
           ->value("submission_date");
-        if (!$last || Carbon::parse($last)->diffInDays(Carbon::today()) >= 3) {
-          $atRiskStudentIds->push($id);
+
+        // Flag when there is no record, or 2+ consecutive *scheduled* days missed
+        // (a gap over days the student never submits on is not a warning sign).
+        $submitted = \App\Models\PairSubmission::where("subject_student_id", $student->id)
+          ->where("submission_date", ">=", $today->copy()->subDays(21)->toDateString())
+          ->pluck("submission_date")
+          ->mapWithKeys(fn ($d) => [Carbon::parse($d)->toDateString() => true])
+          ->toArray();
+        $missed = $cs->consecutiveMissedScheduledDays(
+          $student->available_days ?? [],
+          $submitted,
+          $today->copy()->subDays(21),
+          $today,
+        );
+        if (!$last || $missed >= 2) {
+          $atRiskStudentIds->push($student->id);
         }
       }
     }

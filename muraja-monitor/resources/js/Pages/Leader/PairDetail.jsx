@@ -61,7 +61,7 @@ function EscalateModal({ studentId, pairId, onClose }) {
 
 // ── History card (transaction aesthetic) ─────────────────────────────────────
 
-function HistoryCard({ entry, pairId }) {
+function HistoryCard({ entry, pairId, readOnly = false }) {
     const [verdict, setVerdict] = useState(entry.flag_verdict ?? null);
 
     function submitVerdict(v) {
@@ -129,6 +129,7 @@ function HistoryCard({ entry, pairId }) {
             </div>
 
             {/* Actions */}
+            {!readOnly && (
             <div style={{ display: 'flex', gap: '4px' }}>
                 <button
                     onClick={toggleFlag}
@@ -170,6 +171,7 @@ function HistoryCard({ entry, pairId }) {
                     </>
                 )}
             </div>
+            )}
         </div>
     );
 }
@@ -348,7 +350,7 @@ function AddContactForm({ studentId, pairId }) {
 
 // ── Private note editor ───────────────────────────────────────────────────────
 
-function PrivateNoteEditor({ studentId, pairId, initialNote }) {
+function PrivateNoteEditor({ studentId, pairId, initialNote, readOnly = false }) {
     const [savedNote, setSavedNote] = useState(initialNote ?? '');
     const [draft, setDraft]         = useState('');
     const [saving, setSaving]       = useState(false);
@@ -410,6 +412,7 @@ function PrivateNoteEditor({ studentId, pairId, initialNote }) {
             )}
 
             {/* New / update note input */}
+            {!readOnly && <>
             <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -440,6 +443,7 @@ function PrivateNoteEditor({ studentId, pairId, initialNote }) {
                     {saving ? 'Saving…' : savedNote ? 'Replace Note' : 'Save Note'}
                 </button>
             </div>
+            </>}
         </div>
     );
 }
@@ -696,7 +700,7 @@ function TestModal({ student, pairId, test, onClose }) {
 
 // ── Test history card ─────────────────────────────────────────────────────────
 
-function TestCard({ test, pairId, onEdit }) {
+function TestCard({ test, pairId, onEdit, readOnly = false }) {
     const [confirming, setConfirming] = useState(false);
 
     function del() {
@@ -735,6 +739,7 @@ function TestCard({ test, pairId, onEdit }) {
             <span style={{ fontWeight: 700, fontSize: '0.9375rem', padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: scoreBg, color: scoreColor }}>
                 {score}/10
             </span>
+            {!readOnly && (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 {!confirming ? (
                     <>
@@ -757,13 +762,14 @@ function TestCard({ test, pairId, onEdit }) {
                     </>
                 )}
             </div>
+            )}
         </div>
     );
 }
 
 // ── Student panel ─────────────────────────────────────────────────────────────
 
-function StudentPanel({ student, pairId, partnerName, allStudents }) {
+function StudentPanel({ student, pairId, partnerName, allStudents, readOnly = false }) {
     const [section, setSection]           = useState('history');
     const [showPairChange, setShowPairChange] = useState(false);
     const [testModal, setTestModal]       = useState(null); // null | 'new' | test-object
@@ -809,6 +815,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                     </div>
                 </div>
                 {/* Action buttons */}
+                {!readOnly && (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button onClick={() => setTestModal('new')} style={{ padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--primary)', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
                         + Test
@@ -831,6 +838,12 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                         </>
                     )}
                 </div>
+                )}
+                {readOnly && student.on_watchlist && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--status-slipping-bg)', color: 'oklch(50% 0.12 50)', fontSize: '0.75rem', fontWeight: 600 }}>★ On watchlist</span>
+                    </div>
+                )}
             </div>
 
             {/* Heatmap */}
@@ -870,7 +883,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                         </p>
                     ) : (
                         student.history.map((entry) => (
-                            <HistoryCard key={entry.id} entry={entry} pairId={pairId} />
+                            <HistoryCard key={entry.id} entry={entry} pairId={pairId} readOnly={readOnly} />
                         ))
                     )}
                 </div>
@@ -878,6 +891,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
 
             {section === 'tests' && (
                 <div>
+                    {!readOnly && (
                     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
                         <button
                             onClick={() => setTestModal('new')}
@@ -886,13 +900,14 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                             + Submit Test
                         </button>
                     </div>
+                    )}
                     {(student.tests ?? []).length === 0 ? (
                         <p style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>
                             No tests recorded yet.
                         </p>
                     ) : (
                         student.tests.map((t) => (
-                            <TestCard key={t.id} test={t} pairId={pairId} onEdit={(t) => setTestModal(t)} />
+                            <TestCard key={t.id} test={t} pairId={pairId} onEdit={(t) => setTestModal(t)} readOnly={readOnly} />
                         ))
                     )}
                 </div>
@@ -900,6 +915,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
 
             {section === 'contact' && (
                 <div data-onboard="contact-log">
+                    {!readOnly && <>
                     {/* Pair change request trigger */}
                     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
                         <button
@@ -910,6 +926,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                         </button>
                     </div>
                     <AddContactForm studentId={student.id} pairId={pairId} />
+                    </>}
                     <div style={{ borderTop: '1px solid var(--border)' }}>
                         {student.contact_logs.length === 0 ? (
                             <p style={{ padding: '20px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.875rem', margin: 0 }}>
@@ -962,6 +979,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
                     studentId={student.id}
                     pairId={pairId}
                     initialNote={student.private_note}
+                    readOnly={readOnly}
                 />
             )}
 
@@ -1010,7 +1028,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
             )}
 
             {/* Test modal */}
-            {testModal && (
+            {!readOnly && testModal && (
                 <TestModal
                     student={student}
                     pairId={pairId}
@@ -1020,7 +1038,7 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
             )}
 
             {/* Pair change modal */}
-            {showPairChange && (
+            {!readOnly && showPairChange && (
                 <PairChangeModal
                     student={student}
                     partnerName={partnerName}
@@ -1035,16 +1053,16 @@ function StudentPanel({ student, pairId, partnerName, allStudents }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PairDetail({ pair, halqa, all_students }) {
+export default function PairDetail({ pair, halqa, all_students, layout: Layout = LeaderLayout, readOnly = false, backHref = '/leader/dashboard' }) {
     const students = pair?.students ?? [];
 
     return (
-        <LeaderLayout title={`Pair · ${students.map((s) => s.name.split(' ')[0]).join(' & ')}`}>
+        <Layout title={`Pair · ${students.map((s) => s.name.split(' ')[0]).join(' & ')}`}>
             <Head title="Pair Detail" />
 
             <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Link
-                    href="/leader/dashboard"
+                    href={backHref}
                     style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', textDecoration: 'none' }}
                 >
                     ← {halqa?.name ?? 'Dashboard'}
@@ -1053,6 +1071,11 @@ export default function PairDetail({ pair, halqa, all_students }) {
                 <span style={{ fontSize: '0.8125rem', color: 'var(--foreground)', fontWeight: 500 }}>
                     {students.map((s) => s.name).join(' & ')}
                 </span>
+                {readOnly && (
+                    <span style={{ marginLeft: 'auto', fontSize: '0.6875rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
+                        Read-only
+                    </span>
+                )}
             </div>
 
             <div style={{
@@ -1069,10 +1092,11 @@ export default function PairDetail({ pair, halqa, all_students }) {
                             pairId={pair.id}
                             partnerName={partner?.name ?? null}
                             allStudents={all_students ?? []}
+                            readOnly={readOnly}
                         />
                     );
                 })}
             </div>
-        </LeaderLayout>
+        </Layout>
     );
 }

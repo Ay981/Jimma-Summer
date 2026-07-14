@@ -97,6 +97,8 @@ function HalqaCard({ halqa }) {
                             </p>
                         </div>
                         <div className="card-actions" style={{ margin: 0 }}>
+                            <button onClick={() => router.visit(`/admin/halqas/${halqa.id}/dashboard`)}
+                                style={{ padding: '5px 10px', border: '1px solid var(--primary)', background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer', fontWeight: 600 }}>View as Leader</button>
                             <button onClick={() => setRenaming(true)}
                                 style={{ padding: '5px 10px', border: '1px solid var(--border)', background: 'transparent', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', cursor: 'pointer' }}>Rename</button>
                             <button onClick={randomPair}

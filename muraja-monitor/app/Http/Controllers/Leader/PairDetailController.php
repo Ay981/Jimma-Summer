@@ -10,6 +10,7 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\PrivateNote;
 use App\Models\Watchlist;
+use App\Services\HalqaDashboardService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,134 +28,16 @@ class PairDetailController extends Controller
 
         $pair->load(['studentA', 'studentB']);
 
-        $students = collect([$pair->studentA, $pair->studentB])->map(function ($student) use ($leader) {
-            $last30        = collect(range(29, 0))
-                ->map(fn ($i) => Carbon::today()->subDays($i)->toDateString());
-            $availableDays = $student->available_times ?? []; // e.g. ['saturday','monday']
+        $props = app(HalqaDashboardService::class)->pairDetailProps($pair, $halqa, $leader);
 
-            $submittedDates = PairSubmission::where('subject_student_id', $student->id)
-                ->whereBetween('submission_date', [$last30->first(), $last30->last()])
-                ->pluck('submission_date')
-                ->map(fn ($d) => Carbon::parse($d)->toDateString())
-                ->toArray();
-
-            $heatmap = $last30->map(fn ($date) => [
-                'date'      => $date,
-                'submitted' => in_array($date, $submittedDates),
-                'scheduled' => empty($availableDays)
-                    || in_array(strtolower(Carbon::parse($date)->format('l')), $availableDays, true),
-            ])->values()->toArray();
-
-            $history = PairSubmission::where('subject_student_id', $student->id)
-                ->orderByDesc('submission_date')
-                ->take(60)
-                ->get()
-                ->map(fn ($s) => [
-                    'id'              => $s->id,
-                    'juz'             => $s->juz,
-                    'page_from'       => $s->page_from,
-                    'page_to'         => $s->page_to,
-                    'pages'           => $s->page_to - $s->page_from + 1,
-                    'minutes_spent'   => $s->minutes_spent,
-                    'is_edited'       => $s->is_edited,
-                    'is_flagged'      => $s->is_flagged,
-                    'flag_verdict'    => $s->flag_verdict,
-                    'submission_date' => Carbon::parse($s->submission_date)->toDateString(),
-                    'submitted_at'    => Carbon::parse($s->submitted_at)->format('H:i'),
-                ])->toArray();
-
-            $contactLogs = ContactLog::where('student_id', $student->id)
-                ->where('contacted_by', $leader->id)
-                ->orderByDesc('contacted_at')
-                ->get()
-                ->map(fn ($c) => [
-                    'id'                 => $c->id,
-                    'method'             => $c->method,
-                    'note'               => $c->note,
-                    'contacted_at'       => Carbon::parse($c->contacted_at)->format('Y-m-d H:i'),
-                    'follow_up_required' => $c->follow_up_required,
-                ])->toArray();
-
-            $privateNote = PrivateNote::where('student_id', $student->id)
-                ->where('leader_id', $leader->id)
-                ->value('note');
-
-            $onWatchlist = Watchlist::where('student_id', $student->id)
-                ->whereNull('resolved_at')
-                ->exists();
-
-            // Last login
-            $lastLogin = \App\Models\AuditLog::where('user_id', $student->id)
-                ->where('action', 'login')
-                ->orderByDesc('created_at')
-                ->value('created_at');
-
-            // Recent notifications sent to this student
-            $notifLog = $student->notifications()
-                ->orderByDesc('created_at')
-                ->take(10)
-                ->get()
-                ->map(function ($n) {
-                    // $n->data is already cast to array by DatabaseNotification
-                    $data = is_array($n->data) ? $n->data : (json_decode($n->data, true) ?? []);
-                    return [
-                        'id'      => $n->id,
-                        'type'    => class_basename($n->type),
-                        'message' => $data['message'] ?? '',
-                        'sent_at' => Carbon::parse($n->created_at)->format('Y-m-d H:i'),
-                        'seen_at' => $n->seen_at ? Carbon::parse($n->seen_at)->format('Y-m-d H:i') : null,
-                        'read_at' => $n->read_at  ? Carbon::parse($n->read_at)->format('Y-m-d H:i')  : null,
-                    ];
-                })->toArray();
-
-            return [
-                'id'           => $student->id,
-                'name'         => $student->name,
-                'student_id'   => $student->student_id,
-                'heatmap'      => $heatmap,
-                'history'      => $history,
-                'contact_logs' => $contactLogs,
-                'private_note' => $privateNote ?? '',
-                'on_watchlist' => $onWatchlist,
-                'last_login'   => $lastLogin ? Carbon::parse($lastLogin)->diffForHumans() : 'Never',
-                'notif_log'    => $notifLog,
-                'excuses'      => MissedSubmissionExcuse::where('student_id', $student->id)
-                    ->orderByDesc('missed_date')
-                    ->take(10)
-                    ->get()
-                    ->map(fn ($e) => [
-                        'missed_date' => $e->missed_date->toDateString(),
-                        'makeup_date' => $e->makeup_date->toDateString(),
-                        'reason'      => $e->reason,
-                        'fulfilled'   => $e->fulfilled,
-                    ])->toArray(),
-                'tests' => MurajaTest::where('student_id', $student->id)
-                    ->orderByDesc('tested_at')
-                    ->get()
-                    ->map(fn ($t) => [
-                        'id'        => $t->id,
-                        'from_page' => $t->from_page,
-                        'to_page'   => $t->to_page,
-                        'from_juz'  => $t->from_juz,
-                        'to_juz'    => $t->to_juz,
-                        'score'     => $t->score,
-                        'tested_at' => Carbon::parse($t->tested_at)->toDateString(),
-                    ])->toArray(),
-            ];
-        })->values()->toArray();
-
-        // All active students for the pair-change partner search
-        $allStudents = \App\Models\User::where('role', 'student')
+        // All active students for the pair-change partner search (leader-only write flow)
+        $props['all_students'] = \App\Models\User::where('role', 'student')
             ->where('is_active', true)
             ->get(['id', 'name', 'student_id', 'halqa_id'])
             ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'student_id' => $s->student_id, 'halqa_id' => $s->halqa_id])
             ->toArray();
 
-        return Inertia::render('Leader/PairDetail', [
-            'pair'         => ['id' => $pair->id, 'students' => $students],
-            'halqa'        => ['id' => $halqa->id, 'name' => $halqa->name],
-            'all_students' => $allStudents,
-        ]);
+        return Inertia::render('Leader/PairDetail', $props);
     }
 
     public function addContact(Request $request, Pair $pair): RedirectResponse

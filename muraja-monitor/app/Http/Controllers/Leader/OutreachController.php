@@ -46,41 +46,54 @@ class OutreachController extends Controller
 
         abort_if(!$halqa, 403);
 
-        $today = Carbon::today()->toDateString();
+        $todayCarbon = Carbon::today();
+        $today       = $todayCarbon->toDateString();
+        $todayName   = strtolower($todayCarbon->format('l'));
 
-        $count = 0;
-        foreach ($halqa->pairs as $pair) {
-            $submitted = PairSubmission::whereIn('subject_student_id', [$pair->student_a_id, $pair->student_b_id])
-                ->where('submission_date', $today)
-                ->exists();
+        // Students who are scheduled today and have not submitted yet.
+        $students = $halqa->pairs
+            ->flatMap(fn ($p) => [$p->studentA, $p->studentB])
+            ->filter()
+            ->unique('id')
+            ->filter(function ($student) use ($todayName) {
+                $days = array_map('strtolower', $student->available_days ?? []);
+                return empty($days) || in_array($todayName, $days, true); // day off → don't nag
+            });
 
-            if (!$submitted) {
-                foreach ([$pair->studentA, $pair->studentB] as $student) {
-                    $student->notifications()->create([
-                        'id'              => Str::uuid(),
-                        'type'            => 'App\Notifications\LeaderReminder',
-                        'notifiable_type' => User::class,
-                        'notifiable_id'   => $student->id,
-                        'data'            => [
-                            'message' => 'Your leader sent a reminder: please submit your muraja\'a for today.',
-                            'from'    => $leader->name,
-                        ],
-                        'created_at' => now(),
-                    ]);
-                    $count++;
-                }
+        $submittedToday = PairSubmission::whereIn('subject_student_id', $students->pluck('id'))
+            ->where('submission_date', $today)
+            ->pluck('subject_student_id')
+            ->flip();
+
+        $notifyIds = [];
+        foreach ($students as $student) {
+            if ($submittedToday->has($student->id)) {
+                continue;
             }
+            $student->notifications()->create([
+                'id'              => Str::uuid(),
+                'type'            => 'App\Notifications\LeaderReminder',
+                'notifiable_type' => User::class,
+                'notifiable_id'   => $student->id,
+                'data'            => [
+                    'message' => 'Your leader sent a reminder: please submit your muraja\'a for today.',
+                    'from'    => $leader->name,
+                ],
+                'created_at' => now(),
+            ]);
+            $notifyIds[] = $student->id;
         }
 
-        // Also fix double json_encode on data while we're here — done above already
+        if (! empty($notifyIds)) {
+            SendFcmPush::toUsers(
+                $notifyIds,
+                "Reminder from {$leader->name}",
+                'Please submit your muraja\'a for today.',
+                '/student/dashboard',
+            );
+        }
 
-        SendFcmPush::toUsers(
-            $halqa->pairs->flatMap(fn ($p) => [$p->student_a_id, $p->student_b_id])->filter()->unique()->values()->toArray(),
-            "Reminder from {$leader->name}",
-            'Please submit your muraja\'a for today.',
-            '/student/dashboard',
-        );
-
+        $count = count($notifyIds);
         return back()->with('success', "Reminder sent to {$count} students.");
     }
 }
