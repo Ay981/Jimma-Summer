@@ -672,7 +672,7 @@ class LeaderboardController extends Controller
                 'students_count'    => 0,
                 'halqa'             => '—',
                 'is_best'           => false,
-                'program_name'      => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+                'program_name'      => ProgramSetting::get('program_name', "Summer Murajeah Program"),
                 'all_leaders_count' => $allLeaders,
                 'generated'         => $today->format('d F Y'),
             ];
@@ -694,7 +694,7 @@ class LeaderboardController extends Controller
             'students_count'    => $entry['students_count'],
             'halqa'             => $entry['halqa'],
             'is_best'           => $entry['rank'] === 1,
-            'program_name'      => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+            'program_name'      => ProgramSetting::get('program_name', "Summer Murajeah Program"),
             'all_leaders_count' => $allLeaders,
             'generated'         => $today->format('d F Y'),
         ];
@@ -743,7 +743,7 @@ class LeaderboardController extends Controller
             'avg_streak'   => $entry['avg_streak'] ?? 0,
             'is_best'      => ($entry['rank'] ?? 0) === 1,
             'students'     => $students,
-            'program_name' => ProgramSetting::get('program_name', "IRSHAD Summer Muraja'a 1448"),
+            'program_name' => ProgramSetting::get('program_name', "Summer Murajeah Program"),
             'generated'    => $today->format('d F Y'),
         ];
 

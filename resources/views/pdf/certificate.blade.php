@@ -86,7 +86,7 @@
     .content {
         position: relative;
         z-index: 2;
-        padding: 34px 74px 86px;
+        padding: 26px 74px 92px;
         text-align: center;
     }
     .top-mark { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
@@ -147,19 +147,19 @@
         text-transform: uppercase;
     }
     .program-title {
-        font-size: 29px;
+        font-size: 25px;
         line-height: 1.1;
         font-weight: bold;
         color: #17212b;
-        margin-top: 5px;
+        margin-top: 4px;
     }
     .issuer {
         font-size: 10px;
         color: #53606b;
-        margin-top: 5px;
+        margin-top: 4px;
     }
     .recipient-label {
-        margin-top: 17px;
+        margin-top: 12px;
         font-size: 8.5px;
         font-weight: bold;
         color: #8a6118;
@@ -171,8 +171,8 @@
         min-width: 470px;
         max-width: 650px;
         border-bottom: 1.5px solid #444c54;
-        padding: 2px 24px 5px;
-        font-size: 32px;
+        padding: 2px 24px 4px;
+        font-size: 28px;
         line-height: 1.15;
         font-weight: bold;
         color: #111820;
@@ -187,14 +187,14 @@
     .completion-copy strong { color: #111820; }
     .meta-grid {
         width: 82%;
-        margin: 14px auto 0;
+        margin: 10px auto 0;
         border-collapse: collapse;
         border-top: 1px solid #9a6a16;
         border-bottom: 1px solid #9a6a16;
     }
     .meta-grid td {
         width: 25%;
-        padding: 7px 8px;
+        padding: 6px 8px;
         text-align: center;
         border-left: 1px solid #d6c195;
     }
@@ -214,28 +214,28 @@
         color: #17212b;
     }
     .statement-row {
-        width: 78%;
-        margin: 13px auto 0;
+        width: 84%;
+        margin: 9px auto 0;
         border-collapse: collapse;
         table-layout: fixed;
     }
     .statement-row td {
         width: 50%;
         vertical-align: top;
-        padding: 0 20px;
+        padding: 0 18px;
         text-align: left;
-        font-size: 9.7px;
-        line-height: 1.65;
+        font-size: 8.4px;
+        line-height: 1.45;
         color: #26323d;
     }
     .statement-row .amharic {
         font-family: "NotoEthiopic", DejaVu Sans, Arial, sans-serif;
-        font-size: 10px;
-        line-height: 1.75;
+        font-size: 8.6px;
+        line-height: 1.5;
     }
     .statement-row .statement-title {
         display: block;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
         font-size: 8px;
         font-weight: bold;
         color: #8a6118;
@@ -243,12 +243,12 @@
         letter-spacing: 0.1em;
     }
     .award {
-        width: 58%;
-        margin: 12px auto 0;
-        padding: 7px 12px;
+        width: 62%;
+        margin: 8px auto 0;
+        padding: 5px 12px;
         border-top: 1.5px solid #9a6a16;
         border-bottom: 1.5px solid #9a6a16;
-        font-size: 9px;
+        font-size: 8.3px;
         color: #17212b;
         text-align: center;
     }
@@ -348,7 +348,6 @@
             <table class="top-mark">
                 <tr>
                     <td class="logo-cell">
-                        <div class="brand-mark">@include('pdf.partials.logo', ['w' => 58])</div>
                     </td>
                     <td class="arabic-cell">
                         <div class="bismillah">ﻢﻴﺣﺮﻟﺍ ﻦﻤﺣﺮﻟﺍ ﷲ ﻢﺴﺑ</div>
@@ -365,14 +364,10 @@
 
             <div class="doc-type">Certificate of Completion</div>
             <div class="program-title">{{ $program_name }}</div>
-            <div class="issuer">Certified by Jimma University Muslim Students Jema</div>
+            <div class="issuer">Summer Murajeah Program</div>
 
             <div class="recipient-label">Presented To</div>
             <div class="recipient-name">{{ $student->name }}</div>
-            <p class="completion-copy">
-                For completing the structured Qur'an revision program with recorded participation,
-                consistency, and performance during the official program period.
-            </p>
 
             <table class="meta-grid">
                 <tr>
@@ -386,7 +381,7 @@
                     </td>
                     <td>
                         <span class="meta-label">Halqa</span>
-                        <span class="meta-value">{{ $halqa ?? 'Unassigned' }}</span>
+                        <span class="meta-value">@ar($halqa ?? 'Unassigned')</span>
                     </td>
                     <td>
                         <span class="meta-label">Student ID</span>
@@ -397,16 +392,20 @@
 
             <table class="statement-row">
                 <tr>
-                    <td class="amharic">
-                        <span class="statement-title">የማረጋገጫ መግለጫ</span>
-                        ይህ ምስክር ወረቀት ተማሪው/ተማሪዋ የተዘጋጀውን የቁርአን ሙራጃዓ
-                        ፕሮግራም በተከታታይ ተሳትፎና በተመዘገበ አፈጻጸም መፈጸሙን ያረጋግጣል።
-                    </td>
                     <td>
-                        <span class="statement-title">Certification Statement</span>
-                        This document certifies that the recipient completed the named Qur'an revision
-                        program under recorded attendance, revision, and assessment criteria maintained
-                        by the program administration.
+                        <span class="statement-title">Message of Appreciation</span>
+                        Dear sister <strong>{{ $student->name }}</strong>, thank you for the perseverance, determination, and
+                        beautiful participation you showed in the Qur'an Muraja'ah program. In recognition
+                        of your effort and the joyful results you achieved in completing this honourable
+                        program at the highest level, we present this certificate with great love. May it
+                        be a door to an even greater beginning.
+                    </td>
+                    <td class="amharic">
+                        <span class="statement-title">የምስጋና መልእክት</span>
+                        ውድ እህታችን <strong>{{ $student->name }}</strong>፣ በቁርአን ሙራጃዓ ፕሮግራም ላይ ላሳየሽው ጽናት፣ ብርቱ ፍላጎት እና
+                        ውብ ተሳትፎ እናመሰግናለን። ይህን ክቡር ፕሮግራም በላቀ ደረጃ ስላጠናቀቅሽ፣ ላፈሰስሽው ልፋት እና ላስመዘገብሽው
+                        አስደሳች ውጤት እውቅና ለመስጠት ይህንን የምስክር ወረቀት በታላቅ ፍቅር አበርክተንልሻል። ይህ ስኬትሽ የትልቅ ጅምር
+                        በር እንዲሆንልሽ እንመኛለን።
                     </td>
                 </tr>
             </table>
@@ -430,7 +429,7 @@
                 <span class="sign-line"><span class="sign-name">Issued</span><br>{{ $generated }}</span>
             </td>
             <td class="sign-cell right">
-                <span class="sign-line"><span class="sign-name">Irshad Structure</span><br>Program Coordinator</span>
+                <span class="sign-line"><span class="sign-name">Program Coordinator</span><br>Summer Murajeah Program</span>
             </td>
         </tr></table>
 
@@ -438,14 +437,14 @@
             Verify this certificate at <strong>{{ $verification_url ?? config('app.url') }}</strong>
         </div>
 
-        <div class="cert-footer">Generated {{ $generated }} · Muraja'a Monitor · Jimma University Muslim Students Jema</div>
+        <div class="cert-footer">Generated {{ $generated }} · Summer Murajeah Program</div>
     </div>
 </div>
 <!-- ── Page 2: Performance Report ──────────────────────────────────────── -->
 <div class="page2">
     <div class="p2-header">
-        <div class="p2-title">IRSHAD SUMMER MURAJEAH 1448 — Performance Report</div>
-        <div class="p2-sub">Jimma University Muslim Students Jema · {{ $program_name }} · {{ $start }} — {{ $end }} · {{ $certificate_id ?? '' }}</div>
+        <div class="p2-title">SUMMER MURAJEAH PROGRAM — Performance Report</div>
+        <div class="p2-sub">{{ $program_name }} · {{ $start }} — {{ $end }} · {{ $certificate_id ?? '' }}</div>
         <div class="p2-name" style="margin-top:6px;">{{ $student->name }} <span style="font-size:11px;font-weight:normal;color:#6b7280;">· {{ $student->student_id }}</span></div>
     </div>
 
@@ -535,7 +534,7 @@
     </table>
 
     <div class="p2-footer">
-        This report was automatically generated by Muraja'a Monitor on {{ $generated }} and reflects all recorded data for this student during the program period. Certificate No. {{ $certificate_id ?? '—' }}.
+        This report was automatically generated by the Summer Murajeah Program on {{ $generated }} and reflects all recorded data for this student during the program period. Certificate No. {{ $certificate_id ?? '—' }}.
     </div>
 </div>
 </body>
