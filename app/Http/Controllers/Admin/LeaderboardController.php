@@ -767,8 +767,10 @@ class LeaderboardController extends Controller
         $students = $students ?? $this->studentBoard();
         $pairs    = $pairs    ?? $this->pairBoard();
 
-        $mostConsistentStudents = array_slice($students, 0, 3);
-        $mostConsistentPair     = $pairs[0] ?? null;
+        // Sort explicitly by consistency — $students/$pairs arrive sorted by
+        // rank_score/pages, so slicing the top of them would ignore consistency.
+        $mostConsistentStudents = collect($students)->sortByDesc('consistency')->take(3)->values()->toArray();
+        $mostConsistentPair     = collect($pairs)->sortByDesc('consistency')->first();
         $longestStreak = collect($students)->sortByDesc('streak')->first();
         $mostPages     = collect($students)->sortByDesc('pages')->first();
 
