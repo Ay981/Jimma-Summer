@@ -12,6 +12,7 @@ use App\Models\Pair;
 use App\Models\PairSubmission;
 use App\Models\ProgramSetting;
 use App\Models\ProgramSnapshot;
+use App\Models\RankSnapshot;
 use App\Models\User;
 use App\Services\CertificateCode;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -41,6 +42,12 @@ class LeaderboardController extends Controller
             $awards   = $this->awards($students, $pairs);
             return [$students, $pairs, $halqas, $leaders, $awards];
         });
+
+        // Attach movement deltas outside the cache so they reflect the latest
+        // snapshots even while the board itself is served from the 5-min cache.
+        $students = $this->attachDeltas($students, 'student');
+        $leaders  = $this->attachDeltas($leaders, 'leader');
+
 
         return Inertia::render('Admin/Leaderboard', [
             'students'   => $students,
@@ -433,6 +440,44 @@ class LeaderboardController extends Controller
     }
 
     // ── Computations (public so ReportsController can reuse) ─────────────────
+
+    /**
+     * Attach rank/score movement to each board row, comparing the current
+     * standing against the most recent daily snapshot from yesterday and from
+     * the start of this week (Sunday). Positive rank deltas mean the subject
+     * moved UP (their rank number got smaller). Deltas are null when there is
+     * no prior snapshot to compare against, so the UI can render a dash.
+     *
+     * @param  array<int, array<string, mixed>>  $rows  Board rows with 'id' + 'rank'.
+     * @param  string  $subjectType  'student' or 'leader'.
+     * @return array<int, array<string, mixed>>
+     */
+    private function attachDeltas(array $rows, string $subjectType): array
+    {
+        $today     = Carbon::today();
+        $yesterday = $today->copy()->subDay()->toDateString();
+        $weekStart = $today->copy()->startOfWeek(Carbon::SUNDAY)->toDateString();
+
+        $scoreKey = $subjectType === 'leader' ? 'score' : 'rank_score';
+
+        $priors = RankSnapshot::where('subject_type', $subjectType)
+            ->whereIn('captured_on', [$yesterday, $weekStart])
+            ->get()
+            ->groupBy('subject_id');
+
+        return array_map(function ($row) use ($priors, $yesterday, $weekStart, $scoreKey) {
+            $snaps = $priors->get($row['id'], collect());
+            $y = $snaps->first(fn ($s) => $s->captured_on->toDateString() === $yesterday);
+            $w = $snaps->first(fn ($s) => $s->captured_on->toDateString() === $weekStart);
+
+            $row['rank_delta_today']  = $y ? $y->rank - $row['rank'] : null;
+            $row['score_delta_today'] = $y ? round($row[$scoreKey] - $y->rank_score, 2) : null;
+            $row['rank_delta_week']   = $w ? $w->rank - $row['rank'] : null;
+            $row['score_delta_week']  = $w ? round($row[$scoreKey] - $w->rank_score, 2) : null;
+
+            return $row;
+        }, $rows);
+    }
 
     public function studentBoard(): array
     {
