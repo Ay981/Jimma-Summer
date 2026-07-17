@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Logo from '@/Components/UI/Logo';
 import EnableNotifications from '@/Components/UI/EnableNotifications';
 import EnableBiometricLock from '@/Components/UI/EnableBiometricLock';
+import RankMovementBanner from '@/Components/UI/RankMovementBanner';
 import { useWebPush } from '@/hooks/useWebPush';
 import {
     Bell, BookOpen, ClockCounterClockwise, DotsThree, Fire, House,
@@ -352,6 +353,9 @@ export default function StudentLayout({ children, title }) {
                         <HeaderLogoutButton />
                     </div>
                 </header>
+
+                {/* Weekly rank-movement banner — renders only on Sundays with history */}
+                <RankMovementBanner />
 
                 {/* Page content */}
                 <main style={{ flex: 1, padding: '20px 20px 80px' }}>

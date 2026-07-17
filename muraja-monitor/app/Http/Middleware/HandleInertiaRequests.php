@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\RankSnapshot;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
@@ -109,6 +111,40 @@ class HandleInertiaRequests extends Middleware
               "streak_state" => $streakState,
             ];
           })
+          : null,
+      // Weekly rank-movement banner for students, shown only on the first day of
+      // the week (Sunday). Reveals direction only — never the absolute rank or a
+      // number. Null when it's not Sunday or there isn't a full week of history.
+      "rank_movement" =>
+        $user &&
+        $user->role === "student" &&
+        now()->dayOfWeek === Carbon::SUNDAY
+          ? Cache::remember(
+            "rank_movement:{$user->id}:" . now()->toDateString(),
+            3600,
+            function () use ($user) {
+              $weekStart = now()
+                ->startOfWeek(Carbon::SUNDAY)
+                ->toDateString();
+              $lastWeek = now()
+                ->startOfWeek(Carbon::SUNDAY)
+                ->subWeek()
+                ->toDateString();
+              $curr = RankSnapshot::where("subject_type", "student")
+                ->where("subject_id", $user->id)
+                ->where("captured_on", $weekStart)
+                ->value("rank");
+              $prev = RankSnapshot::where("subject_type", "student")
+                ->where("subject_id", $user->id)
+                ->where("captured_on", $lastWeek)
+                ->value("rank");
+              if ($curr === null || $prev === null) {
+                return null; // not enough history yet
+              }
+              // rank number dropping = moved up: 1 up, -1 down, 0 same.
+              return ["direction" => $prev <=> $curr];
+            },
+          )
           : null,
     ];
   }
