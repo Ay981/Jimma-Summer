@@ -24,6 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ->dailyAt('18:00')
             ->timezone('Africa/Addis_Ababa');
 
+        // Capture daily leaderboard rank/score so movement can be shown over time.
+        $schedule->command('muraja:snapshot-ranks')
+            ->dailyAt('00:10')
+            ->timezone('Africa/Addis_Ababa');
+
         // PDF export housekeeping — runs every hour
         $schedule->call(function () {
             // Processing exports not updated in 2h → job silently died; mark failed

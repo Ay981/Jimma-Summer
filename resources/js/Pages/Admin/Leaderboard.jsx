@@ -12,6 +12,36 @@ function RankBadge({ rank }) {
     );
 }
 
+// Rank-movement arrow: positive delta = moved UP (rank number shrank) = green ↑.
+// null delta (no prior snapshot yet) renders a muted dash.
+function Arrow({ delta, label }) {
+    if (delta === null || delta === undefined) {
+        return <span style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{label ? `${label} —` : '—'}</span>;
+    }
+    const flat  = delta === 0;
+    const up    = delta > 0;
+    const color = flat ? 'var(--muted-foreground)' : up ? 'var(--success)' : 'var(--destructive)';
+    const glyph = flat ? '→' : up ? '↑' : '↓';
+    return (
+        <span style={{ fontSize: '0.6875rem', color, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {label ? `${label} ` : ''}{glyph}{flat ? '' : Math.abs(delta)}
+        </span>
+    );
+}
+
+// Score value with today + this-week rank movement beneath it.
+function ScoreCell({ score, deltaToday, deltaWeek }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px', alignSelf: 'center' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{score}</span>
+            <span style={{ display: 'flex', gap: '6px' }}>
+                <Arrow delta={deltaToday} />
+                <Arrow delta={deltaWeek} label="wk" />
+            </span>
+        </div>
+    );
+}
+
 // ── Fix 3: Two-step lock modal with confirmation ──────────────────────────────
 
 function LockModal({ onClose }) {
@@ -133,11 +163,11 @@ function AvgTestBadge({ score }) {
 }
 
 function StudentTable({ students }) {
-    // Desktop (8 cols): rank | name | avg_test | consistency | streak | pages | min | halqa | cert
-    // Mobile  (4 cols): rank | name | avg_test | pages | cert
+    // Desktop (8 cols): rank | name | avg_test | consistency | streak | pages | min | halqa | score | cert
+    // Mobile  (4 cols): rank | name | avg_test | score | cert
     // hide = hidden on mobile only
-    const COLS        = '36px minmax(100px,1fr) 72px 72px 52px 56px 52px 70px 80px';
-    const COLS_MOBILE = '36px minmax(80px,1fr) 60px 52px 80px';
+    const COLS        = '36px minmax(100px,1fr) 72px 72px 52px 56px 52px 70px 96px 80px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 60px 96px 80px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Student' },
@@ -147,6 +177,7 @@ function StudentTable({ students }) {
         { label: 'Pages',       hide: true },
         { label: 'Min',         hide: true },
         { label: 'Halqa',       hide: true },
+        { label: 'Score' },
         { label: '' },
     ];
 
@@ -165,6 +196,7 @@ function StudentTable({ students }) {
                     <span className="lb-student-hide" style={NUM}>{s.pages}</span>
                     <span className="lb-student-hide" style={NUM}>{s.minutes}</span>
                     <span className="lb-student-hide" style={{ ...NUM, fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>{s.halqa}</span>
+                    <ScoreCell score={s.rank_score} deltaToday={s.rank_delta_today} deltaWeek={s.rank_delta_week} />
                     <a href={`/admin/leaderboard/certificate/${s.id}`} style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
                         Cert ↓
                     </a>
@@ -251,8 +283,8 @@ function LeaderTable({ leaders }) {
 
     // Desktop: rank | leader | consistency | avg_test | meetings | contacts | score | cert
     // Mobile:  rank | leader | score
-    const COLS        = '36px minmax(80px,1fr) 76px 66px 56px 60px 60px 60px';
-    const COLS_MOBILE = '36px minmax(80px,1fr) 60px';
+    const COLS        = '36px minmax(80px,1fr) 76px 66px 56px 60px 96px 60px';
+    const COLS_MOBILE = '36px minmax(80px,1fr) 96px';
     const HDRS = [
         { label: 'Rank' },
         { label: 'Leader' },
@@ -277,7 +309,7 @@ function LeaderTable({ leaders }) {
                     <span className="lb-leader-hide" style={NUM}>{l.avg_test_score}/10</span>
                     <span className="lb-leader-hide" style={NUM}>{l.meetings}</span>
                     <span className="lb-leader-hide" style={NUM}>{l.contact_notes}</span>
-                    <span style={{ ...NUM, fontWeight: l.rank <= 3 ? 700 : 400 }}>{l.score}</span>
+                    <ScoreCell score={l.score} deltaToday={l.rank_delta_today} deltaWeek={l.rank_delta_week} />
                     <a className="lb-leader-hide" href={`/admin/leaderboard/leader-certificate/${l.id}`} target="_blank" style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'var(--secondary)', color: 'var(--secondary-foreground)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: 'center' }}>
                         Cert ↓
                     </a>
