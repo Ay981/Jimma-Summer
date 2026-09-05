@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: muraja-monitor
+    runtime: docker
+    plan: free
+    repo: https://github.com/Ay981/Jimma-Summer
+    branch: main
+    rootDir: muraja-monitor
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: "Muraja'a Monitor"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        value: https://irshad-jumj.org.et
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: error
+
+      # PostgreSQL Database credentials (mapped from muraja-monitor-db)
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: muraja-monitor-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: muraja-monitor-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: muraja-monitor-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: muraja-monitor-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: muraja-monitor-db
+          property: password
+      - key: DB_SSLMODE
+        value: require
+
+      # Application state & drivers (PostgreSQL handles sessions, cache, and queues)
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: MAIL_MAILER
+        value: log
+
+databases:
+  - name: muraja-monitor-db
+    databaseName: muraja_monitor
+    user: muraja
+    plan: free
+    postgresMajorVersion: "16"
